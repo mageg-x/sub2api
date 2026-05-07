@@ -11,11 +11,11 @@ export function formatCurrency(value: number): string {
 }
 
 export function isActiveStatus(status: string): boolean {
-  return String(status || '').toUpperCase() === 'ACTIVE'
+  return String(status || '').trim().toLowerCase() === 'active'
 }
 
 export function isPaidStatus(status: string): boolean {
-  return String(status || '').toUpperCase() === 'PAID'
+  return String(status || '').trim().toLowerCase() === 'paid'
 }
 
 export function parseCSV(value: string): string[] {

@@ -216,7 +216,7 @@ onMounted(() => {
 }
 
 .usage-item:hover {
-  background: var(--border-color);
+  background: var(--border-subtle);
 }
 
 .usage-header {
@@ -284,10 +284,6 @@ onMounted(() => {
 
 .quick-actions .el-button {
   justify-content: flex-start;
-  height: 46px !important;
-  min-height: 46px !important;
-  font-size: 14px !important;
-  border-radius: var(--radius-md) !important;
   margin: 0px !important;
 }
 

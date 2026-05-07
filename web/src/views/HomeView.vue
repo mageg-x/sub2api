@@ -10,12 +10,8 @@
         AI 订阅账户聚合平台
       </div>
       <h1 class="hero-title">sub2api</h1>
-      <p class="hero-subtitle">
-        把上游 AI 订阅账户变成可分发、可计费、可运营的 API 服务
-      </p>
-      <el-button class="cta-button" @click="goToLogin">
-        立即开始
-      </el-button>
+      <p class="hero-subtitle">把上游 AI 订阅账户变成可分发、可计费、可运营的 API 服务</p>
+      <el-button class="cta-button" @click="goToLogin"> 立即开始 </el-button>
     </section>
 
     <!-- 特性卡片区域 -->
@@ -37,14 +33,7 @@
 
 <script setup lang="ts">
 import { useRouter } from "vue-router";
-import {
-  ShieldCheck,
-  Layers,
-  KeyRound,
-  Zap,
-  DollarSign,
-  WalletCards
-} from "lucide-vue-next";
+import { ShieldCheck, Layers, KeyRound, Zap, DollarSign, WalletCards } from "lucide-vue-next";
 import { ElButton } from "element-plus";
 
 const router = useRouter();
@@ -53,33 +42,33 @@ const features = [
   {
     icon: ShieldCheck,
     title: "统一接口",
-    desc: "支持 OpenAI、Claude、Gemini、Antigravity 账户接入，统一管理 OAuth 与静态凭据。"
+    desc: "支持 OpenAI、Claude、Gemini、Antigravity 账户接入，统一管理 OAuth 与静态凭据。",
   },
   {
     icon: Layers,
     title: "多渠道调度",
-    desc: "同一模型可挂多组上游账户，按状态、优先级和并发限制自动分配请求。"
+    desc: "同一模型可挂多组上游账户，按状态、优先级和并发限制自动分配请求。",
   },
   {
     icon: KeyRound,
     title: "简单易用",
-    desc: "用户创建自己的 API Key 后即可直接接入平台代理地址，无需感知背后账户细节。"
+    desc: "用户创建自己的 API Key 后即可直接接入平台代理地址，无需感知背后账户细节。",
   },
   {
     icon: Zap,
     title: "稳定优先",
-    desc: "高质量IP，高质量号池，可用率达 99.9%。"
+    desc: "高质量IP，高质量号池，可用率达 99.9%。",
   },
   {
     icon: DollarSign,
     title: "计费透明",
-    desc: "按模型价格记录输入输出 token 消耗，生成用量日志并自动扣减用户余额。"
+    desc: "按模型价格记录输入输出 token 消耗，生成用量日志并自动扣减用户余额。",
   },
   {
     icon: WalletCards,
     title: "支付便捷",
-    desc: "支持微信和支付宝充值，并提供公告、优惠码、错误日志、账户与价格管理页面。"
-  }
+    desc: "支持微信和支付宝充值，并提供公告、优惠码、错误日志、账户与价格管理页面。",
+  },
 ];
 
 function goToLogin() {
@@ -88,45 +77,22 @@ function goToLogin() {
 </script>
 
 <style scoped>
-/* ============ 全局变量 ============ */
 .home-page {
-  --brand-start: #667eea;
-  --brand-mid: #7c3aed;
-  --brand-end: #a855f7;
-  --brand-glow: rgba(102, 126, 234, 0.25);
-  --surface-card: rgba(255, 255, 255, 0.82);
-  --text-primary: #1a1a2e;
-  --text-secondary: #5b6d82;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 12px 32px rgba(102, 126, 234, 0.14);
-  --radius-card: 14px;
-  --radius-icon: 10px;
-  --transition-smooth: 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-
   position: relative;
   height: 100vh;
-  /* min-height: 680px; */
   max-height: 1080px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(
-    175deg,
-    #fafbfe 0%,
-    #f2f4fc 20%,
-    #edeff9 45%,
-    #f4f5fb 70%,
-    #fafbfe 100%
-  );
+  background: linear-gradient(175deg, #fafbfe 0%, #f2f4fc 20%, #edeff9 45%, #f4f5fb 70%, #fafbfe 100%);
   overflow: hidden;
   isolation: isolate;
 }
 
 /* ============ 背景光斑 ============ */
 .home-page::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -6%;
   right: -3%;
@@ -136,9 +102,9 @@ function goToLogin() {
   max-height: 520px;
   background: radial-gradient(
     circle at 55% 35%,
-    rgba(139, 92, 246, 0.13) 0%,
-    rgba(102, 126, 234, 0.07) 30%,
-    rgba(168, 85, 247, 0.03) 55%,
+    hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.13) 0%,
+    hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.07) 30%,
+    hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.03) 55%,
     transparent 72%
   );
   border-radius: 50%;
@@ -149,7 +115,7 @@ function goToLogin() {
 }
 
 .home-page::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -5%;
   left: -4%;
@@ -159,9 +125,9 @@ function goToLogin() {
   max-height: 420px;
   background: radial-gradient(
     circle at 40% 60%,
-    rgba(99, 102, 241, 0.11) 0%,
-    rgba(124, 58, 237, 0.06) 28%,
-    rgba(102, 126, 234, 0.02) 50%,
+    hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.11) 0%,
+    hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.06) 28%,
+    hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.02) 50%,
     transparent 70%
   );
   border-radius: 50%;
@@ -183,8 +149,8 @@ function goToLogin() {
   max-height: 240px;
   background: radial-gradient(
     ellipse at center,
-    rgba(124, 58, 237, 0.07) 0%,
-    rgba(102, 126, 234, 0.04) 35%,
+    hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.07) 0%,
+    hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.04) 35%,
     transparent 68%
   );
   border-radius: 50%;
@@ -194,27 +160,54 @@ function goToLogin() {
 
 /* ============ 动画 ============ */
 @keyframes orbDriftA {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  25% { transform: translate(18px, -14px) scale(1.06); }
-  50% { transform: translate(-8px, -22px) scale(0.94); }
-  75% { transform: translate(-16px, 6px) scale(1.04); }
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(18px, -14px) scale(1.06);
+  }
+  50% {
+    transform: translate(-8px, -22px) scale(0.94);
+  }
+  75% {
+    transform: translate(-16px, 6px) scale(1.04);
+  }
 }
 
 @keyframes orbDriftB {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  30% { transform: translate(-14px, -18px) scale(1.07); }
-  55% { transform: translate(10px, 12px) scale(0.93); }
-  80% { transform: translate(-6px, 20px) scale(1.03); }
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  30% {
+    transform: translate(-14px, -18px) scale(1.07);
+  }
+  55% {
+    transform: translate(10px, 12px) scale(0.93);
+  }
+  80% {
+    transform: translate(-6px, 20px) scale(1.03);
+  }
 }
 
 @keyframes subtlePulse {
-  0%, 100% { opacity: 0.7; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 @keyframes cardShimmer {
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
 }
 
 /* ============ Hero 区域 ============ */
@@ -233,11 +226,11 @@ function goToLogin() {
   gap: 7px;
   padding: 6px 16px;
   background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(102, 126, 234, 0.15);
+  border: 1px solid hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.15);
   border-radius: 24px;
   font-size: 12.5px;
   font-weight: 600;
-  color: #5b6af0;
+  color: var(--primary-color);
   letter-spacing: 0.03em;
   margin-bottom: 16px;
   backdrop-filter: blur(6px);
@@ -249,8 +242,8 @@ function goToLogin() {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #7c3aed;
-  box-shadow: 0 0 8px rgba(124, 58, 237, 0.5);
+  background: var(--accent-color);
+  box-shadow: 0 0 8px hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.5);
 }
 
 .hero-title {
@@ -260,24 +253,17 @@ function goToLogin() {
   letter-spacing: -0.025em;
   line-height: 1.1;
   color: transparent;
-  background: linear-gradient(
-    140deg,
-    #5b6af0 0%,
-    #7c3aed 22%,
-    #a855f7 48%,
-    #8b5cf6 68%,
-    #6366f1 100%
-  );
+  background: linear-gradient(140deg, var(--primary-color) 0%, var(--accent-color) 22%, hsl(var(--accent-h), var(--accent-s), 62%) 48%, hsl(var(--accent-h), 70%, 58%) 68%, var(--primary-color) 100%);
   background-size: 180% 180%;
   -webkit-background-clip: text;
   background-clip: text;
   animation: cardShimmer 5s ease-in-out infinite;
-  filter: drop-shadow(0 2px 6px rgba(102, 126, 234, 0.18));
+  filter: drop-shadow(0 2px 6px hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.18));
 }
 
 .hero-subtitle {
   font-size: clamp(14px, 1.55vw, 17px);
-  color: #5b6d82;
+  color: var(--text-secondary);
   margin: 0 0 clamp(16px, 2.8vh, 24px);
   font-weight: 420;
   line-height: 1.5;
@@ -294,27 +280,27 @@ function goToLogin() {
   font-weight: 640;
   letter-spacing: 0.02em;
   border-radius: 24px;
-  background: linear-gradient(135deg, #667eea 0%, #7c3aed 55%, #a855f7 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 55%, hsl(var(--accent-h), var(--accent-s), 62%) 100%);
   background-size: 150% 150%;
   border: none;
   color: #fff;
   cursor: pointer;
-  transition: all var(--transition-smooth);
-  box-shadow: 0 4px 18px rgba(102, 126, 234, 0.3),
-              0 1px 3px rgba(0, 0, 0, 0.06);
+  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-primary), var(--shadow-xs);
   animation: cardShimmer 4.5s ease-in-out infinite;
 }
 
 .cta-button:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 28px rgba(102, 126, 234, 0.42),
-              0 3px 8px rgba(124, 58, 237, 0.18);
+  box-shadow:
+    var(--shadow-primary-lg),
+    0 3px 8px hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.18);
   filter: brightness(1.06);
 }
 
 .cta-button:active {
   transform: translateY(-1px);
-  box-shadow: 0 3px 12px rgba(102, 126, 234, 0.28);
+  box-shadow: var(--shadow-primary);
   filter: brightness(0.97);
   transition: all 0.1s ease;
 }
@@ -338,14 +324,15 @@ function goToLogin() {
 
 .feature-card {
   position: relative;
-  background: var(--surface-card);
-  border-radius: var(--radius-card);
+  background: rgba(255, 255, 255, 0.82);
+  border-radius: var(--radius-lg);
   padding: clamp(14px, 2vh, 20px) clamp(12px, 1.5vw, 18px);
   cursor: default;
-  transition: all var(--transition-smooth);
-  border: 1px solid rgba(102, 126, 234, 0.07);
-  box-shadow: var(--shadow-sm),
-              inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+  transition: all var(--transition-normal);
+  border: 1px solid hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.07);
+  box-shadow:
+    var(--shadow-sm),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   overflow: hidden;
@@ -353,7 +340,7 @@ function goToLogin() {
 
 /* 卡片顶部微光条 */
 .feature-card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 12px;
@@ -362,9 +349,9 @@ function goToLogin() {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(102, 126, 234, 0.18) 25%,
-    rgba(139, 92, 246, 0.22) 50%,
-    rgba(102, 126, 234, 0.18) 75%,
+    hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.18) 25%,
+    hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.22) 50%,
+    hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.18) 75%,
     transparent 100%
   );
   opacity: 0;
@@ -379,17 +366,13 @@ function goToLogin() {
 
 /* 卡片 hover 微光扫过 */
 .feature-card::after {
-  content: '';
+  content: "";
   position: absolute;
   top: -50%;
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(
-    circle at center,
-    rgba(255, 255, 255, 0.5) 0%,
-    transparent 60%
-  );
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.5) 0%, transparent 60%);
   opacity: 0;
   transform: scale(0.6);
   transition: all 0.45s ease;
@@ -404,9 +387,10 @@ function goToLogin() {
 
 .feature-card:hover {
   transform: translateY(-4px);
-  box-shadow: var(--shadow-lg),
-              inset 0 0 0 1px rgba(102, 126, 234, 0.14);
-  border-color: rgba(102, 126, 234, 0.18);
+  box-shadow:
+    var(--shadow-lg),
+    inset 0 0 0 1px hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.14);
+  border-color: hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.18);
   background: rgba(255, 255, 255, 0.92);
 }
 
@@ -428,36 +412,36 @@ function goToLogin() {
   width: clamp(28px, 3.2vw, 32px);
   height: clamp(28px, 3.2vw, 32px);
   min-width: clamp(28px, 3.2vw, 32px);
-  border-radius: var(--radius-icon);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  background: linear-gradient(135deg, #667eea 0%, #7c3aed 55%, #a855f7 100%);
-  box-shadow: 0 3px 10px rgba(102, 126, 234, 0.28);
-  transition: all var(--transition-smooth);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 55%, hsl(var(--accent-h), var(--accent-s), 62%) 100%);
+  box-shadow: var(--shadow-primary);
+  transition: all var(--transition-normal);
   position: relative;
 }
 
 .feature-icon::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: -3px;
   border-radius: 12px;
   background: transparent;
-  box-shadow: 0 0 0 0 rgba(102, 126, 234, 0);
-  transition: all var(--transition-smooth);
+  box-shadow: 0 0 0 0 hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0);
+  transition: all var(--transition-normal);
   pointer-events: none;
   z-index: -1;
 }
 
 .feature-card:hover .feature-icon {
-  box-shadow: 0 5px 18px rgba(102, 126, 234, 0.42);
+  box-shadow: var(--shadow-primary-lg);
   transform: scale(1.04);
 }
 
 .feature-card:hover .feature-icon::after {
-  box-shadow: 0 0 0 6px rgba(102, 126, 234, 0.08);
+  box-shadow: 0 0 0 6px hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.08);
 }
 
 .feature-title {

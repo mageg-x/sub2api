@@ -46,7 +46,7 @@
         </el-form>
 
         <div class="card-footer">
-          <el-link type="info" :underline="false" @click="goToHome">
+          <el-link type="info" :underline="'never'" @click="goToHome">
             <ArrowLeft :size="16" />
             返回首页
           </el-link>
@@ -71,18 +71,18 @@
           </div>
 
           <div class="feature-item">
-            <div class="feature-icon"><Key :size="24" /></div>
+            <div class="feature-icon"><Boxes :size="24" /></div>
             <div class="feature-text">
-              <h3>API Keys</h3>
-              <p>管理平台 API Keys</p>
+              <h3>上游账户</h3>
+              <p>管理认证与刷新中的上游账号</p>
             </div>
           </div>
 
           <div class="feature-item">
-            <div class="feature-icon"><BarChart3 :size="24" /></div>
+            <div class="feature-icon"><Banknote :size="24" /></div>
             <div class="feature-text">
-              <h3>用量统计</h3>
-              <p>查看系统使用情况</p>
+              <h3>价格配置</h3>
+              <p>配置模型计费规则</p>
             </div>
           </div>
 
@@ -114,7 +114,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from "vue";
 import { useRouter } from "vue-router";
-import { Mail, Lock, Key, ShieldCheck, HelpCircle, ArrowLeft, Users, BarChart3, CreditCard, User } from "lucide-vue-next";
+import { Mail, Lock, ShieldCheck, HelpCircle, ArrowLeft, Users, Boxes, Banknote, CreditCard, User, Key } from "lucide-vue-next";
 import { ElAlert, ElButton, ElForm, ElFormItem, ElInput, ElLink, ElTooltip } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
 import { adminAPI } from "@/api/admin";
@@ -227,7 +227,7 @@ function goToHome() {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: linear-gradient(160deg, var(--bg-body) 0%, var(--bg-subtle) 50%, hsl(234, 40%, 92%) 100%);
   position: relative;
   overflow: hidden;
 }
@@ -240,37 +240,38 @@ function goToHome() {
 .brand-logo {
   width: 60px;
   height: 60px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 16px;
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+  border-radius: var(--radius-xl);
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 10px;
   color: white;
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+  box-shadow: var(--shadow-primary);
 }
 
 .brand-name {
   font-size: 28px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--text-primary);
   margin: 0 0 4px;
   letter-spacing: -0.02em;
 }
 
 .brand-tagline {
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-muted);
   margin: 0;
 }
 
 .login-card {
   width: 100%;
   max-width: 380px;
-  background: white;
-  border-radius: 16px;
+  background: var(--bg-raised);
+  border-radius: var(--radius-2xl);
   padding: 22px;
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-default);
 }
 
 .mode-switch {
@@ -291,13 +292,13 @@ function goToHome() {
 .card-title {
   font-size: 20px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--text-primary);
   margin: 0 0 4px;
 }
 
 .card-subtitle {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
   margin: 0;
 }
 
@@ -305,46 +306,34 @@ function goToHome() {
   margin-bottom: 22px;
 }
 
-:deep(.el-input__wrapper) {
-  padding: 8px 12px;
-  border-radius: 8px;
-  box-shadow: 0 0 0 1px #e2e8f0;
-}
-
-:deep(.el-input__wrapper:hover) {
-  box-shadow: 0 0 0 1px #cbd5e1;
-}
-
-:deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 2px #667eea;
-}
-
 .error-alert {
   margin-bottom: 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 .login-button {
   width: 100%;
   height: 40px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 14px;
   font-weight: 600;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
   border: none;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .login-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(102, 126, 234, 0.3);
+  box-shadow: var(--shadow-primary-lg);
 }
 
 .card-footer {
   margin-top: 12px;
   text-align: center;
   padding-top: 12px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border-subtle);
 }
 
 :deep(.el-link) {
@@ -359,7 +348,7 @@ function goToHome() {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(150deg, var(--primary-color), var(--accent-color));
   position: relative;
   overflow: hidden;
 }
@@ -425,7 +414,7 @@ function goToHome() {
   background: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(10px);
   padding: 12px 40px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
@@ -433,7 +422,7 @@ function goToHome() {
   width: 34px;
   height: 34px;
   background: rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -461,7 +450,7 @@ function goToHome() {
   gap: 20px;
   background: rgba(255, 255, 255, 0.1);
   padding: 12px 20px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 
 .stat-item {

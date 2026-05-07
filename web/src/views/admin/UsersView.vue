@@ -84,13 +84,7 @@
             <el-table-column prop="allowed_models_json" label="允许模型" min-width="120">
               <template #default="{ row }">
                 <div v-if="parseAllowedModels(row.allowed_models_json).length" class="models-list">
-                  <el-tag
-                    v-for="model in parseAllowedModels(row.allowed_models_json)"
-                    :key="model"
-                    size="small"
-                    type="info"
-                    effect="plain"
-                  >
+                  <el-tag v-for="model in parseAllowedModels(row.allowed_models_json)" :key="model" size="small" type="info" effect="plain">
                     {{ model }}
                   </el-tag>
                 </div>
@@ -143,23 +137,8 @@
           </ElFormItem>
         </div>
         <ElFormItem label="允许模型" class="form-item-wide">
-          <ElSelect
-            v-model="editForm.models"
-            multiple
-            filterable
-            allow-create
-            default-first-option
-            clearable
-            size="large"
-            style="width: 100%"
-            placeholder="选择或输入模型；清空表示不限制"
-          >
-            <ElOption
-              v-for="model in commonModelOptions"
-              :key="model"
-              :label="model"
-              :value="model"
-            />
+          <ElSelect v-model="editForm.models" multiple filterable allow-create default-first-option clearable size="large" style="width: 100%" placeholder="选择或输入模型；清空表示不限制">
+            <ElOption v-for="model in commonModelOptions" :key="model" :label="model" :value="model" />
           </ElSelect>
         </ElFormItem>
       </ElForm>
@@ -198,18 +177,7 @@ const editForm = reactive({
 });
 
 const activeUsers = computed(() => users.value.filter((item) => isActiveStatus(item.status)).length);
-const commonModelOptions = [
-  "gpt-4o",
-  "gpt-4o-mini",
-  "gpt-4.1",
-  "gpt-4.1-mini",
-  "claude-3-5-sonnet",
-  "claude-3-7-sonnet",
-  "claude-sonnet-4",
-  "gemini-2.0-flash",
-  "gemini-2.5-flash",
-  "gemini-2.5-pro",
-];
+const commonModelOptions = ["gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "claude-3-5-sonnet", "claude-3-7-sonnet", "claude-sonnet-4", "gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.5-pro"];
 
 async function load() {
   users.value = await adminAPI.users();
@@ -245,7 +213,10 @@ function parseAllowedModels(raw: string): string[] {
   } catch {
     // fall through to csv parsing
   }
-  return text.split(",").map((item) => item.trim()).filter(Boolean);
+  return text
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 async function saveUser() {
@@ -288,7 +259,7 @@ onMounted(() => {
 
 .stats-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 20px;
 }
 
@@ -359,7 +330,7 @@ onMounted(() => {
 
 .form-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
   margin-bottom: 8px;
 }
@@ -416,7 +387,13 @@ onMounted(() => {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

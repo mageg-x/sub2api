@@ -236,10 +236,13 @@ type UpdateAccountInput struct {
 }
 
 type CreateModelPriceInput struct {
-	Provider    string `json:"provider"`
-	Model       string `json:"model"`
-	InputPrice  int64  `json:"input_price"`
-	OutputPrice int64  `json:"output_price"`
+	Provider         string `json:"provider"`
+	Model            string `json:"model"`
+	InputPrice       int64  `json:"input_price"`
+	OutputPrice      int64  `json:"output_price"`
+	CacheCreatePrice int64  `json:"cache_create_price"`
+	CacheReadPrice   int64  `json:"cache_read_price"`
+	Status           string `json:"status"`
 }
 
 type CreateAnnouncementInput struct {
@@ -325,7 +328,6 @@ type OAuthExchangeResult struct {
 // DashboardData 仪表盘数据结构
 type DashboardData struct {
 	Users         []model.User         `json:"users"`         // 用户列表
-	APIKeys       []model.APIKey       `json:"api_keys"`      // API密钥列表
 	Accounts      []AccountView        `json:"accounts"`      // 账号列表
 	Prices        []model.ModelPrice   `json:"prices"`        // 价格列表
 	Orders        []model.PaymentOrder `json:"orders"`        // 订单列表
@@ -790,14 +792,6 @@ func (c *Core) CreateAPIKey(in CreateAPIKeyInput) (*model.APIKey, error) {
 	return key, c.db.Create(key).Error
 }
 
-// ListAPIKeys 获取所有API密钥列表
-// 返回：API密钥列表和错误
-func (c *Core) ListAPIKeys() ([]model.APIKey, error) {
-	var items []model.APIKey
-	err := c.db.Order("id asc").Find(&items).Error
-	return items, err
-}
-
 // CreateAccount 创建AI账号
 // 参数：
 //   - in: 创建账号输入参数
@@ -910,12 +904,14 @@ func (c *Core) ListAccountViews() ([]AccountView, error) {
 // 返回：创建的价格和错误
 func (c *Core) CreateModelPrice(in CreateModelPriceInput) (*model.ModelPrice, error) {
 	item := &model.ModelPrice{
-		Provider:    strings.TrimSpace(in.Provider),
-		Model:       strings.TrimSpace(in.Model),
-		InputPrice:  in.InputPrice,
-		OutputPrice: in.OutputPrice,
-		Currency:    "CNY_1E4",
-		Status:      "active",
+		Provider:         strings.TrimSpace(in.Provider),
+		Model:            strings.TrimSpace(in.Model),
+		InputPrice:       in.InputPrice,
+		OutputPrice:      in.OutputPrice,
+		CacheCreatePrice: in.CacheCreatePrice,
+		CacheReadPrice:   in.CacheReadPrice,
+		Currency:         "CNY_1E4",
+		Status:           defaultString(strings.TrimSpace(in.Status), "active"),
 	}
 	return item, c.db.Create(item).Error
 }
@@ -1002,10 +998,6 @@ func (c *Core) Dashboard() (*DashboardData, error) {
 	if err != nil {
 		return nil, err
 	}
-	keys, err := c.ListAPIKeys()
-	if err != nil {
-		return nil, err
-	}
 	accounts, err := c.ListAccountViews()
 	if err != nil {
 		return nil, err
@@ -1028,7 +1020,6 @@ func (c *Core) Dashboard() (*DashboardData, error) {
 	}
 	return &DashboardData{
 		Users:         users,
-		APIKeys:       keys,
 		Accounts:      accounts,
 		Prices:        prices,
 		Orders:        orders,
@@ -1313,6 +1304,7 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 				finalize: func(body []byte) {
 					// 解析使用量
 					inTokens, outTokens := providerImpl.ParseUsage(body)
+					cacheCreateTokens, cacheReadTokens := c.parseCacheUsage(providerImpl, body)
 					// 尝试从流式响应中解析使用量
 					if parser, ok := providerImpl.(provider.StreamUsageParser); ok {
 						if in, out, found := parser.ParseStreamUsage(body); found {
@@ -1320,9 +1312,14 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 							outTokens = out
 						}
 					}
+					if cacheCreateTokens == 0 && cacheReadTokens == 0 {
+						if parser, ok := providerImpl.(provider.CacheUsageParser); ok {
+							cacheCreateTokens, cacheReadTokens, _ = parser.ParseCacheUsage(body)
+						}
+					}
 					// 记录使用量
-					if inTokens > 0 || outTokens > 0 {
-						_ = c.recordUsage(auth, &account, modelName, path, inTokens, outTokens)
+					if inTokens > 0 || outTokens > 0 || cacheCreateTokens > 0 || cacheReadTokens > 0 {
+						_ = c.recordUsage(auth, &account, modelName, path, inTokens, outTokens, cacheCreateTokens, cacheReadTokens)
 					}
 				},
 			}
@@ -1343,7 +1340,8 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 	// 解析并记录使用量
 	if resp.StatusCode < 400 && modelName != "" {
 		inTokens, outTokens := providerImpl.ParseUsage(respBody)
-		_ = c.recordUsage(auth, &account, modelName, path, inTokens, outTokens)
+		cacheCreateTokens, cacheReadTokens := c.parseCacheUsage(providerImpl, respBody)
+		_ = c.recordUsage(auth, &account, modelName, path, inTokens, outTokens, cacheCreateTokens, cacheReadTokens)
 	}
 	return resp, respBody, nil
 }
@@ -1470,13 +1468,11 @@ func (c *Core) Stats() (map[string]any, error) {
 	// 定义需要统计的模型
 	targets := []target{
 		{"users", &model.User{}},
-		{"api_keys", &model.APIKey{}},
 		{"accounts", &model.Account{}},
 		{"model_prices", &model.ModelPrice{}},
 		{"payment_orders", &model.PaymentOrder{}},
 		{"announcements", &model.Announcement{}},
 		{"coupons", &model.Coupon{}},
-		{"usage_logs", &model.UsageLog{}},
 	}
 	// 统计各模型数量
 	data := map[string]any{}
@@ -2229,9 +2225,9 @@ func (c *Core) releaseAccount(accountID uint64) {
 //   - outTokens: 输出token数
 //
 // 返回：错误
-func (c *Core) recordUsage(auth *ProxyAuth, account *model.Account, modelName, endpoint string, inTokens, outTokens int64) error {
+func (c *Core) recordUsage(auth *ProxyAuth, account *model.Account, modelName, endpoint string, inTokens, outTokens, cacheCreateTokens, cacheReadTokens int64) error {
 	// 计算费用
-	cost, err := c.calculateCost(account.Provider, modelName, auth.User.RatePercent, inTokens, outTokens)
+	cost, err := c.calculateCost(account.Provider, modelName, auth.User.RatePercent, inTokens, outTokens, cacheCreateTokens, cacheReadTokens)
 	if err != nil {
 		return err
 	}
@@ -2240,15 +2236,17 @@ func (c *Core) recordUsage(auth *ProxyAuth, account *model.Account, modelName, e
 	return c.db.Transaction(func(tx *gorm.DB) error {
 		// 创建使用记录
 		if err := tx.Create(&model.UsageLog{
-			UserID:       auth.User.ID,
-			APIKeyID:     auth.APIKey.ID,
-			AccountID:    account.ID,
-			Provider:     account.Provider,
-			Model:        modelName,
-			Endpoint:     endpoint,
-			InputTokens:  inTokens,
-			OutputTokens: outTokens,
-			Cost:         cost,
+			UserID:            auth.User.ID,
+			APIKeyID:          auth.APIKey.ID,
+			AccountID:         account.ID,
+			Provider:          account.Provider,
+			Model:             modelName,
+			Endpoint:          endpoint,
+			InputTokens:       inTokens,
+			OutputTokens:      outTokens,
+			CacheCreateTokens: cacheCreateTokens,
+			CacheReadTokens:   cacheReadTokens,
+			Cost:              cost,
 		}).Error; err != nil {
 			return err
 		}
@@ -2273,7 +2271,7 @@ func (c *Core) recordUsage(auth *ProxyAuth, account *model.Account, modelName, e
 //   - outTokens: 输出token数
 //
 // 返回：计算出的费用和错误
-func (c *Core) calculateCost(providerName, modelName string, ratePercent int, inTokens, outTokens int64) (int64, error) {
+func (c *Core) calculateCost(providerName, modelName string, ratePercent int, inTokens, outTokens, cacheCreateTokens, cacheReadTokens int64) (int64, error) {
 	// 查找模型价格
 	var price model.ModelPrice
 	if err := c.db.Where("provider = ? AND model = ? AND status = ?", providerName, modelName, "active").First(&price).Error; err != nil {
@@ -2282,10 +2280,19 @@ func (c *Core) calculateCost(providerName, modelName string, ratePercent int, in
 		}
 		return 0, err
 	}
-	// 计算基础费用：输入价格*输入token + 输出价格*输出token，结果除以1000（因为价格单位是CNY_1E4，即万分之）
-	base := (inTokens*price.InputPrice + outTokens*price.OutputPrice + 999) / 1000
+	// 计算基础费用：输入价格*输入token + 输出价格*输出token + 缓存价格，结果除以1000（因为价格单位是CNY_1E4，即万分之）
+	base := (inTokens*price.InputPrice + outTokens*price.OutputPrice + cacheCreateTokens*price.CacheCreatePrice + cacheReadTokens*price.CacheReadPrice + 999) / 1000
 	// 应用用户费率
 	return int64(ratePercent) * base / 100, nil
+}
+
+func (c *Core) parseCacheUsage(providerImpl provider.Provider, body []byte) (int64, int64) {
+	if parser, ok := providerImpl.(provider.CacheUsageParser); ok {
+		if create, read, ok := parser.ParseCacheUsage(body); ok {
+			return create, read
+		}
+	}
+	return 0, 0
 }
 
 func (c *Core) recordError(scope, message, detail string) {

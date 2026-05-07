@@ -124,7 +124,7 @@ onMounted(() => {
 .loading-spinner {
   width: 18px;
   height: 18px;
-  border: 2px solid var(--border-color);
+  border: 2px solid var(--border-default);
   border-top-color: var(--primary-color);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -132,7 +132,7 @@ onMounted(() => {
 
 .detail-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 20px 32px;
 }
 

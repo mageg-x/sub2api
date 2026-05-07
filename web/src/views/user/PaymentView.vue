@@ -46,43 +46,21 @@
           <div class="card-body">
             <el-form label-position="top" class="payment-form">
               <el-form-item label="充值金额" class="form-item-highlight">
-                <el-input 
-                  v-model.number="form.amount" 
-                  type="number"
-                  size="large"
-                  placeholder="请输入充值金额"
-                >
+                <el-input v-model.number="form.amount" type="number" size="large" placeholder="请输入充值金额">
                   <template #suffix>
                     <span class="input-suffix">元</span>
                   </template>
                 </el-input>
                 <div class="quick-amounts">
-                  <el-button 
-                    v-for="amount in quickAmounts" 
-                    :key="amount"
-                    size="small"
-                    @click="form.amount = amount"
-                  >
-                    {{ amount }} 元
-                  </el-button>
+                  <el-button v-for="amount in quickAmounts" :key="amount" size="small" @click="form.amount = amount"> {{ amount }} 元 </el-button>
                 </div>
               </el-form-item>
 
               <el-form-item label="订单标题" class="form-item">
-                <el-input 
-                  v-model="form.subject" 
-                  placeholder="如 Balance Recharge"
-                  size="large"
-                />
+                <el-input v-model="form.subject" placeholder="如 Balance Recharge" size="large" />
               </el-form-item>
 
-              <el-button 
-                type="primary" 
-                size="large" 
-                :loading="submitting" 
-                class="submit-button"
-                @click="createOrder"
-              >
+              <el-button type="primary" size="large" :loading="submitting" class="submit-button" @click="createOrder">
                 <CreditCard :size="18" />
                 创建支付订单
               </el-button>
@@ -121,12 +99,7 @@
           <span class="order-count">{{ orders.length }} 个订单</span>
         </div>
         <div class="card-body">
-          <el-table 
-            :data="orders" 
-            empty-text="暂无订单" 
-            class="modern-table"
-            :stripe="true"
-          >
+          <el-table :data="orders" empty-text="暂无订单" class="modern-table" :stripe="true">
             <el-table-column prop="out_trade_no" label="商户单号" min-width="160">
               <template #default="{ row }">
                 <code class="trade-no mono">{{ row.out_trade_no }}</code>
@@ -140,7 +113,7 @@
             <el-table-column label="状态" width="80">
               <template #default="{ row }">
                 <el-tag :type="isPaidStatus(row.status) ? 'success' : 'warning'">
-                  {{ row.status === 'paid' ? '已支付' : '待支付' }}
+                  {{ row.status === "paid" ? "已支付" : "待支付" }}
                 </el-tag>
               </template>
             </el-table-column>
@@ -151,9 +124,7 @@
             </el-table-column>
             <el-table-column label="操作" width="70">
               <template #default="{ row }">
-                <el-link type="primary" @click="goDetail(row.id)">
-                  查看详情
-                </el-link>
+                <el-link type="primary" @click="goDetail(row.id)"> 查看详情 </el-link>
               </template>
             </el-table-column>
           </el-table>
@@ -228,7 +199,7 @@ onMounted(() => {
 
 .stats-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 20px;
 }
 
@@ -288,7 +259,7 @@ onMounted(() => {
 
 .main-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 24px;
 }
 
@@ -418,7 +389,13 @@ onMounted(() => {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

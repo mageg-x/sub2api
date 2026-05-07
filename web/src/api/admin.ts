@@ -1,13 +1,10 @@
 import { adminRequest } from './client'
-import type { Account, AccountCredentials, APIKey, Announcement, Coupon, DashboardResponse, ModelPrice, OAuthStartResult, PaymentOrder, UsageLog, User, UserUpdatePayload } from './types'
+import type { Account, AccountCredentials, Announcement, Coupon, DashboardResponse, ModelPrice, OAuthStartResult, PaymentOrder, User, UserUpdatePayload } from './types'
 
 export const adminAPI = {
   dashboard: () => adminRequest<DashboardResponse>('/api/admin/dashboard'),
   users: () => adminRequest<User[]>('/api/admin/users'),
   updateUser: (id: number, payload: UserUpdatePayload) => adminRequest<User>(`/api/admin/users/${id}`, 'PATCH', payload),
-  keys: () => adminRequest<APIKey[]>('/api/admin/api-keys'),
-  createKey: (payload: { user_id: number; name: string; allowed_models?: string[]; expires_at_ms?: number }) =>
-    adminRequest<APIKey>('/api/admin/api-keys', 'POST', payload),
   accounts: () => adminRequest<Account[]>('/api/admin/accounts'),
   createAccount: (payload: Record<string, unknown>) => adminRequest<Account>('/api/admin/accounts', 'POST', payload),
   updateAccount: (id: number, payload: Record<string, unknown>) => adminRequest(`/api/admin/accounts/${id}`, 'PATCH', payload),
@@ -15,7 +12,6 @@ export const adminAPI = {
   oauthStart: (payload: Record<string, unknown>) => adminRequest<OAuthStartResult>('/api/admin/accounts/oauth/start', 'POST', payload),
   oauthExchange: (payload: Record<string, unknown>) => adminRequest<AccountCredentials>('/api/admin/accounts/oauth/exchange', 'POST', payload),
   oauthCreate: (payload: Record<string, unknown>) => adminRequest<Account>('/api/admin/accounts/oauth/create', 'POST', payload),
-  usage: (limit = 200) => adminRequest<UsageLog[]>(`/api/admin/usage?limit=${limit}`),
   prices: () => adminRequest<ModelPrice[]>('/api/admin/model-prices'),
   createPrice: (payload: Record<string, unknown>) => adminRequest<ModelPrice>('/api/admin/model-prices', 'POST', payload),
   orders: () => adminRequest<PaymentOrder[]>('/api/admin/payment-orders'),

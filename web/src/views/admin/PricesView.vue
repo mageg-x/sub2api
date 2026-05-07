@@ -65,6 +65,16 @@
                 <template #prefix><ArrowUpFromLine :size="16" /></template>
               </el-input>
             </el-form-item>
+            <el-form-item label="缓存创建价 / 1k">
+              <el-input v-model.number="form.cache_create_price" type="number" placeholder="0.38">
+                <template #prefix><Database :size="16" /></template>
+              </el-input>
+            </el-form-item>
+            <el-form-item label="缓存读取价 / 1k">
+              <el-input v-model.number="form.cache_read_price" type="number" placeholder="0.03">
+                <template #prefix><DatabaseZap :size="16" /></template>
+              </el-input>
+            </el-form-item>
           </div>
           <el-button type="primary" @click="create">
             <Plus :size="16" style="margin-right: 6px" />
@@ -109,6 +119,16 @@
               <span class="price-value">{{ row.output_price }}</span>
             </template>
           </el-table-column>
+          <el-table-column label="缓存创建 / 1k" width="120" align="right">
+            <template #default="{ row }">
+              <span class="price-value">{{ row.cache_create_price }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="缓存读取 / 1k" width="120" align="right">
+            <template #default="{ row }">
+              <span class="price-value">{{ row.cache_read_price }}</span>
+            </template>
+          </el-table-column>
           <el-table-column prop="currency" label="货币" width="80">
             <template #default="{ row }">
               <el-tag type="info" size="small">{{ row.currency }}</el-tag>
@@ -129,7 +149,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
-import { ArrowDownToLine, ArrowUpFromLine, Bot, CircleDollarSign, Coins, Layers, Plus, Server } from "lucide-vue-next";
+import { ArrowDownToLine, ArrowUpFromLine, Bot, CircleDollarSign, Coins, Database, DatabaseZap, Layers, Plus, Server } from "lucide-vue-next";
 import { ElButton, ElForm, ElFormItem, ElInput, ElTable, ElTableColumn, ElTag } from "element-plus";
 import { adminAPI } from "@/api/admin";
 import type { ModelPrice } from "@/api/types";
@@ -141,6 +161,8 @@ const form = reactive({
   model: "",
   input_price: 0,
   output_price: 0,
+  cache_create_price: 0,
+  cache_read_price: 0,
 });
 
 const providerCount = computed(() => new Set(prices.value.map((item) => item.provider)).size);
@@ -155,10 +177,14 @@ async function create() {
     model: form.model,
     input_price: Number(form.input_price || 0),
     output_price: Number(form.output_price || 0),
+    cache_create_price: Number(form.cache_create_price || 0),
+    cache_read_price: Number(form.cache_read_price || 0),
   });
   form.model = "";
   form.input_price = 0;
   form.output_price = 0;
+  form.cache_create_price = 0;
+  form.cache_read_price = 0;
   await load();
 }
 

@@ -79,7 +79,14 @@ export async function request<T>(path: string, method: HttpMethod = 'GET', body?
     body: body === undefined ? undefined : JSON.stringify(body)
   })
   const text = await res.text()
-  const data = text ? JSON.parse(text) : null
+  let data: unknown = null
+  try {
+    data = text ? JSON.parse(text) : null
+  } catch {
+    if (!res.ok) {
+      throw new Error(`request failed: ${res.status}`)
+    }
+  }
   if (res.status === 401 && retry && canRefresh(path) && localStorage.getItem('sub2api_access_token')) {
     const refreshed = await refreshAccessToken()
     if (refreshed) {
@@ -87,7 +94,7 @@ export async function request<T>(path: string, method: HttpMethod = 'GET', body?
     }
   }
   if (!res.ok) {
-    throw new Error(data?.error || `request failed: ${res.status}`)
+    throw new Error((data as Record<string, unknown>)?.error as string || `request failed: ${res.status}`)
   }
   return data as T
 }

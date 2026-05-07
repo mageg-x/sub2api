@@ -12,18 +12,10 @@
           <el-form label-position="top" class="key-form">
             <div class="form-row">
               <el-form-item label="Key 名称" class="form-item">
-                <el-input 
-                  v-model="form.name" 
-                  placeholder="如 default-client"
-                  size="large"
-                />
+                <el-input v-model="form.name" placeholder="如 default-client" size="large" />
               </el-form-item>
               <el-form-item label="允许模型" class="form-item">
-                <el-input 
-                  v-model="form.models" 
-                  placeholder="逗号分隔，可留空表示继承用户权限"
-                  size="large"
-                />
+                <el-input v-model="form.models" placeholder="逗号分隔，可留空表示继承用户权限" size="large" />
               </el-form-item>
             </div>
             <div class="form-actions">
@@ -72,12 +64,7 @@
           <span class="key-count">{{ keys.length }} 个 Key</span>
         </div>
         <div class="card-body">
-          <el-table 
-            :data="keys" 
-            empty-text="暂无 Keys" 
-            class="modern-table"
-            :stripe="true"
-          >
+          <el-table :data="keys" empty-text="暂无 Keys" class="modern-table" :stripe="true">
             <el-table-column prop="name" label="名称" width="100">
               <template #default="{ row }">
                 <div class="key-name">
@@ -93,20 +80,11 @@
                     {{ revealed[row.id] ? row.secret : maskSecret(row.secret) }}
                   </code>
                   <div class="secret-actions-inline">
-                    <el-button 
-                      text 
-                      size="small" 
-                      @click="revealed[row.id] = !revealed[row.id]"
-                    >
+                    <el-button text size="small" @click="revealed[row.id] = !revealed[row.id]">
                       <component :is="revealed[row.id] ? EyeOff : Eye" :size="14" />
-                      {{ revealed[row.id] ? '隐藏' : '显示' }}
+                      {{ revealed[row.id] ? "隐藏" : "显示" }}
                     </el-button>
-                    <el-button 
-                      text 
-                      size="small" 
-                      type="primary"
-                      @click="copySecret(row.secret)"
-                    >
+                    <el-button text size="small" type="primary" @click="copySecret(row.secret)">
                       <Copy :size="14" />
                       复制
                     </el-button>
@@ -123,7 +101,7 @@
             </el-table-column>
             <el-table-column prop="allowed_models_json" label="允许模型" width="120">
               <template #default="{ row }">
-                <span class="models-text">{{ row.allowed_models_json || '全部模型' }}</span>
+                <span class="models-text">{{ row.allowed_models_json || "全部模型" }}</span>
               </template>
             </el-table-column>
             <el-table-column label="最后使用" width="130">
@@ -190,7 +168,7 @@ onMounted(() => {
 }
 
 .create-section {
-  background: white;
+  background: var(--bg-raised);
 }
 
 .key-form {
@@ -199,7 +177,7 @@ onMounted(() => {
 
 .form-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 20px;
   margin-bottom: 24px;
 }
@@ -350,7 +328,13 @@ onMounted(() => {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

@@ -81,22 +81,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { RouterView, useRoute, useRouter } from "vue-router";
-import {
-  BarChart3,
-  Banknote,
-  Bug,
-  ChevronDown,
-  Gauge,
-  LayoutDashboard,
-  LogOut,
-  Megaphone,
-  ReceiptText,
-  ShieldUser,
-  Ticket,
-  Users,
-  KeyRound,
-  User,
-} from "lucide-vue-next";
+import { Banknote, Bug, ChevronDown, Gauge, LayoutDashboard, LogOut, Megaphone, ReceiptText, ShieldUser, Ticket, Users, User } from "lucide-vue-next";
 import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElTag } from "element-plus";
 import { me, logout } from "@/api/auth";
 import { clearAuth, session } from "@/store/session";
@@ -107,9 +92,7 @@ const router = useRouter();
 const adminLinks = [
   { to: "/admin/dashboard", label: "总览", icon: LayoutDashboard },
   { to: "/admin/users", label: "用户管理", icon: Users },
-  { to: "/admin/api-keys", label: "API Keys", icon: KeyRound },
   { to: "/admin/accounts", label: "上游账户", icon: ShieldUser },
-  { to: "/admin/usage", label: "用量统计", icon: BarChart3 },
   { to: "/admin/prices", label: "价格配置", icon: Banknote },
   { to: "/admin/payments", label: "支付订单", icon: ReceiptText },
   { to: "/admin/announcements", label: "公告管理", icon: Megaphone },
@@ -127,9 +110,7 @@ const pageSubtitle = computed(() => {
   const descriptions: Record<string, string> = {
     "/admin/dashboard": "平台整体运行状态概览",
     "/admin/users": "管理平台注册用户",
-    "/admin/api-keys": "管理平台 API Keys",
     "/admin/accounts": "管理上游 OAuth 账户",
-    "/admin/usage": "查看系统使用情况",
     "/admin/prices": "配置模型价格策略",
     "/admin/payments": "管理支付订单",
     "/admin/announcements": "发布系统公告",

@@ -34,6 +34,7 @@ const router = createRouter({
         { path: 'keys', name: 'user-keys', component: () => import('@/views/user/KeysView.vue') },
         { path: 'usage', name: 'user-usage', component: () => import('@/views/user/UsageView.vue') },
         { path: 'payment', name: 'user-payment', component: () => import('@/views/user/PaymentView.vue') },
+        { path: 'models', name: 'user-models', component: () => import('@/views/user/ModelsView.vue') },
         { path: 'profile', name: 'user-profile', component: () => import('@/views/user/ProfileView.vue') },
         { path: 'announcements', name: 'user-announcements', component: () => import('@/views/user/AnnouncementsView.vue') },
         { path: 'redeem', name: 'user-redeem', component: () => import('@/views/user/RedeemView.vue') },
@@ -47,9 +48,7 @@ const router = createRouter({
       children: [
         { path: 'dashboard', name: 'admin-dashboard', component: () => import('@/views/admin/DashboardView.vue') },
         { path: 'users', name: 'admin-users', component: () => import('@/views/admin/UsersView.vue') },
-        { path: 'api-keys', name: 'admin-api-keys', component: () => import('@/views/admin/APIKeysView.vue') },
         { path: 'accounts', name: 'admin-accounts', component: () => import('@/views/admin/AccountsView.vue') },
-        { path: 'usage', name: 'admin-usage', component: () => import('@/views/admin/UsageView.vue') },
         { path: 'prices', name: 'admin-prices', component: () => import('@/views/admin/PricesView.vue') },
         { path: 'payments', name: 'admin-payments', component: () => import('@/views/admin/PaymentsView.vue') },
         { path: 'announcements', name: 'admin-announcements', component: () => import('@/views/admin/AnnouncementsView.vue') },

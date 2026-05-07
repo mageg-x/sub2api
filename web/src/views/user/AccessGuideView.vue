@@ -134,15 +134,7 @@ const providers = [
   { name: "Antigravity", endpoint: "`/v1internal:*` / 专用兼容入口", icon: Zap, color: "linear-gradient(135deg, #8b5cf6, #6d28d9)" },
 ];
 
-const endpoints = [
-  "/v1/chat/completions",
-  "/v1/responses",
-  "/v1/embeddings",
-  "/v1/messages",
-  "/v1/messages/count_tokens",
-  "/v1beta/models/*",
-  "/v1/models/*",
-];
+const endpoints = ["/v1/chat/completions", "/v1/responses", "/v1/embeddings", "/v1/messages", "/v1/messages/count_tokens", "/v1beta/models/*", "/v1/models/*"];
 
 const chatExample = `curl ${baseURL}/v1/chat/completions \\
   -H "Authorization: Bearer YOUR_API_KEY" \\

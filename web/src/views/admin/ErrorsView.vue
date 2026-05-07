@@ -46,7 +46,7 @@
           </el-table-column>
           <el-table-column prop="detail" label="详情" min-width="220">
             <template #default="{ row }">
-              <span class="error-detail">{{ row.detail || '-' }}</span>
+              <span class="error-detail">{{ row.detail || "-" }}</span>
             </template>
           </el-table-column>
           <el-table-column label="次数" width="70" align="center">

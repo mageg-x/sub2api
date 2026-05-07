@@ -18,13 +18,7 @@
               <el-input v-model="form.title" placeholder="请输入公告标题" size="large" />
             </el-form-item>
             <el-form-item label="公告内容" class="form-item">
-              <el-input
-                v-model="form.content"
-                type="textarea"
-                :rows="4"
-                placeholder="请输入公告内容"
-                size="large"
-              />
+              <el-input v-model="form.content" type="textarea" :rows="4" placeholder="请输入公告内容" size="large" />
             </el-form-item>
             <el-form-item label="状态" class="form-item">
               <el-radio-group v-model="form.status">
@@ -66,7 +60,7 @@
             <el-table-column label="状态" width="80">
               <template #default="{ row }">
                 <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
-                  {{ row.status === 'active' ? '已发布' : '草稿' }}
+                  {{ row.status === "active" ? "已发布" : "草稿" }}
                 </el-tag>
               </template>
             </el-table-column>
@@ -211,7 +205,13 @@ onMounted(() => {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

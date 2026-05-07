@@ -22,7 +22,6 @@
           <button :class="['tab-button', { active: mode === 'register' }]" @click="mode = 'register'">注册</button>
         </div>
 
-
         <el-form v-if="mode === 'register'" ref="formRef" :model="formData" :rules="registerRules" @submit.prevent="handleSubmit">
           <el-form-item prop="name">
             <el-input v-model="formData.name" placeholder="用户名" size="large" :prefix-icon="User" />
@@ -55,8 +54,7 @@
           <el-button type="primary" native-type="submit" size="large" :loading="loading" class="login-button"> 登录 </el-button>
         </el-form>
 
-        <div class="card-footer">
-        </div>
+        <div class="card-footer"></div>
       </div>
     </div>
 
@@ -226,7 +224,7 @@ async function handleLogin() {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: linear-gradient(160deg, var(--bg-body) 0%, var(--bg-subtle) 50%, hsl(234, 40%, 92%) 100%);
   position: relative;
   overflow: hidden;
 }
@@ -253,46 +251,47 @@ async function handleLogin() {
 .brand-logo {
   width: 60px;
   height: 60px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 16px;
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+  border-radius: var(--radius-xl);
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 10px;
   color: white;
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+  box-shadow: var(--shadow-primary);
 }
 
 .brand-name {
   font-size: 28px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--text-primary);
   margin: 0 0 4px;
   letter-spacing: -0.02em;
 }
 
 .brand-tagline {
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-muted);
   margin: 0;
 }
 
 .login-card {
   width: 100%;
   max-width: 440px;
-  background: white;
-  border-radius: 16px;
+  background: var(--bg-raised);
+  border-radius: var(--radius-2xl);
   padding: 22px;
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-default);
 }
 
 .card-tabs {
   display: flex;
   gap: 8px;
   margin-bottom: 16px;
-  background: #f1f5f9;
+  background: var(--bg-subtle);
   padding: 5px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 
 .tab-button {
@@ -300,65 +299,52 @@ async function handleLogin() {
   padding: 8px 18px;
   border: none;
   background: transparent;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 500;
-  color: #64748b;
+  color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all var(--transition-fast);
 }
 
 .tab-button.active {
-  background: white;
-  color: #667eea;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--bg-raised);
+  color: var(--primary-color);
+  box-shadow: var(--shadow-xs);
 }
 
 :deep(.el-form-item) {
   margin-bottom: 22px;
 }
 
-:deep(.el-input__wrapper) {
-  padding: 8px 12px;
-  border-radius: 8px;
-  box-shadow: 0 0 0 1px #e2e8f0;
-  transition: all 0.3s;
-}
-
-:deep(.el-input__wrapper:hover) {
-  box-shadow: 0 0 0 1px #cbd5e1;
-}
-
-:deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 2px #667eea;
-}
-
 .error-alert {
   margin-bottom: 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 .login-button {
   width: 100%;
   height: 40px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 14px;
   font-weight: 600;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
   border: none;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .login-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(102, 126, 234, 0.3);
+  box-shadow: var(--shadow-primary-lg);
 }
 
 .card-footer {
   margin-top: 12px;
   text-align: center;
   padding-top: 12px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border-subtle);
 }
 
 :deep(.el-link) {
@@ -373,7 +359,7 @@ async function handleLogin() {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(150deg, var(--primary-color), var(--accent-color));
   position: relative;
   overflow: hidden;
 }
@@ -385,7 +371,7 @@ async function handleLogin() {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, transparent 60%);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, transparent 60%);
   animation: pulse 15s infinite;
 }
 
@@ -436,12 +422,12 @@ async function handleLogin() {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(10px);
   padding: 10px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: transform 0.3s;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  transition: transform var(--transition-fast);
 }
 
 .step:hover {
@@ -452,13 +438,13 @@ async function handleLogin() {
   width: 30px;
   height: 30px;
   background: white;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 14px;
   font-weight: 700;
-  color: #667eea;
+  color: var(--primary-color);
   flex-shrink: 0;
 }
 
@@ -477,7 +463,7 @@ async function handleLogin() {
 
 .api-preview {
   background: #1e1e2e;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
 }
@@ -508,39 +494,34 @@ async function handleLogin() {
 }
 
 .preview-title {
-  margin-left: 8px;
   font-size: 11px;
-  color: #888;
+  color: #8b8fa8;
+  margin-left: 4px;
 }
 
 .preview-code {
   margin: 0;
-  padding: 10px;
-  font-size: 11px;
-  line-height: 1.4;
-  color: #a6accd;
+  padding: 14px 16px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #cdd6f4;
   overflow-x: auto;
+  font-family: var(--font-mono);
 }
 
 .keyword {
-  color: #c678dd;
+  color: #cba6f7;
 }
-
 .string {
-  color: #98c379;
+  color: #a6e3a1;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
   .login-container {
     grid-template-columns: 1fr;
   }
-
   .login-right {
     display: none;
-  }
-
-  .login-left {
-    padding: 24px;
   }
 }
 </style>

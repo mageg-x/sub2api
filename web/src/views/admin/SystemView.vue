@@ -38,7 +38,7 @@ const displayStats = computed(() => {
         return [key, formatTime(value)];
       }
       return [key, value];
-    })
+    }),
   );
 });
 
@@ -67,7 +67,7 @@ onMounted(() => {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 12px;
 }
 
@@ -80,7 +80,7 @@ onMounted(() => {
 }
 
 .stat-item:hover {
-  background: var(--border-color);
+  background: var(--border-subtle);
 }
 
 .stat-item-label {

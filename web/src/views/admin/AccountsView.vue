@@ -84,7 +84,7 @@
             </el-table-column>
             <el-table-column label="并发限制" width="80">
               <template #default="{ row }">
-                <span class="limit-value">{{ row.concurrency_limit || '∞' }}</span>
+                <span class="limit-value">{{ row.concurrency_limit || "∞" }}</span>
               </template>
             </el-table-column>
           </el-table>
@@ -134,7 +134,7 @@ onMounted(() => {
 
 .stats-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 20px;
 }
 
@@ -255,11 +255,17 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
-  font-family: 'SF Mono', 'Monaco', monospace;
+  font-family: "SF Mono", "Monaco", monospace;
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

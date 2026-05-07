@@ -142,7 +142,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { Bell, Boxes, CircleDollarSign, Gauge, KeyRound, ListOrdered, Users } from "lucide-vue-next";
+import { Bell, Boxes, CircleDollarSign, Gauge, ListOrdered, Users } from "lucide-vue-next";
 import { ElAlert, ElButton, ElTable, ElTableColumn, ElTag } from "element-plus";
 import { adminAPI } from "@/api/admin";
 import type { DashboardResponse } from "@/api/types";
@@ -166,7 +166,6 @@ const metricCards = computed<MetricCard[]>(() => {
   if (!data.value) {
     return [
       { label: "用户数", value: "-", helper: "平台注册用户", icon: Users, trend: null },
-      { label: "API Keys", value: "-", helper: "已发放访问凭据", icon: KeyRound, trend: null },
       { label: "上游账户", value: "-", helper: "OAuth / 静态密钥", icon: Boxes, trend: null },
       { label: "支付订单", value: "-", helper: "一期仅 gopay", icon: ListOrdered, trend: null },
     ];
@@ -178,13 +177,6 @@ const metricCards = computed<MetricCard[]>(() => {
       value: data.value.users.length,
       helper: "平台注册用户",
       icon: Users,
-      trend: null,
-    },
-    {
-      label: "API Keys",
-      value: data.value.api_keys.length,
-      helper: "已发放访问凭据",
-      icon: KeyRound,
       trend: null,
     },
     {
@@ -206,12 +198,14 @@ const metricCards = computed<MetricCard[]>(() => {
 
 const statEntries = computed<Array<[string, unknown, boolean]>>(() => {
   const raw = Object.entries(data.value?.stats || {});
-  return raw.filter(([key]) => key !== "TIMESTAMP_MS").map(([key, value]) => {
-    if (typeof value === "number" && value > 1e12) {
-      return [key, formatTime(value), true];
-    }
-    return [key, value, false];
-  });
+  return raw
+    .filter(([key]) => key !== "TIMESTAMP_MS")
+    .map(([key, value]) => {
+      if (typeof value === "number" && value > 1e12) {
+        return [key, formatTime(value), true];
+      }
+      return [key, value, false];
+    });
 });
 
 async function load() {
@@ -245,7 +239,7 @@ onMounted(() => {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 12px;
 }
 
@@ -258,7 +252,7 @@ onMounted(() => {
 }
 
 .stat-item:hover {
-  background: var(--border-color);
+  background: var(--border-subtle);
 }
 
 .stat-item-label {
@@ -302,7 +296,7 @@ onMounted(() => {
 }
 
 .announcement-item:hover {
-  background: var(--border-color);
+  background: var(--border-subtle);
 }
 
 .announcement-header {

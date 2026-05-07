@@ -22,6 +22,12 @@ type Provider interface {
 	SupportsPath(path string) bool
 }
 
+// CacheUsageParser 缓存使用量解析器接口
+// 用于解析缓存创建和读取 token
+type CacheUsageParser interface {
+	ParseCacheUsage(body []byte) (int64, int64, bool)
+}
+
 // StreamUsageParser 流式响应使用量解析器接口
 // 对于支持流式输出的Provider，需要实现此接口来解析流式响应中的使用量
 type StreamUsageParser interface {

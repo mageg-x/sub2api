@@ -70,6 +70,8 @@ type ModelPrice struct {
 	Model       string `gorm:"index;size:120;not null" json:"model"`
 	InputPrice  int64  `gorm:"not null" json:"input_price"`
 	OutputPrice int64  `gorm:"not null" json:"output_price"`
+	CacheCreatePrice int64  `gorm:"not null;default:0" json:"cache_create_price"`
+	CacheReadPrice   int64  `gorm:"not null;default:0" json:"cache_read_price"`
 	Currency    string `gorm:"size:20;not null;default:CNY_1E4" json:"currency"`
 	Status      string `gorm:"size:20;not null;default:active" json:"status"`
 	CreatedAtMS int64  `gorm:"not null" json:"created_at_ms"`
@@ -158,6 +160,8 @@ type UsageLog struct {
 	Endpoint     string `gorm:"size:120;not null" json:"endpoint"`
 	InputTokens  int64  `gorm:"not null;default:0" json:"input_tokens"`
 	OutputTokens int64  `gorm:"not null;default:0" json:"output_tokens"`
+	CacheCreateTokens int64 `gorm:"not null;default:0" json:"cache_create_tokens"`
+	CacheReadTokens   int64 `gorm:"not null;default:0" json:"cache_read_tokens"`
 	Cost         int64  `gorm:"not null;default:0" json:"cost"`
 	CreatedAtMS  int64  `gorm:"not null" json:"created_at_ms"`
 }

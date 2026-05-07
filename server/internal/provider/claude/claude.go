@@ -132,6 +132,48 @@ func extractClaudeUsage(v any) (int64, int64, bool) {
 	return 0, 0, false
 }
 
+// ParseCacheUsage 解析缓存相关token
+func (p *Provider) ParseCacheUsage(body []byte) (int64, int64, bool) {
+	var payload any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return 0, 0, false
+	}
+	return extractClaudeCacheUsage(payload)
+}
+
+func extractClaudeCacheUsage(v any) (int64, int64, bool) {
+	switch value := v.(type) {
+	case map[string]any:
+		if usageAny, ok := value["usage"]; ok {
+			if usage, ok := usageAny.(map[string]any); ok {
+				create := int64Value(usage["cache_creation_input_tokens"])
+				if create == 0 {
+					create = int64Value(usage["cache_creation_tokens"])
+				}
+				read := int64Value(usage["cache_read_input_tokens"])
+				if read == 0 {
+					read = int64Value(usage["cache_read_tokens"])
+				}
+				if create > 0 || read > 0 {
+					return create, read, true
+				}
+			}
+		}
+		for _, child := range value {
+			if create, read, ok := extractClaudeCacheUsage(child); ok {
+				return create, read, true
+			}
+		}
+	case []any:
+		for _, child := range value {
+			if create, read, ok := extractClaudeCacheUsage(child); ok {
+				return create, read, true
+			}
+		}
+	}
+	return 0, 0, false
+}
+
 // int64Value 安全地将任意类型转换为int64
 func int64Value(v any) int64 {
 	switch n := v.(type) {

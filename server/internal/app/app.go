@@ -48,6 +48,9 @@ func New(cfg config.Config) (*http.Server, func(), error) {
 
 	// 创建核心服务实例，包含所有业务逻辑
 	core := service.New(cfg, db, providers, payments)
+	if err := core.SeedDefaultModelPrices(); err != nil {
+		return nil, nil, err
+	}
 
 	// 创建可取消的上下文，用于管理后台goroutine的生命周期
 	ctx, cancel := context.WithCancel(context.Background())

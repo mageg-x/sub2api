@@ -62,7 +62,7 @@
             </el-table-column>
             <el-table-column prop="provider" label="渠道" width="90">
               <template #default="{ row }">
-                <el-tag size="small" type="info">{{ row.provider || 'gopay' }}</el-tag>
+                <el-tag size="small" type="info">{{ row.provider || "gopay" }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column label="金额" width="90">
@@ -73,7 +73,7 @@
             <el-table-column label="状态" width="80">
               <template #default="{ row }">
                 <el-tag :type="isPaidStatus(row.status) ? 'success' : 'warning'" size="small">
-                  {{ row.status === 'paid' ? '已支付' : '待支付' }}
+                  {{ row.status === "paid" ? "已支付" : "待支付" }}
                 </el-tag>
               </template>
             </el-table-column>
@@ -101,11 +101,7 @@ const orders = ref<PaymentOrder[]>([]);
 
 const paidOrders = computed(() => orders.value.filter((item) => isPaidStatus(item.status)).length);
 const pendingOrders = computed(() => orders.value.filter((item) => !isPaidStatus(item.status)).length);
-const totalRevenue = computed(() => 
-  orders.value
-    .filter((item) => isPaidStatus(item.status))
-    .reduce((sum, item) => sum + item.amount, 0)
-);
+const totalRevenue = computed(() => orders.value.filter((item) => isPaidStatus(item.status)).reduce((sum, item) => sum + item.amount, 0));
 
 async function load() {
   try {
@@ -133,7 +129,7 @@ onMounted(() => {
 
 .stats-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 20px;
 }
 
@@ -170,8 +166,8 @@ onMounted(() => {
 }
 
 .stat-mini-icon.revenue {
-  background: rgba(139, 92, 246, 0.1);
-  color: #8b5cf6;
+  background: var(--accent-light);
+  color: var(--accent-color);
 }
 
 .stat-mini-content {
@@ -234,7 +230,13 @@ onMounted(() => {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

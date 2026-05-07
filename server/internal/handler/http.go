@@ -62,8 +62,6 @@ func (h *HTTP) Routes() http.Handler {
 	mux.HandleFunc("GET /api/admin/dashboard", h.adminDashboard)
 	mux.HandleFunc("GET /api/admin/users", h.adminUsers)
 	mux.HandleFunc("PATCH /api/admin/users/", h.adminUpdateUser)
-	mux.HandleFunc("GET /api/admin/api-keys", h.adminAPIKeys)
-	mux.HandleFunc("POST /api/admin/api-keys", h.adminCreateAPIKey)
 	mux.HandleFunc("GET /api/admin/accounts", h.adminAccounts)
 	mux.HandleFunc("POST /api/admin/accounts", h.adminCreateAccount)
 	mux.HandleFunc("PATCH /api/admin/accounts/", h.adminUpdateAccount)
@@ -73,13 +71,14 @@ func (h *HTTP) Routes() http.Handler {
 	mux.HandleFunc("POST /api/admin/accounts/oauth/create", h.adminOAuthCreateAccount)
 	mux.HandleFunc("GET /api/admin/model-prices", h.adminModelPrices)
 	mux.HandleFunc("POST /api/admin/model-prices", h.adminCreateModelPrice)
+	mux.HandleFunc("GET /api/model-catalog", h.userModelCatalog)
+	mux.HandleFunc("GET /api/model-prices", h.userModelPrices)
 	mux.HandleFunc("GET /api/admin/announcements", h.adminAnnouncements)
 	mux.HandleFunc("POST /api/admin/announcements", h.adminCreateAnnouncement)
 	mux.HandleFunc("GET /api/admin/coupons", h.adminCoupons)
 	mux.HandleFunc("POST /api/admin/coupons", h.adminCreateCoupon)
 	mux.HandleFunc("GET /api/admin/errors", h.adminErrors)
 	mux.HandleFunc("GET /api/admin/stats", h.adminStats)
-	mux.HandleFunc("GET /api/admin/usage", h.adminUsage)
 	mux.HandleFunc("GET /api/admin/payment-orders", h.adminPaymentOrders)
 	mux.HandleFunc("POST /api/admin/payment-orders/refund", h.adminRefundPayment)
 	// 用户相关
@@ -284,44 +283,6 @@ func (h *HTTP) adminUpdateUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, item)
-}
-
-// adminAPIKeys 管理后台API密钥列表
-func (h *HTTP) adminAPIKeys(w http.ResponseWriter, r *http.Request) {
-	// 检查管理员权限
-	if !h.requireAdmin(w, r) {
-		return
-	}
-	// 获取API密钥列表
-	items, err := h.core.ListAPIKeys()
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
-	}
-	// 返回结果
-	writeJSON(w, http.StatusOK, items)
-}
-
-// adminCreateAPIKey 管理后台创建API密钥
-func (h *HTTP) adminCreateAPIKey(w http.ResponseWriter, r *http.Request) {
-	// 检查管理员权限
-	if !h.requireAdmin(w, r) {
-		return
-	}
-	// 解析请求
-	var req service.CreateAPIKeyInput
-	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	// 创建API密钥
-	item, err := h.core.CreateAPIKey(req)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	// 返回结果
 	writeJSON(w, http.StatusOK, item)
 }
 
@@ -534,6 +495,36 @@ func (h *HTTP) adminCreateModelPrice(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, item)
 }
 
+// userModelPrices 获取公开模型价格列表
+func (h *HTTP) userModelPrices(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.requireUser(w, r)
+	if !ok {
+		return
+	}
+	_ = user
+	items, err := h.core.ListModelPrices()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+// userModelCatalog 获取公开模型目录
+func (h *HTTP) userModelCatalog(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.requireUser(w, r)
+	if !ok {
+		return
+	}
+	_ = user
+	items, err := h.core.ModelCatalog()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
 // adminAnnouncements 管理后台公告列表
 func (h *HTTP) adminAnnouncements(w http.ResponseWriter, r *http.Request) {
 	// 检查管理员权限
@@ -640,22 +631,6 @@ func (h *HTTP) adminStats(w http.ResponseWriter, r *http.Request) {
 	}
 	// 返回结果
 	writeJSON(w, http.StatusOK, stats)
-}
-
-// adminUsage 管理后台使用量列表
-func (h *HTTP) adminUsage(w http.ResponseWriter, r *http.Request) {
-	// 检查管理员权限
-	if !h.requireAdmin(w, r) {
-		return
-	}
-	// 获取使用量记录（支持limit参数）
-	items, err := h.core.ListUsage(parseIntDefault(r.URL.Query().Get("limit"), 200))
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
-	}
-	// 返回结果
-	writeJSON(w, http.StatusOK, items)
 }
 
 // adminPaymentOrders 管理后台支付订单列表

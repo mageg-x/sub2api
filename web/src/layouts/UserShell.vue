@@ -92,17 +92,12 @@
     <el-empty v-if="announcementLoading" description="加载中" />
     <el-empty v-else-if="announcements.length === 0" description="暂无公告" />
     <el-timeline v-else class="announcement-timeline">
-      <el-timeline-item
-        v-for="item in announcements"
-        :key="item.id"
-        :timestamp="formatTime(item.published_at_ms)"
-        placement="top"
-      >
+      <el-timeline-item v-for="item in announcements" :key="item.id" :timestamp="formatTime(item.published_at_ms)" placement="top">
         <div class="announcement-card">
           <div class="announcement-header">
             <h4 class="announcement-title">{{ item.title }}</h4>
             <el-tag :type="item.status === 'active' ? 'success' : 'info'" size="small">
-              {{ item.status === 'active' ? '进行中' : '已结束' }}
+              {{ item.status === "active" ? "进行中" : "已结束" }}
             </el-tag>
           </div>
           <p class="announcement-content">{{ item.content }}</p>
@@ -115,7 +110,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { RouterView, useRoute, useRouter } from "vue-router";
-import { Bell, BookOpenText, ChevronDown, Gift, KeyRound, LayoutDashboard, LogOut, ShieldCheck, User, UserCog, WalletCards, Bolt } from "lucide-vue-next";
+import { Bell, BookOpenText, ChevronDown, Gift, KeyRound, LayoutDashboard, LogOut, ShieldCheck, Sparkles, User, UserCog, WalletCards, Bolt } from "lucide-vue-next";
 import { ElDialog, ElDropdown, ElDropdownItem, ElDropdownMenu, ElEmpty, ElTag, ElTimeline, ElTimelineItem } from "element-plus";
 import { adminAPI } from "@/api/admin";
 import { me, logout } from "@/api/auth";
@@ -128,8 +123,9 @@ const router = useRouter();
 
 const userLinks = [
   { to: "/user/dashboard", label: "首页", icon: LayoutDashboard },
-  { to: "/user/keys", label: "API Keys", icon: KeyRound },
-  { to: "/user/usage", label: "用量记录", icon: Bolt },
+  { to: "/user/models", label: "模型广场", icon: Sparkles },
+  { to: "/user/keys", label: "令牌管理", icon: KeyRound },
+  { to: "/user/usage", label: "数据看板", icon: Bolt },
   { to: "/user/payment", label: "充值", icon: WalletCards },
   { to: "/user/redeem", label: "兑换码", icon: Gift },
   { to: "/user/access-guide", label: "接入指南", icon: BookOpenText },
@@ -141,6 +137,7 @@ const routeMeta: Record<string, { title: string; subtitle: string }> = {
   "/user/keys": { title: "API Keys", subtitle: "管理您的 API Keys" },
   "/user/usage": { title: "用量记录", subtitle: "查看使用记录" },
   "/user/payment": { title: "充值", subtitle: "充值余额" },
+  "/user/models": { title: "模型广场", subtitle: "查看可用模型和价格" },
   "/user/profile": { title: "个人资料", subtitle: "个人资料设置" },
   "/user/redeem": { title: "兑换码", subtitle: "兑换码兑换" },
   "/user/access-guide": { title: "接入指南", subtitle: "API 接入指南" },
@@ -243,8 +240,8 @@ onMounted(() => {
 }
 
 .announcement-card {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   padding: 16px 18px;
 }

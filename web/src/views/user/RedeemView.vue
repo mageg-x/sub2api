@@ -18,14 +18,7 @@
         <p class="redeem-desc">输入兑换码即可将余额充值到您的账户</p>
         <el-form label-position="top" class="redeem-form">
           <el-form-item label="兑换码">
-            <el-input
-              v-model="code"
-              placeholder="请输入兑换码"
-              size="large"
-              :prefix-icon="Ticket"
-              clearable
-              @keyup.enter="submit"
-            />
+            <el-input v-model="code" placeholder="请输入兑换码" size="large" :prefix-icon="Ticket" clearable @keyup.enter="submit" />
           </el-form-item>
           <el-button type="primary" size="large" class="redeem-btn" :loading="loading" @click="submit">
             <Gift :size="18" style="margin-right: 8px" />
@@ -34,9 +27,7 @@
         </el-form>
 
         <div class="help-section">
-          <div class="help-title">
-            <Info :size="14" /> 使用说明
-          </div>
+          <div class="help-title"><Info :size="14" /> 使用说明</div>
           <ul class="help-list">
             <li><CheckCircle2 :size="13" />兑换码由管理员生成并发放</li>
             <li><CheckCircle2 :size="13" />每个兑换码仅可使用一次</li>

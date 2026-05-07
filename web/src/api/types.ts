@@ -112,8 +112,18 @@ export interface ModelPrice {
   model: string
   input_price: number
   output_price: number
+  cache_create_price: number
+  cache_read_price: number
   currency: string
   status: string
+}
+
+export interface ModelCatalogChannel {
+  key: string
+  name: string
+  multiplier: string
+  note: string
+  models: ModelPrice[]
 }
 
 export interface Announcement {
@@ -126,7 +136,6 @@ export interface Announcement {
 
 export interface DashboardResponse {
   users: User[]
-  api_keys: APIKey[]
   accounts: Account[]
   prices: ModelPrice[]
   orders: PaymentOrder[]

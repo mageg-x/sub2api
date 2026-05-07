@@ -19,7 +19,7 @@
           </div>
         </div>
         <p class="stat-label">已激活</p>
-        <p class="stat-value">{{ items.filter((item) => item.status === 'active').length }}</p>
+        <p class="stat-value">{{ items.filter((item) => item.status === "active").length }}</p>
         <p class="stat-helper">可使用的</p>
       </div>
 
