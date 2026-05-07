@@ -136,7 +136,8 @@ export default {
     step3Title: '开始调用',
     step3Desc: '通过 API 调用各种 AI 模型',
     apiExampleTitle: 'API 调用示例',
-    passwordMinLengthPlaceholder: '密码（至少 6 位）'
+    passwordMinLengthPlaceholder: '密码（至少 6 位）',
+    chatExampleMessage: '你好！'
   },
   adminLogin: {
     adminConsole: '管理控制台',
@@ -243,6 +244,7 @@ export default {
     merchantOrderNo: '商户单号',
     amount: '金额',
     orderStatus: '状态',
+    merchantOrderNo: '商户单号',
     createTime: '创建时间',
     quickActions: '快速操作',
     createApiKey: '创建 API Key',
@@ -314,6 +316,7 @@ export default {
     rechargeAmount: '充值金额',
     pleaseInputAmount: '请输入充值金额',
     orderTitle: '订单标题',
+    orderTitlePlaceholder: '如 Balance Recharge',
     createPaymentOrder: '创建支付订单',
     paymentReceipt: '支付回执',
     receiptInfo: '创建订单后，回执信息将显示在这里',
@@ -385,7 +388,10 @@ export default {
     usageSuggestions: '使用建议',
     suggestion1: '到「我的 API Keys」创建专用 Key，再用于客户端调用',
     suggestion2: '调用成功后到「我的用量」查看 token 消耗和扣费',
-    suggestion3: '余额不足时先到「充值」页发起 gopay 订单，回调后自动入账'
+    suggestion3: '余额不足时先到「充值」页发起 gopay 订单，回调后自动入账',
+    dedicatedCompatEndpoint: '专用兼容入口',
+    chatExampleMessage: '你好',
+    responsesExampleInput: '写一个摘要'
   },
   announcements: {
     announcementMoved: '公告已移至顶部',

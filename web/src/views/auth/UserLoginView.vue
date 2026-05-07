@@ -104,7 +104,7 @@
   -d '{
     <span class="string">"model"</span>: <span class="string">"gpt-4"</span>,
     <span class="string">"messages"</span>: [
-      {<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: <span class="string">"你好！"</span>}
+      {<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: <span class="string">"{{ t('userLogin.chatExampleMessage') }}"</span>}
     ]
   }'</code></pre>
         </div>

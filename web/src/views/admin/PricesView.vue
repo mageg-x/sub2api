@@ -45,7 +45,7 @@
       <div class="card-body">
         <el-form label-position="top" class="modern-form">
           <div class="form-grid">
-            <el-form-item label="Provider">
+            <el-form-item :label="t('adminPrices.provider')">
               <el-input v-model="form.provider" :placeholder="t('adminPrices.providerPlaceholder')">
                 <template #prefix><Server :size="16" /></template>
               </el-input>

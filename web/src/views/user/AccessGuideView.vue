@@ -130,30 +130,30 @@ function copyText(value: string) {
   void navigator.clipboard.writeText(value);
 }
 
-const providers = [
+const providers = computed(() => [
   { name: "OpenAI", endpoint: "`/v1/chat/completions` / `/v1/responses`", icon: Bot, color: "linear-gradient(135deg, #10a37f, #1a7f64)" },
   { name: "Claude", endpoint: "`/v1/messages` / `/v1/messages/count_tokens`", icon: Sparkles, color: "linear-gradient(135deg, #d97706, #b45309)" },
   { name: "Gemini", endpoint: "`/v1beta/models/*` / `/v1/models/*`", icon: Hexagon, color: "linear-gradient(135deg, #4285f4, #2563eb)" },
   { name: "Antigravity", endpoint: "`/v1internal:*` / " + t('accessGuide.dedicatedCompatEndpoint'), icon: Zap, color: "linear-gradient(135deg, #8b5cf6, #6d28d9)" },
-];
+]);
 
 const endpoints = ["/v1/chat/completions", "/v1/responses", "/v1/embeddings", "/v1/messages", "/v1/messages/count_tokens", "/v1beta/models/*", "/v1/models/*"];
 
-const chatExample = `curl ${baseURL}/v1/chat/completions \\
+const chatExample = computed(() => `curl ${baseURL}/v1/chat/completions \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "gpt-4o-mini",
-    "messages": [{"role":"user","content":"你好"}]
-  }'`;
+    "messages": [{"role":"user","content":"${t('accessGuide.chatExampleMessage')}"}]
+  }'`);
 
-const responsesExample = `curl ${baseURL}/v1/responses \\
+const responsesExample = computed(() => `curl ${baseURL}/v1/responses \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "gpt-4.1-mini",
-    "input": "写一个摘要"
-  }'`;
+    "input": "${t('accessGuide.responsesExampleInput')}"
+  }'`);
 </script>
 
 <style scoped>

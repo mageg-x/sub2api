@@ -57,7 +57,7 @@
               </el-form-item>
 
               <el-form-item :label="t('payment.orderTitle')" class="form-item">
-                <el-input v-model="form.subject" placeholder="如 Balance Recharge" size="large" />
+                <el-input v-model="form.subject" :placeholder="t('payment.orderTitlePlaceholder')" size="large" />
               </el-form-item>
 
               <el-button type="primary" size="large" :loading="submitting" class="submit-button" @click="createOrder">

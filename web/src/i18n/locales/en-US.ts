@@ -136,7 +136,8 @@ export default {
     step3Title: 'Start Calling',
     step3Desc: 'Call various AI models via API',
     apiExampleTitle: 'API Call Example',
-    passwordMinLengthPlaceholder: 'Password (at least 6 characters)'
+    passwordMinLengthPlaceholder: 'Password (at least 6 characters)',
+    chatExampleMessage: 'Hello!'
   },
   adminLogin: {
     adminConsole: 'Admin Console',
@@ -314,6 +315,7 @@ export default {
     rechargeAmount: 'Top Up Amount',
     pleaseInputAmount: 'Enter top-up amount',
     orderTitle: 'Order Title',
+    orderTitlePlaceholder: 'e.g. Balance Recharge',
     createPaymentOrder: 'Create Payment Order',
     paymentReceipt: 'Payment Receipt',
     receiptInfo: 'Receipt information will be displayed here after creating an order',
@@ -385,7 +387,10 @@ export default {
     usageSuggestions: 'Usage Suggestions',
     suggestion1: 'Create a dedicated Key in "My API Keys" and use it for client calls',
     suggestion2: 'After successful calls, check token consumption and billing in "My Usage"',
-    suggestion3: 'When balance is low, create a gopay order on the "Top Up" page, balance will be credited after callback'
+    suggestion3: 'When balance is low, create a gopay order on the "Top Up" page, balance will be credited after callback',
+    dedicatedCompatEndpoint: 'Dedicated Compat Endpoint',
+    chatExampleMessage: 'Hello',
+    responsesExampleInput: 'Write a summary'
   },
   announcements: {
     announcementMoved: 'Announcements moved to top',

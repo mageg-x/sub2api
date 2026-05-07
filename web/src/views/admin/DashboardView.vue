@@ -85,7 +85,7 @@
       </div>
       <div class="card-body">
         <el-table :data="data?.accounts?.slice(0, 8) || []" :empty-text="t('adminDashboard.noAccounts')" class="data-table">
-          <el-table-column prop="provider" label="Provider" width="120" />
+          <el-table-column prop="provider" :label="t('adminDashboard.provider')" width="120" />
           <el-table-column prop="name" :label="t('adminDashboard.accountName')" min-width="140" />
           <el-table-column prop="auth_type" :label="t('adminDashboard.authType')" width="100" />
           <el-table-column :label="t('adminDashboard.status')" width="80">

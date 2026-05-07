@@ -45,7 +45,7 @@
         </div>
         <div class="card-body">
           <el-table :data="users" :empty-text="t('adminUsers.noUsers')" class="modern-table" :stripe="true">
-            <el-table-column prop="id" label="ID" width="60" />
+            <el-table-column prop="id" :label="t('adminUsers.id')" width="60" />
             <el-table-column prop="email" :label="t('adminUsers.email')" min-width="160">
               <template #default="{ row }">
                 <div class="email-cell">
