@@ -151,6 +151,29 @@ export interface DashboardResponse {
   stats: Record<string, unknown>
 }
 
+export interface UserDashboardResponse {
+  balance: number
+  rate_percent: number
+  total_cost: number
+  total_recharge: number
+  request_count: number
+  recent_usage_count: number
+  total_input_tokens: number
+  total_output_tokens: number
+  total_tokens: number
+  avg_rpm: string
+  avg_tpm: string
+  top_model: string
+  top_provider: string
+  last_usage_time_ms: number
+  key_count: number
+  usage_timeline: number[]
+  cost_timeline: number[]
+  token_timeline: number[]
+  recent_usage_logs: UsageLog[]
+  recent_payment_orders: PaymentOrder[]
+}
+
 export interface AuthResponse {
   user: User
   access_token: string

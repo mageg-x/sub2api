@@ -87,6 +87,7 @@ func (h *HTTP) Routes() http.Handler {
 	mux.HandleFunc("PUT /api/user/profile", h.userUpdateProfile)
 	mux.HandleFunc("POST /api/user/change-password", h.userChangePassword)
 	mux.HandleFunc("POST /api/user/redeem", h.userRedeemCoupon)
+	mux.HandleFunc("GET /api/user/dashboard", h.userDashboard)
 	mux.HandleFunc("GET /api/keys", h.userAPIKeys)
 	mux.HandleFunc("POST /api/keys", h.userCreateAPIKey)
 	mux.HandleFunc("DELETE /api/keys/", h.userDeleteAPIKey)
@@ -770,6 +771,20 @@ func (h *HTTP) userRedeemCoupon(w http.ResponseWriter, r *http.Request) {
 	}
 	// 返回结果
 	writeJSON(w, http.StatusOK, item)
+}
+
+// userDashboard 用户首页聚合数据
+func (h *HTTP) userDashboard(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.requireUser(w, r)
+	if !ok {
+		return
+	}
+	data, err := h.core.UserDashboard(user.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, data)
 }
 
 // userAPIKeys 用户API密钥列表

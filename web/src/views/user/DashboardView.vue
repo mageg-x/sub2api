@@ -12,7 +12,7 @@
         </div>
         <div class="stat-text-col">
           <span class="stat-label">当前余额</span>
-          <span class="stat-value">{{ formatCurrency(session.user?.balance || 0) }}</span>
+          <span class="stat-value">{{ formatCurrency(balance) }}</span>
         </div>
         <el-button type="primary" size="small" class="stat-action" @click="router.push('/user/payment')">
           充值
@@ -45,7 +45,7 @@
         </div>
         <div class="stat-text-col">
           <span class="stat-label">费率折扣</span>
-          <span class="stat-value">{{ session.user?.rate_percent || 100 }}%</span>
+          <span class="stat-value">{{ ratePercent }}%</span>
         </div>
       </div>
     </div>
@@ -62,7 +62,7 @@
         </div>
         <div class="stat-text-col">
           <span class="stat-label">请求次数</span>
-          <span class="stat-value">{{ usage.length }}</span>
+          <span class="stat-value">{{ requestCount }}</span>
         </div>
         <div class="stat-chart">
           <svg viewBox="0 0 100 30" class="sparkline">
@@ -231,7 +231,7 @@
           <el-button type="primary" link @click="router.push('/user/usage')"> 查看全部 </el-button>
         </div>
         <div class="card-body">
-          <div v-if="usage.length === 0" class="empty-state">
+          <div v-if="recentUsageLogs.length === 0" class="empty-state">
             <div class="empty-icon">
               <ReceiptText :size="32" />
             </div>
@@ -239,7 +239,7 @@
             <p class="empty-description">您的 API 调用记录将显示在这里</p>
           </div>
           <div v-else class="usage-list">
-            <div v-for="item in usage.slice(0, 5)" :key="item.id" class="usage-item">
+            <div v-for="item in recentUsageLogs.slice(0, 5)" :key="item.id" class="usage-item">
               <div class="usage-header">
                 <span class="usage-model">{{ item.model }}</span>
                 <el-tag size="small">{{ item.provider }}</el-tag>
@@ -352,79 +352,34 @@ import {
   Zap,
 } from "lucide-vue-next";
 import { ElButton, ElTag } from "element-plus";
-import { session } from "@/store/session";
 import { userAPI } from "@/api/user";
-import type { PaymentOrder, UsageLog } from "@/api/types";
+import type { PaymentOrder, UsageLog, UserDashboardResponse } from "@/api/types";
 import { formatCurrency, formatTime } from "@/utils";
 
 const router = useRouter();
 
-const usage = ref<UsageLog[]>([]);
-const orders = ref<PaymentOrder[]>([]);
-const keyCount = ref(0);
+const dashboard = ref<UserDashboardResponse | null>(null);
 
-const latestOrder = computed(() => orders.value[0] || null);
-
-// 总消耗
-const totalCost = computed(() => usage.value.reduce((sum, item) => sum + (item.cost || 0), 0));
-
-// 累计充值
-const totalRecharge = computed(() =>
-  orders.value.filter((o) => o.status === "paid").reduce((sum, item) => sum + (item.amount || 0), 0)
-);
-
-// Token 统计
-const totalInputTokens = computed(() => usage.value.reduce((sum, item) => sum + (item.input_tokens || 0), 0));
-const totalOutputTokens = computed(() => usage.value.reduce((sum, item) => sum + (item.output_tokens || 0), 0));
-const totalTokens = computed(() => totalInputTokens.value + totalOutputTokens.value);
-
-// 最近7天调用次数
-const sevenDaysAgo = computed(() => Date.now() - 7 * 24 * 60 * 60 * 1000);
-const recentUsageCount = computed(() => usage.value.filter((item) => item.created_at_ms > sevenDaysAgo.value).length);
-
-// 最近调用时间
+const balance = computed(() => dashboard.value?.balance || 0);
+const ratePercent = computed(() => dashboard.value?.rate_percent || 100);
+const totalCost = computed(() => dashboard.value?.total_cost || 0);
+const totalRecharge = computed(() => dashboard.value?.total_recharge || 0);
+const requestCount = computed(() => dashboard.value?.request_count || 0);
+const recentUsageCount = computed(() => dashboard.value?.recent_usage_count || 0);
+const totalInputTokens = computed(() => dashboard.value?.total_input_tokens || 0);
+const totalOutputTokens = computed(() => dashboard.value?.total_output_tokens || 0);
+const totalTokens = computed(() => dashboard.value?.total_tokens || 0);
+const avgRPM = computed(() => dashboard.value?.avg_rpm || "0");
+const avgTPM = computed(() => dashboard.value?.avg_tpm || "0");
+const topModel = computed(() => dashboard.value?.top_model || "-");
+const topProvider = computed(() => dashboard.value?.top_provider || "-");
+const keyCount = computed(() => dashboard.value?.key_count || 0);
+const recentUsageLogs = computed<UsageLog[]>(() => dashboard.value?.recent_usage_logs || []);
+const recentPaymentOrders = computed<PaymentOrder[]>(() => dashboard.value?.recent_payment_orders || []);
+const latestOrder = computed(() => recentPaymentOrders.value[0] || null);
 const lastUsageTime = computed(() => {
-  if (!usage.value.length) return "-";
-  return formatTime(usage.value[0].created_at_ms);
-});
-
-// 常用模型
-const topModel = computed(() => {
-  if (!usage.value.length) return "-";
-  const counts: Record<string, number> = {};
-  usage.value.forEach((item) => {
-    counts[item.model] = (counts[item.model] || 0) + 1;
-  });
-  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "-";
-});
-
-// 常用渠道
-const topProvider = computed(() => {
-  if (!usage.value.length) return "-";
-  const counts: Record<string, number> = {};
-  usage.value.forEach((item) => {
-    counts[item.provider] = (counts[item.provider] || 0) + 1;
-  });
-  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "-";
-});
-
-// RPM (Requests Per Minute) - 基于最近1小时
-const avgRPM = computed(() => {
-  if (!usage.value.length) return "0";
-  const oneHourAgo = Date.now() - 60 * 60 * 1000;
-  const recent = usage.value.filter((item) => item.created_at_ms > oneHourAgo);
-  if (!recent.length) return "0";
-  return (recent.length / 60).toFixed(3);
-});
-
-// TPM (Tokens Per Minute) - 基于最近1小时
-const avgTPM = computed(() => {
-  if (!usage.value.length) return "0";
-  const oneHourAgo = Date.now() - 60 * 60 * 1000;
-  const recent = usage.value.filter((item) => item.created_at_ms > oneHourAgo);
-  if (!recent.length) return "0";
-  const tokens = recent.reduce((sum, item) => sum + (item.input_tokens || 0) + (item.output_tokens || 0), 0);
-  return (tokens / 60).toFixed(3);
+  const ts = dashboard.value?.last_usage_time_ms || 0;
+  return ts ? formatTime(ts) : "-";
 });
 
 // Sparkline 生成函数
@@ -443,89 +398,16 @@ function generateSparkline(data: number[]): string {
     .join(" ");
 }
 
-// 按天分组的请求数 sparkline（最近14天）
-const requestSparkline = computed(() => {
-  const days = 14;
-  const daily: number[] = new Array(days).fill(0);
-  const now = Date.now();
-  usage.value.forEach((item) => {
-    const dayIndex = Math.floor((now - item.created_at_ms) / (24 * 60 * 60 * 1000));
-    if (dayIndex >= 0 && dayIndex < days) {
-      daily[days - 1 - dayIndex]++;
-    }
-  });
-  return generateSparkline(daily);
-});
+const requestTimeline = computed(() => dashboard.value?.usage_timeline || []);
+const costTimeline = computed(() => dashboard.value?.cost_timeline || []);
+const tokenTimeline = computed(() => dashboard.value?.token_timeline || []);
 
-// 最近7天 sparkline
-const recentSparkline = computed(() => {
-  const days = 7;
-  const daily: number[] = new Array(days).fill(0);
-  const now = Date.now();
-  usage.value.forEach((item) => {
-    const dayIndex = Math.floor((now - item.created_at_ms) / (24 * 60 * 60 * 1000));
-    if (dayIndex >= 0 && dayIndex < days) {
-      daily[days - 1 - dayIndex]++;
-    }
-  });
-  return generateSparkline(daily);
-});
-
-// 成本 sparkline
-const costSparkline = computed(() => {
-  const days = 14;
-  const daily: number[] = new Array(days).fill(0);
-  const now = Date.now();
-  usage.value.forEach((item) => {
-    const dayIndex = Math.floor((now - item.created_at_ms) / (24 * 60 * 60 * 1000));
-    if (dayIndex >= 0 && dayIndex < days) {
-      daily[days - 1 - dayIndex] += item.cost || 0;
-    }
-  });
-  return generateSparkline(daily);
-});
-
-// Token sparkline
-const tokenSparkline = computed(() => {
-  const days = 14;
-  const daily: number[] = new Array(days).fill(0);
-  const now = Date.now();
-  usage.value.forEach((item) => {
-    const dayIndex = Math.floor((now - item.created_at_ms) / (24 * 60 * 60 * 1000));
-    if (dayIndex >= 0 && dayIndex < days) {
-      daily[days - 1 - dayIndex] += (item.input_tokens || 0) + (item.output_tokens || 0);
-    }
-  });
-  return generateSparkline(daily);
-});
-
-// RPM sparkline (最近12小时，每小时)
-const rpmSparkline = computed(() => {
-  const hours = 12;
-  const hourly: number[] = new Array(hours).fill(0);
-  const now = Date.now();
-  usage.value.forEach((item) => {
-    const hourIndex = Math.floor((now - item.created_at_ms) / (60 * 60 * 1000));
-    if (hourIndex >= 0 && hourIndex < hours) {
-      hourly[hours - 1 - hourIndex]++;
-    }
-  });
-  return generateSparkline(hourly.map((c) => c / 60));
-});
-
-// TPM sparkline
-const tpmSparkline = computed(() => {
-  const hours = 12;
-  const hourly: number[] = new Array(hours).fill(0);
-  const now = Date.now();
-  usage.value.forEach((item) => {
-    const hourIndex = Math.floor((now - item.created_at_ms) / (60 * 60 * 1000));
-    if (hourIndex >= 0 && hourIndex < hours) {
-      hourly[hours - 1 - hourIndex] += (item.input_tokens || 0) + (item.output_tokens || 0);
-    }
-  });
-  return generateSparkline(hourly.map((c) => c / 60));
-});
+const requestSparkline = computed(() => generateSparkline(requestTimeline.value));
+const recentSparkline = computed(() => generateSparkline(requestTimeline.value.slice(-7)));
+const costSparkline = computed(() => generateSparkline(costTimeline.value));
+const tokenSparkline = computed(() => generateSparkline(tokenTimeline.value));
+const rpmSparkline = computed(() => generateSparkline(requestTimeline.value.map((count) => count / 1440)));
+const tpmSparkline = computed(() => generateSparkline(tokenTimeline.value.map((count) => count / 1440)));
 
 function formatNumber(value: number): string {
   if (value >= 1e8) return (value / 1e8).toFixed(2) + "亿";
@@ -534,14 +416,7 @@ function formatNumber(value: number): string {
 }
 
 async function load() {
-  usage.value = await userAPI.usage(100);
-  orders.value = await userAPI.orders();
-  try {
-    const keys = await userAPI.keys();
-    keyCount.value = keys.length;
-  } catch {
-    keyCount.value = 0;
-  }
+  dashboard.value = await userAPI.dashboard();
 }
 
 onMounted(() => {

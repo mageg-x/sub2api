@@ -336,6 +336,30 @@ type DashboardData struct {
 	Stats         map[string]any       `json:"stats"`         // 统计数据
 }
 
+// UserDashboardData 用户首页仪表盘数据结构
+type UserDashboardData struct {
+	Balance             int64                `json:"balance"`
+	RatePercent         int                  `json:"rate_percent"`
+	TotalCost           int64                `json:"total_cost"`
+	TotalRecharge       int64                `json:"total_recharge"`
+	RequestCount        int64                `json:"request_count"`
+	RecentUsageCount    int64                `json:"recent_usage_count"`
+	TotalInputTokens    int64                `json:"total_input_tokens"`
+	TotalOutputTokens   int64                `json:"total_output_tokens"`
+	TotalTokens         int64                `json:"total_tokens"`
+	AvgRPM              string               `json:"avg_rpm"`
+	AvgTPM              string               `json:"avg_tpm"`
+	TopModel            string               `json:"top_model"`
+	TopProvider         string               `json:"top_provider"`
+	LastUsageTimeMS     int64                `json:"last_usage_time_ms"`
+	KeyCount            int64                `json:"key_count"`
+	UsageTimeline       []int64              `json:"usage_timeline"`
+	CostTimeline        []int64              `json:"cost_timeline"`
+	TokenTimeline       []int64              `json:"token_timeline"`
+	RecentUsageLogs     []model.UsageLog     `json:"recent_usage_logs"`
+	RecentPaymentOrders []model.PaymentOrder `json:"recent_payment_orders"`
+}
+
 // AccountView 账号视图结构（包含脱敏后的凭证）
 type AccountView struct {
 	model.Account
@@ -717,6 +741,138 @@ func (c *Core) ListUserPaymentOrders(userID uint64) ([]model.PaymentOrder, error
 	var items []model.PaymentOrder
 	err := c.db.Where("user_id = ?", userID).Order("id desc").Find(&items).Error
 	return items, err
+}
+
+// UserDashboard 获取用户首页聚合数据
+func (c *Core) UserDashboard(userID uint64) (*UserDashboardData, error) {
+	user, err := c.GetUserByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	var usage []model.UsageLog
+	if err := c.db.Where("user_id = ?", userID).Order("id desc").Find(&usage).Error; err != nil {
+		return nil, err
+	}
+	var orders []model.PaymentOrder
+	if err := c.db.Where("user_id = ?", userID).Order("id desc").Find(&orders).Error; err != nil {
+		return nil, err
+	}
+	var keyCount int64
+	if err := c.db.Model(&model.APIKey{}).Where("user_id = ?", userID).Count(&keyCount).Error; err != nil {
+		return nil, err
+	}
+
+	now := time.Now().UnixMilli()
+	oneHourAgo := now - int64(time.Hour/time.Millisecond)
+	sevenDaysAgo := now - int64(7*24*time.Hour/time.Millisecond)
+	dayBuckets := 14
+	dailyRequests := make([]int64, dayBuckets)
+	dailyCost := make([]int64, dayBuckets)
+	dailyTokens := make([]int64, dayBuckets)
+
+	var (
+		totalCost         int64
+		totalInput        int64
+		totalOutput       int64
+		totalTokens       int64
+		recentUsageCount  int64
+		topModelCounts    = map[string]int64{}
+		topProviderCounts = map[string]int64{}
+		lastUsageTimeMS   int64
+	)
+	for _, item := range usage {
+		totalCost += item.Cost
+		totalInput += item.InputTokens
+		totalOutput += item.OutputTokens
+		totalTokens += item.InputTokens + item.OutputTokens
+		if item.CreatedAtMS > lastUsageTimeMS {
+			lastUsageTimeMS = item.CreatedAtMS
+		}
+		topModelCounts[item.Model]++
+		topProviderCounts[item.Provider]++
+		if item.CreatedAtMS >= sevenDaysAgo {
+			recentUsageCount++
+		}
+		if item.CreatedAtMS >= sevenDaysAgo {
+			idx := int((now - item.CreatedAtMS) / int64(24*time.Hour/time.Millisecond))
+			if idx >= 0 && idx < dayBuckets {
+				dailyRequests[dayBuckets-1-idx]++
+				dailyCost[dayBuckets-1-idx] += item.Cost
+				dailyTokens[dayBuckets-1-idx] += item.InputTokens + item.OutputTokens
+			}
+		}
+	}
+
+	totalRecharge := int64(0)
+	for _, order := range orders {
+		if strings.EqualFold(order.Status, "paid") {
+			totalRecharge += order.Amount
+		}
+	}
+
+	topModel := "-"
+	var topModelCount int64
+	for modelName, count := range topModelCounts {
+		if count > topModelCount {
+			topModel = modelName
+			topModelCount = count
+		}
+	}
+	topProvider := "-"
+	var topProviderCount int64
+	for providerName, count := range topProviderCounts {
+		if count > topProviderCount {
+			topProvider = providerName
+			topProviderCount = count
+		}
+	}
+
+	avgRPM := "0"
+	avgTPM := "0"
+	if len(usage) > 0 {
+		recentHourCount := int64(0)
+		recentHourTokens := int64(0)
+		for _, item := range usage {
+			if item.CreatedAtMS >= oneHourAgo {
+				recentHourCount++
+				recentHourTokens += item.InputTokens + item.OutputTokens
+			}
+		}
+		avgRPM = fmt.Sprintf("%.3f", float64(recentHourCount)/60.0)
+		avgTPM = fmt.Sprintf("%.3f", float64(recentHourTokens)/60.0)
+	}
+
+	recentUsageLogs := usage
+	if len(recentUsageLogs) > 20 {
+		recentUsageLogs = recentUsageLogs[:20]
+	}
+	recentPaymentOrders := orders
+	if len(recentPaymentOrders) > 10 {
+		recentPaymentOrders = recentPaymentOrders[:10]
+	}
+
+	return &UserDashboardData{
+		Balance:             user.Balance,
+		RatePercent:         user.RatePercent,
+		TotalCost:           totalCost,
+		TotalRecharge:       totalRecharge,
+		RequestCount:        int64(len(usage)),
+		RecentUsageCount:    recentUsageCount,
+		TotalInputTokens:    totalInput,
+		TotalOutputTokens:   totalOutput,
+		TotalTokens:         totalTokens,
+		AvgRPM:              avgRPM,
+		AvgTPM:              avgTPM,
+		TopModel:            topModel,
+		TopProvider:         topProvider,
+		LastUsageTimeMS:     lastUsageTimeMS,
+		KeyCount:            keyCount,
+		UsageTimeline:       dailyRequests,
+		CostTimeline:        dailyCost,
+		TokenTimeline:       dailyTokens,
+		RecentUsageLogs:     recentUsageLogs,
+		RecentPaymentOrders: recentPaymentOrders,
+	}, nil
 }
 
 // GetUserPaymentOrder 获取用户的指定支付订单
