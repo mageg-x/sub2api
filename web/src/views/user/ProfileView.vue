@@ -1,52 +1,74 @@
 <template>
-  <div style="display: grid; gap: 18px">
-    <ElAlert v-if="message" :title="message" type="success" :closable="false" show-icon />
-    <ElAlert v-if="error" :title="error" type="error" :closable="false" show-icon />
+  <div>
+    <div v-if="message" class="success-banner">
+      <el-alert :title="message" type="success" :closable="false" show-icon />
+    </div>
+    <div v-if="error" class="error-banner">
+      <el-alert :title="error" type="error" :closable="false" show-icon />
+    </div>
 
-    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px">
-      <ElCard shadow="never">
-        <template #header>
-          <div style="display: flex; align-items: center; gap: 8px">
-            <UserCog :size="16" />
-            <span>个人资料</span>
-          </div>
-        </template>
-        <ElForm label-position="top">
-          <ElFormItem label="邮箱">
-            <ElInput :model-value="session.user?.email || ''" readonly />
-          </ElFormItem>
-          <ElFormItem label="显示名称">
-            <ElInput v-model="profileForm.name" />
-          </ElFormItem>
-          <ElButton type="primary" @click="saveProfile"> 保存资料 </ElButton>
-        </ElForm>
-      </ElCard>
+    <div class="profile-grid">
+      <div class="surface-card">
+        <div class="card-header">
+          <h3 class="card-title">
+            <UserCog :size="20" />
+            个人资料
+          </h3>
+        </div>
+        <div class="card-body">
+          <el-form label-position="top" class="modern-form">
+            <el-form-item label="邮箱">
+              <el-input :model-value="session.user?.email || ''" readonly disabled>
+                <template #prefix><Mail :size="16" /></template>
+              </el-input>
+            </el-form-item>
+            <el-form-item label="显示名称">
+              <el-input v-model="profileForm.name" placeholder="输入显示名称">
+                <template #prefix><User :size="16" /></template>
+              </el-input>
+            </el-form-item>
+            <el-button type="primary" @click="saveProfile">
+              <Check :size="16" style="margin-right: 6px" />
+              保存资料
+            </el-button>
+          </el-form>
+        </div>
+      </div>
 
-      <ElCard shadow="never">
-        <template #header>
-          <div style="display: flex; align-items: center; gap: 8px">
-            <LockKeyhole :size="16" />
-            <span>修改密码</span>
-          </div>
-        </template>
-        <ElForm label-position="top">
-          <ElFormItem label="旧密码">
-            <ElInput v-model="passwordForm.old_password" type="password" show-password />
-          </ElFormItem>
-          <ElFormItem label="新密码">
-            <ElInput v-model="passwordForm.new_password" type="password" show-password />
-          </ElFormItem>
-          <ElButton type="primary" @click="changePassword"> 更新密码 </ElButton>
-        </ElForm>
-      </ElCard>
+      <div class="surface-card">
+        <div class="card-header">
+          <h3 class="card-title">
+            <LockKeyhole :size="20" />
+            修改密码
+          </h3>
+        </div>
+        <div class="card-body">
+          <el-form label-position="top" class="modern-form">
+            <el-form-item label="旧密码">
+              <el-input v-model="passwordForm.old_password" type="password" show-password placeholder="输入当前密码">
+                <template #prefix><Lock :size="16" /></template>
+              </el-input>
+            </el-form-item>
+            <el-form-item label="新密码">
+              <el-input v-model="passwordForm.new_password" type="password" show-password placeholder="输入新密码">
+                <template #prefix><KeyRound :size="16" /></template>
+              </el-input>
+            </el-form-item>
+            <el-button type="primary" @click="changePassword">
+              <ShieldCheck :size="16" style="margin-right: 6px" />
+              更新密码
+            </el-button>
+          </el-form>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { reactive, ref } from "vue";
-import { LockKeyhole, UserCog } from "lucide-vue-next";
-import { ElAlert, ElButton, ElCard, ElForm, ElFormItem, ElInput } from "element-plus";
+import { Check, KeyRound, Lock, LockKeyhole, Mail, ShieldCheck, User, UserCog } from "lucide-vue-next";
+import { ElAlert, ElButton, ElForm, ElFormItem, ElInput } from "element-plus";
 import { session } from "@/store/session";
 import { userAPI } from "@/api/user";
 
@@ -85,3 +107,27 @@ async function changePassword() {
   }
 }
 </script>
+
+<style scoped>
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.modern-form :deep(.el-form-item__label) {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.success-banner,
+.error-banner {
+  margin-bottom: 20px;
+}
+
+@media (max-width: 768px) {
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

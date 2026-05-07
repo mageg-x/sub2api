@@ -1,11 +1,10 @@
 import { adminRequest } from './client'
-import type { Account, AccountCredentials, APIKey, Announcement, Coupon, DashboardResponse, ModelPrice, OAuthStartResult, PaymentOrder, UsageLog, User } from './types'
+import type { Account, AccountCredentials, APIKey, Announcement, Coupon, DashboardResponse, ModelPrice, OAuthStartResult, PaymentOrder, UsageLog, User, UserUpdatePayload } from './types'
 
 export const adminAPI = {
   dashboard: () => adminRequest<DashboardResponse>('/api/admin/dashboard'),
   users: () => adminRequest<User[]>('/api/admin/users'),
-  createUser: (payload: { email: string; name: string; password: string; balance?: number; allowed_models?: string[] }) =>
-    adminRequest<User>('/api/admin/users', 'POST', payload),
+  updateUser: (id: number, payload: UserUpdatePayload) => adminRequest<User>(`/api/admin/users/${id}`, 'PATCH', payload),
   keys: () => adminRequest<APIKey[]>('/api/admin/api-keys'),
   createKey: (payload: { user_id: number; name: string; allowed_models?: string[]; expires_at_ms?: number }) =>
     adminRequest<APIKey>('/api/admin/api-keys', 'POST', payload),

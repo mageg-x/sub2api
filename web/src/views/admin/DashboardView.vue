@@ -37,7 +37,7 @@
           <div v-else class="stats-grid">
             <div v-for="entry in statEntries" :key="entry[0]" class="stat-item">
               <div class="stat-item-label">{{ entry[0] }}</div>
-              <div class="stat-item-value">{{ entry[1] }}</div>
+              <div :class="['stat-item-value', { 'date-value': entry[2] }]">{{ entry[1] }}</div>
             </div>
           </div>
         </div>
@@ -85,10 +85,10 @@
       </div>
       <div class="card-body">
         <el-table :data="data?.accounts?.slice(0, 8) || []" empty-text="暂无账户" class="data-table">
-          <el-table-column prop="provider" label="Provider" min-width="150" />
-          <el-table-column prop="name" label="账户名" min-width="180" />
-          <el-table-column prop="auth_type" label="认证方式" min-width="120" />
-          <el-table-column label="状态" width="120">
+          <el-table-column prop="provider" label="Provider" width="120" />
+          <el-table-column prop="name" label="账户名" min-width="140" />
+          <el-table-column prop="auth_type" label="认证方式" width="100" />
+          <el-table-column label="状态" width="80">
             <template #default="{ row }">
               <el-tag :type="isActiveStatus(row.status) ? 'success' : 'info'" size="small">
                 {{ row.status }}
@@ -109,26 +109,26 @@
       </div>
       <div class="card-body">
         <el-table :data="data?.orders?.slice(0, 8) || []" empty-text="暂无订单" class="data-table">
-          <el-table-column prop="out_trade_no" label="商户单号" min-width="200">
+          <el-table-column prop="out_trade_no" label="商户单号" min-width="160">
             <template #default="{ row }">
               <span class="mono">{{ row.out_trade_no }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="user_id" label="用户" width="100" />
-          <el-table-column prop="provider" label="渠道" width="120" />
-          <el-table-column label="金额" min-width="120">
+          <el-table-column prop="user_id" label="用户" width="60" />
+          <el-table-column prop="provider" label="渠道" width="80" />
+          <el-table-column label="金额" width="80">
             <template #default="{ row }">
-              <span class="mono">{{ formatCurrency(row.amount) }} 元</span>
+              <span class="mono">{{ formatCurrency(row.amount) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="状态" width="120">
+          <el-table-column label="状态" width="70">
             <template #default="{ row }">
               <el-tag :type="isPaidStatus(row.status) ? 'success' : 'warning'" size="small">
                 {{ row.status }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="创建时间" min-width="180">
+          <el-table-column label="创建时间" width="130">
             <template #default="{ row }">
               <span class="mono">{{ formatTime(row.created_at_ms) }}</span>
             </template>
@@ -204,7 +204,15 @@ const metricCards = computed<MetricCard[]>(() => {
   ];
 });
 
-const statEntries = computed<Array<[string, unknown]>>(() => Object.entries(data.value?.stats || {}));
+const statEntries = computed<Array<[string, unknown, boolean]>>(() => {
+  const raw = Object.entries(data.value?.stats || {});
+  return raw.filter(([key]) => key !== "TIMESTAMP_MS").map(([key, value]) => {
+    if (typeof value === "number" && value > 1e12) {
+      return [key, formatTime(value), true];
+    }
+    return [key, value, false];
+  });
+});
 
 async function load() {
   loading.value = true;
@@ -237,15 +245,16 @@ onMounted(() => {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
 }
 
 .stat-item {
-  padding: 20px;
+  padding: 14px;
   background: var(--border-light);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   transition: all var(--transition-fast);
+  overflow: hidden;
 }
 
 .stat-item:hover {
@@ -253,18 +262,30 @@ onMounted(() => {
 }
 
 .stat-item-label {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stat-item-value {
-  font-size: 28px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.02em;
+  word-break: break-all;
+  line-height: 1.3;
+}
+
+.stat-item-value.date-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.4;
 }
 
 .announcement-list {

@@ -4,7 +4,7 @@
       <div class="sidebar-header">
         <div class="sidebar-brand">
           <div class="sidebar-logo">
-            <LayoutDashboard :size="24" />
+            <LayoutDashboard :size="20" />
           </div>
           <div>
             <h1 class="sidebar-title">sub2api</h1>
@@ -17,7 +17,7 @@
         <div class="nav-section">
           <div class="nav-section-title">我的</div>
           <router-link v-for="item in userLinks" :key="item.to" :to="item.to" class="nav-item" :class="{ active: route.path === item.to }">
-            <component :is="item.icon" class="nav-item-icon" :size="20" />
+            <component :is="item.icon" class="nav-item-icon" :size="18" />
             <span>{{ item.label }}</span>
           </router-link>
         </div>

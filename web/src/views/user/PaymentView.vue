@@ -1,89 +1,185 @@
 <template>
-  <div style="display: grid; gap: 18px">
-    <div class="card-grid" style="grid-template-columns: repeat(3, minmax(0, 1fr))">
-      <ElCard shadow="never" class="stat-card">
-        <p class="stat-label">余额</p>
-        <p class="stat-value">
-          {{ formatCurrency(session.user?.balance || 0) }}
-        </p>
-      </ElCard>
-      <ElCard shadow="never" class="stat-card">
-        <p class="stat-label">订单数</p>
-        <p class="stat-value">{{ orders.length }}</p>
-      </ElCard>
-      <ElCard shadow="never" class="stat-card">
-        <p class="stat-label">已支付</p>
-        <p class="stat-value">{{ paidOrders }}</p>
-      </ElCard>
+  <div class="page-container">
+    <div class="page-header">
+      <div class="header-content">
+        <div class="header-icon">
+          <WalletCards :size="28" />
+        </div>
+        <div class="header-text">
+          <h1 class="page-title">余额充值</h1>
+          <p class="page-subtitle">为您的账户充值，支持微信和支付宝</p>
+        </div>
+      </div>
     </div>
 
-    <ElAlert v-if="error" :title="error" type="error" :closable="false" show-icon />
-
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px">
-      <ElCard shadow="never">
-        <template #header>
-          <div style="display: flex; align-items: center; gap: 8px">
-            <CreditCard :size="16" />
-            <span>发起充值</span>
+    <div class="content-grid">
+      <div class="stats-row">
+        <div class="surface-card stat-mini">
+          <div class="stat-mini-icon balance">
+            <WalletCards :size="20" />
           </div>
-        </template>
-        <ElForm label-position="top">
-          <ElFormItem label="金额">
-            <ElInput v-model.number="form.amount" type="number" placeholder="单位：1e-4 元" />
-          </ElFormItem>
-          <ElFormItem label="订单标题">
-            <ElInput v-model="form.subject" placeholder="如 Balance Recharge" />
-          </ElFormItem>
-          <ElButton type="primary" :loading="submitting" @click="createOrder">创建订单</ElButton>
-        </ElForm>
-      </ElCard>
-
-      <ElCard shadow="never">
-        <template #header>
-          <div style="display: flex; align-items: center; gap: 8px">
-            <ReceiptText :size="16" />
-            <span>支付回执</span>
+          <div class="stat-mini-content">
+            <span class="stat-mini-label">当前余额</span>
+            <span class="stat-mini-value">{{ formatCurrency(session.user?.balance || 0) }} 元</span>
           </div>
-        </template>
-        <div class="pre-box">{{ prettyJSON(result) }}</div>
-        <p class="helper-copy" style="margin: 12px 0 0; line-height: 1.8">一期仅接入 `gopay`。这里展示后端返回的支付参数，订单状态由回调更新，用户可在下方订单列表查看结果。</p>
-      </ElCard>
+        </div>
+        <div class="surface-card stat-mini">
+          <div class="stat-mini-icon orders">
+            <ReceiptText :size="20" />
+          </div>
+          <div class="stat-mini-content">
+            <span class="stat-mini-label">订单总数</span>
+            <span class="stat-mini-value">{{ orders.length }}</span>
+          </div>
+        </div>
+        <div class="surface-card stat-mini">
+          <div class="stat-mini-icon paid">
+            <CheckCircle :size="20" />
+          </div>
+          <div class="stat-mini-content">
+            <span class="stat-mini-label">已支付</span>
+            <span class="stat-mini-value">{{ paidOrders }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="error" class="surface-card error-section">
+        <el-alert :title="error" type="error" :closable="false" show-icon />
+      </div>
+
+      <div class="main-grid">
+        <div class="surface-card create-order-section">
+          <div class="card-header">
+            <h3 class="card-title">
+              <CreditCard :size="20" />
+              发起充值
+            </h3>
+          </div>
+          <div class="card-body">
+            <el-form label-position="top" class="payment-form">
+              <el-form-item label="充值金额" class="form-item-highlight">
+                <el-input 
+                  v-model.number="form.amount" 
+                  type="number"
+                  size="large"
+                  placeholder="请输入充值金额"
+                >
+                  <template #suffix>
+                    <span class="input-suffix">元</span>
+                  </template>
+                </el-input>
+                <div class="quick-amounts">
+                  <el-button 
+                    v-for="amount in quickAmounts" 
+                    :key="amount"
+                    size="small"
+                    @click="form.amount = amount"
+                  >
+                    {{ amount }} 元
+                  </el-button>
+                </div>
+              </el-form-item>
+
+              <el-form-item label="订单标题" class="form-item">
+                <el-input 
+                  v-model="form.subject" 
+                  placeholder="如 Balance Recharge"
+                  size="large"
+                />
+              </el-form-item>
+
+              <el-button 
+                type="primary" 
+                size="large" 
+                :loading="submitting" 
+                class="submit-button"
+                @click="createOrder"
+              >
+                <CreditCard :size="18" />
+                创建支付订单
+              </el-button>
+            </el-form>
+          </div>
+        </div>
+
+        <div class="surface-card result-section">
+          <div class="card-header">
+            <h3 class="card-title">
+              <ReceiptText :size="20" />
+              支付回执
+            </h3>
+          </div>
+          <div class="card-body">
+            <div v-if="!result" class="empty-state-inline">
+              <div class="empty-icon-inline">
+                <ReceiptText :size="24" />
+              </div>
+              <p>创建订单后，回执信息将显示在这里</p>
+            </div>
+            <div v-else class="result-display">
+              <pre class="json-preview mono">{{ prettyJSON(result) }}</pre>
+              <p class="helper-text">一期仅接入 `gopay`。订单状态由回调更新，请关注下方订单列表。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="surface-card orders-section">
+        <div class="card-header">
+          <h3 class="card-title">
+            <ListOrdered :size="20" />
+            我的订单
+          </h3>
+          <span class="order-count">{{ orders.length }} 个订单</span>
+        </div>
+        <div class="card-body">
+          <el-table 
+            :data="orders" 
+            empty-text="暂无订单" 
+            class="modern-table"
+            :stripe="true"
+          >
+            <el-table-column prop="out_trade_no" label="商户单号" min-width="160">
+              <template #default="{ row }">
+                <code class="trade-no mono">{{ row.out_trade_no }}</code>
+              </template>
+            </el-table-column>
+            <el-table-column label="金额" width="90">
+              <template #default="{ row }">
+                <span class="amount-value">{{ formatCurrency(row.amount) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="80">
+              <template #default="{ row }">
+                <el-tag :type="isPaidStatus(row.status) ? 'success' : 'warning'">
+                  {{ row.status === 'paid' ? '已支付' : '待支付' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="创建时间" width="140">
+              <template #default="{ row }">
+                <span class="time-text">{{ formatTime(row.created_at_ms) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="70">
+              <template #default="{ row }">
+                <el-link type="primary" @click="goDetail(row.id)">
+                  查看详情
+                </el-link>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </div>
     </div>
-
-    <ElCard shadow="never">
-      <template #header>
-        <span>我的订单</span>
-      </template>
-      <ElTable :data="orders" empty-text="暂无订单">
-        <ElTableColumn prop="out_trade_no" label="商户单号" min-width="180" />
-        <ElTableColumn label="金额" min-width="120">
-          <template #default="{ row }"> {{ formatCurrency(row.amount) }} 元 </template>
-        </ElTableColumn>
-        <ElTableColumn label="状态" width="120">
-          <template #default="{ row }">
-            <ElTag :type="isPaidStatus(row.status) ? 'success' : 'warning'">{{ row.status }}</ElTag>
-          </template>
-        </ElTableColumn>
-        <ElTableColumn label="创建时间" min-width="180">
-          <template #default="{ row }">
-            {{ formatTime(row.created_at_ms) }}
-          </template>
-        </ElTableColumn>
-        <ElTableColumn label="操作" width="110">
-          <template #default="{ row }">
-            <ElLink type="primary" @click="goDetail(row.id)">详情</ElLink>
-          </template>
-        </ElTableColumn>
-      </ElTable>
-    </ElCard>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
-import { CreditCard, ReceiptText } from "lucide-vue-next";
-import { ElAlert, ElButton, ElCard, ElForm, ElFormItem, ElInput, ElLink, ElTable, ElTableColumn, ElTag } from "element-plus";
+import { CheckCircle, CreditCard, ListOrdered, ReceiptText, WalletCards } from "lucide-vue-next";
+import { ElAlert, ElButton, ElForm, ElFormItem, ElInput, ElLink, ElTable, ElTableColumn, ElTag } from "element-plus";
 import { userAPI } from "@/api/user";
 import { session } from "@/store/session";
 import type { PaymentCreateResponse, PaymentOrder } from "@/api/types";
@@ -95,9 +191,11 @@ const orders = ref<PaymentOrder[]>([]);
 const error = ref("");
 const submitting = ref(false);
 const form = reactive({
-  amount: 10000,
+  amount: 100,
   subject: "Balance Recharge",
 });
+
+const quickAmounts = [50, 100, 200, 500, 1000];
 
 const paidOrders = computed(() => orders.value.filter((item) => isPaidStatus(item.status)).length);
 
@@ -115,7 +213,7 @@ async function createOrder() {
     });
     await load();
   } catch (err) {
-    error.value = err instanceof Error ? err.message : "create failed";
+    error.value = err instanceof Error ? err.message : "创建失败";
   } finally {
     submitting.value = false;
   }
@@ -129,3 +227,250 @@ onMounted(() => {
   void load();
 });
 </script>
+
+<style scoped>
+.page-container {
+  animation: fadeIn 0.4s ease-out;
+}
+
+.page-header {
+  margin-bottom: 32px;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.header-icon {
+  width: 64px;
+  height: 64px;
+  background: var(--primary-lighter);
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-color);
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
+}
+
+.header-text {
+  flex: 1;
+}
+
+.page-title {
+  font-size: 28px;
+  font-weight: 800;
+  margin: 0 0 6px;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.page-subtitle {
+  font-size: 15px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.content-grid {
+  display: grid;
+  gap: 24px;
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.stat-mini {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px !important;
+}
+
+.stat-mini-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-mini-icon.balance {
+  background: var(--primary-lighter);
+  color: var(--primary-color);
+}
+
+.stat-mini-icon.orders {
+  background: var(--info-light);
+  color: var(--info-color);
+}
+
+.stat-mini-icon.paid {
+  background: var(--success-light);
+  color: var(--success-color);
+}
+
+.stat-mini-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-mini-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.stat-mini-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.error-section {
+  padding: 0;
+}
+
+.main-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 24px;
+}
+
+.create-order-section,
+.result-section {
+  overflow: visible;
+}
+
+.payment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-item-highlight {
+  margin-bottom: 16px;
+}
+
+.form-item {
+  margin-bottom: 16px;
+}
+
+.input-suffix {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.quick-amounts {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.quick-amounts .el-button {
+  min-width: 80px;
+}
+
+.submit-button {
+  width: 100%;
+  height: 52px !important;
+  font-size: 16px !important;
+  margin-top: 8px;
+}
+
+.empty-state-inline {
+  text-align: center;
+  padding: 48px 20px;
+}
+
+.empty-icon-inline {
+  width: 64px;
+  height: 64px;
+  background: var(--border-light);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  color: var(--text-muted);
+}
+
+.empty-state-inline p {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0;
+}
+
+.result-display {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.json-preview {
+  background: var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  overflow-x: auto;
+  margin: 0;
+  line-height: 1.8;
+}
+
+.helper-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.7;
+}
+
+.orders-section {
+  overflow: visible;
+}
+
+.order-count {
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--border-light);
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-weight: 500;
+}
+
+.modern-table {
+  overflow: visible;
+}
+
+.trade-no {
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: var(--border-light);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+}
+
+.amount-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.time-text {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>

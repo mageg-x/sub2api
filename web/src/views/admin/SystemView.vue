@@ -1,26 +1,50 @@
 <template>
-  <ElCard shadow="never">
-    <template #header>
-      <div style="display: flex; align-items: center; gap: 8px">
-        <Activity :size="16" />
-        <span>系统指标</span>
+  <div>
+    <div class="surface-card">
+      <div class="card-header">
+        <h3 class="card-title">
+          <Activity :size="20" />
+          系统指标
+        </h3>
+        <span class="stat-count">{{ statCount }} 项</span>
       </div>
-    </template>
-    <ElDescriptions :column="2" border>
-      <ElDescriptionsItem v-for="(value, key) in stats" :key="String(key)" :label="String(key)">
-        {{ value }}
-      </ElDescriptionsItem>
-    </ElDescriptions>
-  </ElCard>
+      <div class="card-body">
+        <div class="stats-grid">
+          <div v-for="(value, key) in displayStats" :key="String(key)" class="stat-item">
+            <div class="stat-item-label">{{ formatKey(String(key)) }}</div>
+            <div class="stat-item-value">{{ value }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { Activity } from "lucide-vue-next";
-import { ElCard, ElDescriptions, ElDescriptionsItem } from "element-plus";
 import { adminAPI } from "@/api/admin";
+import { formatTime } from "@/utils";
 
 const stats = ref<Record<string, unknown>>({});
+
+const statCount = computed(() => Object.keys(stats.value).length);
+
+const displayStats = computed(() => {
+  const entries = Object.entries(stats.value).filter(([key]) => key !== "TIMESTAMP_MS");
+  return Object.fromEntries(
+    entries.map(([key, value]) => {
+      if (typeof value === "number" && value > 1e12) {
+        return [key, formatTime(value)];
+      }
+      return [key, value];
+    })
+  );
+});
+
+function formatKey(key: string): string {
+  return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 async function load() {
   stats.value = await adminAPI.stats();
@@ -30,3 +54,52 @@ onMounted(() => {
   void load();
 });
 </script>
+
+<style scoped>
+.stat-count {
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--border-light);
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-weight: 500;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.stat-item {
+  padding: 14px;
+  background: var(--border-light);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  overflow: hidden;
+}
+
+.stat-item:hover {
+  background: var(--border-color);
+}
+
+.stat-item-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stat-item-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  word-break: break-all;
+  line-height: 1.3;
+}
+</style>

@@ -1,7 +1,5 @@
 # sub2api lite
 
-面向旧版 `sub2api` 的精简重构起点。
-
 当前目标不是复制旧项目全部能力，而是优先保住最核心闭环：
 
 - 多用户 + API Key
@@ -131,7 +129,4 @@ curl -X POST http://127.0.0.1:8080/api/admin/bootstrap \
 - bootstrap 成功后会直接返回该管理员的 `access_token` 和 `refresh_token`
 - 之后可用该邮箱和密码从前端登录页进入系统
 
-## 关键文档
 
-- [重构简化指南](docs/重构简化指南.md)
-- [一期重构实施说明](docs/一期重构实施说明.md)

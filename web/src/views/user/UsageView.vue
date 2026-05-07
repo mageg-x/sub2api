@@ -1,52 +1,88 @@
 <template>
-  <div style="display: grid; gap: 18px">
+  <div>
     <div class="card-grid">
-      <ElCard shadow="never" class="stat-card">
+      <div class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon">
+            <Bolt :size="24" />
+          </div>
+        </div>
         <p class="stat-label">调用次数</p>
         <p class="stat-value">{{ summary.requests }}</p>
-      </ElCard>
-      <ElCard shadow="never" class="stat-card">
+        <p class="stat-helper">API 请求总计</p>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon">
+            <ArrowDownToLine :size="24" />
+          </div>
+        </div>
         <p class="stat-label">输入 Tokens</p>
-        <p class="stat-value">{{ summary.input }}</p>
-      </ElCard>
-      <ElCard shadow="never" class="stat-card">
+        <p class="stat-value">{{ summary.input.toLocaleString() }}</p>
+        <p class="stat-helper">Prompt tokens</p>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon">
+            <ArrowUpFromLine :size="24" />
+          </div>
+        </div>
         <p class="stat-label">输出 Tokens</p>
-        <p class="stat-value">{{ summary.output }}</p>
-      </ElCard>
-      <ElCard shadow="never" class="stat-card">
+        <p class="stat-value">{{ summary.output.toLocaleString() }}</p>
+        <p class="stat-helper">Completion tokens</p>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon">
+            <ReceiptText :size="24" />
+          </div>
+        </div>
         <p class="stat-label">花费</p>
         <p class="stat-value">{{ formatCurrency(summary.cost) }}</p>
-      </ElCard>
+        <p class="stat-helper">累计消费金额</p>
+      </div>
     </div>
 
-    <DataTable
-      title="我的用量"
-      :columns="[
-        { key: 'created_at_ms', label: '时间', minWidth: 180 },
-        { key: 'provider', label: 'Provider', width: 120 },
-        { key: 'model', label: '模型', minWidth: 180 },
-        { key: 'endpoint', label: '接口', minWidth: 180 },
-        { key: 'input_tokens', label: '输入', width: 100 },
-        { key: 'output_tokens', label: '输出', width: 100 },
-        { key: 'cost', label: '费用', minWidth: 120 },
-      ]"
-      :rows="usage as unknown as Array<Record<string, unknown>>"
-    >
-      <template #created_at_ms="{ row }">
-        {{ formatTime(Number(row.created_at_ms || 0)) }}
-      </template>
-      <template #provider="{ row }">
-        <ElTag size="small">{{ row.provider }}</ElTag>
-      </template>
-      <template #cost="{ row }"> {{ formatCurrency(Number(row.cost || 0)) }} 元 </template>
-    </DataTable>
+    <div class="surface-card">
+      <div class="card-header">
+        <h3 class="card-title">
+          <ListOrdered :size="20" />
+          我的用量
+        </h3>
+      </div>
+      <div class="card-body">
+        <el-table :data="usage" empty-text="暂无记录" class="modern-table" :stripe="true">
+          <el-table-column label="时间" min-width="170">
+            <template #default="{ row }">
+              {{ formatTime(Number(row.created_at_ms || 0)) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="provider" label="Provider" width="110">
+            <template #default="{ row }">
+              <el-tag size="small">{{ row.provider }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="model" label="模型" min-width="160" />
+          <el-table-column prop="endpoint" label="接口" min-width="180" class-name="mono-cell" />
+          <el-table-column prop="input_tokens" label="输入" width="90" align="right" />
+          <el-table-column prop="output_tokens" label="输出" width="90" align="right" />
+          <el-table-column label="费用" width="100" align="right">
+            <template #default="{ row }">
+              <span class="cost-text">{{ formatCurrency(Number(row.cost || 0)) }} 元</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { ElCard, ElTag } from "element-plus";
-import DataTable from "@/components/DataTable.vue";
+import { ArrowDownToLine, ArrowUpFromLine, Bolt, ListOrdered, ReceiptText } from "lucide-vue-next";
 import { userAPI } from "@/api/user";
 import type { UsageLog } from "@/api/types";
 import { formatCurrency, formatTime } from "@/utils";
@@ -68,3 +104,10 @@ onMounted(() => {
   void load();
 });
 </script>
+
+<style scoped>
+.cost-text {
+  color: var(--warning-color);
+  font-weight: 600;
+}
+</style>

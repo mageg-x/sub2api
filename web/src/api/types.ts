@@ -10,6 +10,16 @@ export interface User {
   last_login_at_ms: number
 }
 
+export interface UserUpdatePayload {
+  name?: string
+  status?: string
+  role?: string
+  balance?: number
+  rate_percent?: number
+  allowed_models?: string[]
+  password?: string
+}
+
 export interface APIKey {
   id: number
   user_id: number

@@ -200,6 +200,16 @@ type CreateUserInput struct {
 	Metadata      json.RawMessage `json:"metadata"`
 }
 
+type UpdateUserInput struct {
+	Name          string   `json:"name"`
+	Status        string   `json:"status"`
+	Role          string   `json:"role"`
+	Password      string   `json:"password"`
+	Balance       *int64   `json:"balance"`
+	RatePercent   *int     `json:"rate_percent"`
+	AllowedModels []string `json:"allowed_models"`
+}
+
 type CreateAPIKeyInput struct {
 	UserID        uint64   `json:"user_id"`
 	Name          string   `json:"name"`
@@ -425,6 +435,53 @@ func (c *Core) ListUsers() ([]model.User, error) {
 	var items []model.User
 	err := c.db.Order("id asc").Find(&items).Error
 	return items, err
+}
+
+func (c *Core) UpdateUser(id uint64, in UpdateUserInput) (*model.User, error) {
+	updates := map[string]any{}
+	if name := strings.TrimSpace(in.Name); name != "" {
+		updates["name"] = name
+	}
+	if status := strings.TrimSpace(in.Status); status != "" {
+		updates["status"] = status
+	}
+	if role := strings.TrimSpace(in.Role); role != "" {
+		updates["role"] = role
+	}
+	if password := strings.TrimSpace(in.Password); password != "" {
+		salt, hash, err := hashPassword(password)
+		if err != nil {
+			return nil, err
+		}
+		updates["password_salt"] = salt
+		updates["password_hash"] = hash
+	}
+	if in.Balance != nil {
+		updates["balance"] = *in.Balance
+	}
+	if in.RatePercent != nil {
+		updates["rate_percent"] = *in.RatePercent
+	}
+	if in.AllowedModels != nil {
+		allowed, _ := json.Marshal(normalizeStrings(in.AllowedModels))
+		updates["allowed_models_json"] = string(allowed)
+	}
+	if len(updates) == 0 {
+		var user model.User
+		if err := c.db.First(&user, id).Error; err != nil {
+			return nil, err
+		}
+		return &user, nil
+	}
+	updates["updated_at_ms"] = time.Now().UnixMilli()
+	if err := c.db.Model(&model.User{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+		return nil, err
+	}
+	var user model.User
+	if err := c.db.First(&user, id).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 
 // GetUserByID 根据ID获取用户

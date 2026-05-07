@@ -61,7 +61,7 @@ func (h *HTTP) Routes() http.Handler {
 	mux.HandleFunc("POST /api/admin/bootstrap", h.bootstrapAdmin)
 	mux.HandleFunc("GET /api/admin/dashboard", h.adminDashboard)
 	mux.HandleFunc("GET /api/admin/users", h.adminUsers)
-	mux.HandleFunc("POST /api/admin/users", h.adminCreateUser)
+	mux.HandleFunc("PATCH /api/admin/users/", h.adminUpdateUser)
 	mux.HandleFunc("GET /api/admin/api-keys", h.adminAPIKeys)
 	mux.HandleFunc("POST /api/admin/api-keys", h.adminCreateAPIKey)
 	mux.HandleFunc("GET /api/admin/accounts", h.adminAccounts)
@@ -264,25 +264,26 @@ func (h *HTTP) adminUsers(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, items)
 }
 
-// adminCreateUser 管理后台创建用户
-func (h *HTTP) adminCreateUser(w http.ResponseWriter, r *http.Request) {
-	// 检查管理员权限
+// adminUpdateUser 管理后台更新用户
+func (h *HTTP) adminUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdmin(w, r) {
 		return
 	}
-	// 解析请求
-	var req service.CreateUserInput
+	id, err := strconv.ParseUint(strings.TrimPrefix(r.URL.Path, "/api/admin/users/"), 10, 64)
+	if err != nil || id == 0 {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid user id"))
+		return
+	}
+	var req service.UpdateUserInput
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	// 创建用户
-	item, err := h.core.CreateUser(req)
+	item, err := h.core.UpdateUser(id, req)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	// 返回结果
 	writeJSON(w, http.StatusOK, item)
 }
 

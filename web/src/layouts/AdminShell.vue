@@ -4,7 +4,7 @@
       <div class="sidebar-header">
         <div class="sidebar-brand">
           <div class="sidebar-logo">
-            <LayoutDashboard :size="24" />
+            <LayoutDashboard :size="20" />
           </div>
           <div>
             <h1 class="sidebar-title">sub2api</h1>
@@ -17,7 +17,7 @@
         <div class="nav-section">
           <div class="nav-section-title">管理</div>
           <router-link v-for="item in adminLinks" :key="item.to" :to="item.to" class="nav-item" :class="{ active: route.path === item.to }">
-            <component :is="item.icon" class="nav-item-icon" :size="20" />
+            <component :is="item.icon" class="nav-item-icon" :size="18" />
             <span>{{ item.label }}</span>
           </router-link>
         </div>
@@ -44,14 +44,7 @@
         </div>
 
         <div class="header-right">
-          <el-tag type="danger" effect="dark" size="large">管理员</el-tag>
-          <div class="admin-token-input">
-            <el-input v-model="adminTokenInput" placeholder="X-Admin-Token" size="default" clearable @change="handleAdminTokenChange">
-              <template #prefix>
-                <Key :size="16" />
-              </template>
-            </el-input>
-          </div>
+          <el-tag type="danger" effect="dark">管理员</el-tag>
 
           <el-dropdown @command="handleCommand">
             <div class="user-menu">
@@ -88,27 +81,41 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { RouterView, useRoute, useRouter } from "vue-router";
-import { ChevronDown, Key, LayoutDashboard, LogOut, ShieldUser, User } from "lucide-vue-next";
-import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElInput, ElTag } from "element-plus";
+import {
+  BarChart3,
+  Banknote,
+  Bug,
+  ChevronDown,
+  Gauge,
+  LayoutDashboard,
+  LogOut,
+  Megaphone,
+  ReceiptText,
+  ShieldUser,
+  Ticket,
+  Users,
+  KeyRound,
+  User,
+} from "lucide-vue-next";
+import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElTag } from "element-plus";
 import { me, logout } from "@/api/auth";
-import { clearAuth, saveAdminToken, session } from "@/store/session";
+import { clearAuth, session } from "@/store/session";
 
 const route = useRoute();
 const router = useRouter();
-const adminTokenInput = ref(session.adminToken || "");
 
 const adminLinks = [
   { to: "/admin/dashboard", label: "总览", icon: LayoutDashboard },
-  { to: "/admin/users", label: "用户管理", icon: ShieldUser },
-  { to: "/admin/api-keys", label: "API Keys", icon: Key },
-  { to: "/admin/accounts", label: "上游账户", icon: Key },
-  { to: "/admin/usage", label: "用量统计", icon: LayoutDashboard },
-  { to: "/admin/prices", label: "价格配置", icon: LayoutDashboard },
-  { to: "/admin/payments", label: "支付订单", icon: LayoutDashboard },
-  { to: "/admin/announcements", label: "公告管理", icon: LayoutDashboard },
-  { to: "/admin/coupons", label: "兑换码", icon: LayoutDashboard },
-  { to: "/admin/errors", label: "错误日志", icon: LayoutDashboard },
-  { to: "/admin/system", label: "系统指标", icon: LayoutDashboard },
+  { to: "/admin/users", label: "用户管理", icon: Users },
+  { to: "/admin/api-keys", label: "API Keys", icon: KeyRound },
+  { to: "/admin/accounts", label: "上游账户", icon: ShieldUser },
+  { to: "/admin/usage", label: "用量统计", icon: BarChart3 },
+  { to: "/admin/prices", label: "价格配置", icon: Banknote },
+  { to: "/admin/payments", label: "支付订单", icon: ReceiptText },
+  { to: "/admin/announcements", label: "公告管理", icon: Megaphone },
+  { to: "/admin/coupons", label: "兑换码", icon: Ticket },
+  { to: "/admin/errors", label: "错误日志", icon: Bug },
+  { to: "/admin/system", label: "系统指标", icon: Gauge },
 ];
 
 const pageTitle = computed(() => {
@@ -137,10 +144,6 @@ const userInitials = computed(() => {
   const name = session.user?.name || session.user?.email || "A";
   return name.charAt(0).toUpperCase();
 });
-
-function handleAdminTokenChange(value: string) {
-  saveAdminToken(value);
-}
 
 function handleCommand(command: string) {
   switch (command) {

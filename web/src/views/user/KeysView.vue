@@ -1,74 +1,159 @@
 <template>
-  <div style="display: grid; gap: 18px">
-    <ElCard shadow="never">
-      <template #header>
-        <div style="display: flex; align-items: center; gap: 8px">
-          <KeyRound :size="16" />
-          <span>创建我的 API Key</span>
+  <div class="page-container">
+    <div class="page-header">
+      <div class="header-content">
+        <div class="header-icon">
+          <KeyRound :size="28" />
         </div>
-      </template>
-      <ElForm label-position="top">
-        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
-          <ElFormItem label="Key 名称">
-            <ElInput v-model="form.name" placeholder="如 default-client" />
-          </ElFormItem>
-          <ElFormItem label="允许模型">
-            <ElInput v-model="form.models" placeholder="逗号分隔，可留空表示继承用户权限" />
-          </ElFormItem>
+        <div class="header-text">
+          <h1 class="page-title">API Keys 管理</h1>
+          <p class="page-subtitle">创建和管理您的 API 访问密钥</p>
         </div>
-        <ElButton type="primary" @click="create">创建 Key</ElButton>
-      </ElForm>
-    </ElCard>
+      </div>
+    </div>
 
-    <ElAlert v-if="lastCreatedKey" type="success" :closable="false" show-icon title="Key 已创建，可以直接复制用于客户端调用。">
-      <template #default>
-        <div style="display: grid; gap: 10px">
-          <div class="mono">{{ lastCreatedKey.secret }}</div>
-          <div style="display: flex; gap: 8px; flex-wrap: wrap">
-            <ElButton size="small" type="primary" @click="copySecret(lastCreatedKey.secret)">复制 Secret</ElButton>
-            <ElButton size="small" @click="lastCreatedKey = null">关闭</ElButton>
+    <div class="content-grid">
+      <div class="surface-card create-section">
+        <div class="card-header">
+          <h3 class="card-title">
+            <KeyRound :size="20" />
+            创建新的 API Key
+          </h3>
+        </div>
+        <div class="card-body">
+          <el-form label-position="top" class="key-form">
+            <div class="form-row">
+              <el-form-item label="Key 名称" class="form-item">
+                <el-input 
+                  v-model="form.name" 
+                  placeholder="如 default-client"
+                  size="large"
+                />
+              </el-form-item>
+              <el-form-item label="允许模型" class="form-item">
+                <el-input 
+                  v-model="form.models" 
+                  placeholder="逗号分隔，可留空表示继承用户权限"
+                  size="large"
+                />
+              </el-form-item>
+            </div>
+            <div class="form-actions">
+              <el-button type="primary" size="large" @click="create">
+                <KeyRound :size="18" />
+                创建 Key
+              </el-button>
+            </div>
+          </el-form>
+        </div>
+      </div>
+
+      <transition name="slide-fade">
+        <div v-if="lastCreatedKey" class="surface-card success-alert">
+          <div class="alert-header">
+            <div class="alert-icon">
+              <ShieldCheck :size="20" />
+            </div>
+            <div class="alert-content">
+              <h4>Key 创建成功</h4>
+              <p>请立即复制并妥善保管，关闭后将无法再次查看完整 Secret</p>
+            </div>
+            <el-button text @click="lastCreatedKey = null">
+              <X :size="18" />
+            </el-button>
+          </div>
+          <div class="secret-display">
+            <code class="secret-key mono">{{ lastCreatedKey.secret }}</code>
+          </div>
+          <div class="secret-actions">
+            <el-button type="primary" @click="copySecret(lastCreatedKey.secret)">
+              <Copy :size="16" />
+              复制 Secret
+            </el-button>
+            <el-button @click="lastCreatedKey = null">关闭</el-button>
           </div>
         </div>
-      </template>
-    </ElAlert>
+      </transition>
 
-    <ElCard shadow="never">
-      <template #header>
-        <span>我的 Keys</span>
-      </template>
-      <ElTable :data="keys" empty-text="暂无 Keys">
-        <ElTableColumn prop="name" label="名称" min-width="160" />
-        <ElTableColumn label="Secret" min-width="260">
-          <template #default="{ row }">
-            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
-              <span class="mono">{{ revealed[row.id] ? row.secret : maskSecret(row.secret) }}</span>
-              <ElButton text size="small" @click="revealed[row.id] = !revealed[row.id]">
-                {{ revealed[row.id] ? "隐藏" : "显示" }}
-              </ElButton>
-              <ElButton text size="small" type="primary" @click="copySecret(row.secret)">复制</ElButton>
-            </div>
-          </template>
-        </ElTableColumn>
-        <ElTableColumn label="状态" width="110">
-          <template #default="{ row }">
-            <ElTag :type="isActiveStatus(row.status) ? 'success' : 'info'">{{ row.status }}</ElTag>
-          </template>
-        </ElTableColumn>
-        <ElTableColumn prop="allowed_models_json" label="允许模型" min-width="240" show-overflow-tooltip />
-        <ElTableColumn label="最后使用" min-width="180">
-          <template #default="{ row }">
-            {{ formatTime(row.last_used_at_ms) }}
-          </template>
-        </ElTableColumn>
-      </ElTable>
-    </ElCard>
+      <div class="surface-card keys-section">
+        <div class="card-header">
+          <h3 class="card-title">
+            <ShieldCheck :size="20" />
+            我的 API Keys
+          </h3>
+          <span class="key-count">{{ keys.length }} 个 Key</span>
+        </div>
+        <div class="card-body">
+          <el-table 
+            :data="keys" 
+            empty-text="暂无 Keys" 
+            class="modern-table"
+            :stripe="true"
+          >
+            <el-table-column prop="name" label="名称" width="100">
+              <template #default="{ row }">
+                <div class="key-name">
+                  <KeyRound :size="16" />
+                  <span>{{ row.name }}</span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="Secret" min-width="200">
+              <template #default="{ row }">
+                <div class="secret-row">
+                  <code class="secret-value mono">
+                    {{ revealed[row.id] ? row.secret : maskSecret(row.secret) }}
+                  </code>
+                  <div class="secret-actions-inline">
+                    <el-button 
+                      text 
+                      size="small" 
+                      @click="revealed[row.id] = !revealed[row.id]"
+                    >
+                      <component :is="revealed[row.id] ? EyeOff : Eye" :size="14" />
+                      {{ revealed[row.id] ? '隐藏' : '显示' }}
+                    </el-button>
+                    <el-button 
+                      text 
+                      size="small" 
+                      type="primary"
+                      @click="copySecret(row.secret)"
+                    >
+                      <Copy :size="14" />
+                      复制
+                    </el-button>
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="80">
+              <template #default="{ row }">
+                <el-tag :type="isActiveStatus(row.status) ? 'success' : 'info'">
+                  {{ row.status }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="allowed_models_json" label="允许模型" width="120">
+              <template #default="{ row }">
+                <span class="models-text">{{ row.allowed_models_json || '全部模型' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="最后使用" width="130">
+              <template #default="{ row }">
+                <span class="time-text">{{ formatTime(row.last_used_at_ms) }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from "vue";
-import { KeyRound } from "lucide-vue-next";
-import { ElAlert, ElButton, ElCard, ElForm, ElFormItem, ElInput, ElTable, ElTableColumn, ElTag } from "element-plus";
+import { Copy, Eye, EyeOff, KeyRound, ShieldCheck, X } from "lucide-vue-next";
+import { ElButton, ElForm, ElFormItem, ElInput, ElTable, ElTableColumn, ElTag } from "element-plus";
 import { userAPI } from "@/api/user";
 import type { APIKey } from "@/api/types";
 import { formatTime, isActiveStatus, maskSecret, parseCSV } from "@/utils";
@@ -105,3 +190,219 @@ onMounted(() => {
   void load();
 });
 </script>
+
+<style scoped>
+.page-container {
+  animation: fadeIn 0.4s ease-out;
+}
+
+.page-header {
+  margin-bottom: 32px;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.header-icon {
+  width: 64px;
+  height: 64px;
+  background: var(--primary-lighter);
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-color);
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
+}
+
+.header-text {
+  flex: 1;
+}
+
+.page-title {
+  font-size: 28px;
+  font-weight: 800;
+  margin: 0 0 6px;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.page-subtitle {
+  font-size: 15px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.content-grid {
+  display: grid;
+  gap: 24px;
+}
+
+.create-section {
+  background: white;
+}
+
+.key-form {
+  padding: 0;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.form-item {
+  margin-bottom: 0;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.form-actions .el-button {
+  min-width: 160px;
+}
+
+.success-alert {
+  border: 2px solid var(--success-color);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.03), rgba(16, 185, 129, 0.06));
+}
+
+.alert-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.alert-icon {
+  width: 44px;
+  height: 44px;
+  background: var(--success-light);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--success-color);
+  flex-shrink: 0;
+}
+
+.alert-content {
+  flex: 1;
+}
+
+.alert-content h4 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.alert-content p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.secret-display {
+  background: var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+
+.secret-key {
+  font-size: 14px;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.secret-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.keys-section {
+  overflow: visible;
+}
+
+.key-count {
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--border-light);
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-weight: 500;
+}
+
+.modern-table {
+  overflow: visible;
+}
+
+.key-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.key-name svg {
+  color: var(--primary-color);
+}
+
+.secret-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.secret-value {
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: var(--border-light);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.secret-actions-inline {
+  display: flex;
+  gap: 8px;
+}
+
+.models-text,
+.time-text {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.slide-fade-enter-active {
+  transition: all 0.3s ease-out;
+}
+
+.slide-fade-leave-active {
+  transition: all 0.2s ease-in;
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  transform: translateY(-10px);
+  opacity: 0;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>
