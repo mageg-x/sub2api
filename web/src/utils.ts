@@ -1,10 +1,14 @@
+import i18n from '@/i18n'
+
 export function formatTime(ts: number): string {
   if (!ts) return '-'
-  return new Date(ts).toLocaleString()
+  const locale = i18n.global.locale.value
+  return new Date(ts).toLocaleString(locale)
 }
 
 export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('zh-CN', {
+  const locale = i18n.global.locale.value
+  return new Intl.NumberFormat(locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format((value || 0) / 10000)

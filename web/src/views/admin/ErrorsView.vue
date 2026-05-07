@@ -1,26 +1,24 @@
 <template>
   <div>
     <div class="card-grid" style="grid-template-columns: 1fr 1fr; gap: 16px">
-      <div class="stat-card">
-        <div class="stat-header">
-          <div class="stat-icon error">
-            <Bug :size="22" />
-          </div>
+      <div class="surface-card stat-mini">
+        <div class="stat-mini-icon error">
+          <Bug :size="20" />
         </div>
-        <p class="stat-label">{{ t('adminErrors.totalErrors') }}</p>
-        <p class="stat-value">{{ items.length }}</p>
-        <p class="stat-helper">{{ t('adminErrors.errorRecords') }}</p>
+        <div class="stat-mini-content">
+          <span class="stat-mini-label">{{ t('adminErrors.totalErrors') }}</span>
+          <span class="stat-mini-value">{{ items.length }}</span>
+        </div>
       </div>
 
-      <div class="stat-card">
-        <div class="stat-header">
-          <div class="stat-icon alert">
-            <AlertTriangle :size="22" />
-          </div>
+      <div class="surface-card stat-mini">
+        <div class="stat-mini-icon alert">
+          <AlertTriangle :size="20" />
         </div>
-        <p class="stat-label">{{ t('adminErrors.last24h') }}</p>
-        <p class="stat-value">{{ recentItems.length }}</p>
-        <p class="stat-helper">{{ t('adminErrors.recentErrors') }}</p>
+        <div class="stat-mini-content">
+          <span class="stat-mini-label">{{ t('adminErrors.last24h') }}</span>
+          <span class="stat-mini-value">{{ recentItems.length }}</span>
+        </div>
       </div>
     </div>
 
@@ -91,6 +89,51 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.stat-mini {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px !important;
+}
+
+.stat-mini-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-mini-icon.error {
+  background: var(--danger-light);
+  color: var(--danger-color);
+}
+
+.stat-mini-icon.alert {
+  background: var(--warning-light);
+  color: var(--warning-color);
+}
+
+.stat-mini-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-mini-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.stat-mini-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
 .error-count {
   font-size: 13px;
   color: var(--text-muted);

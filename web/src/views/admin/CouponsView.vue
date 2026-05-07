@@ -1,37 +1,34 @@
 <template>
   <div>
     <div class="card-grid" style="grid-template-columns: repeat(3, minmax(0, 1fr))">
-      <div class="stat-card">
-        <div class="stat-header">
-          <div class="stat-icon">
-            <Ticket :size="24" />
-          </div>
+      <div class="surface-card stat-mini">
+        <div class="stat-mini-icon total">
+          <Ticket :size="20" />
         </div>
-        <p class="stat-label">{{ t('adminCoupons.totalCoupons') }}</p>
-        <p class="stat-value">{{ items.length }}</p>
-        <p class="stat-helper">{{ t('adminCoupons.couponsCreated') }}</p>
+        <div class="stat-mini-content">
+          <span class="stat-mini-label">{{ t('adminCoupons.totalCoupons') }}</span>
+          <span class="stat-mini-value">{{ items.length }}</span>
+        </div>
       </div>
 
-      <div class="stat-card">
-        <div class="stat-header">
-          <div class="stat-icon active">
-            <CheckCircle :size="24" />
-          </div>
+      <div class="surface-card stat-mini">
+        <div class="stat-mini-icon active">
+          <CheckCircle :size="20" />
         </div>
-        <p class="stat-label">{{ t('adminCoupons.activated') }}</p>
-        <p class="stat-value">{{ items.filter((item) => item.status === "active").length }}</p>
-        <p class="stat-helper">{{ t('adminCoupons.available') }}</p>
+        <div class="stat-mini-content">
+          <span class="stat-mini-label">{{ t('adminCoupons.activated') }}</span>
+          <span class="stat-mini-value">{{ items.filter((item) => item.status === "active").length }}</span>
+        </div>
       </div>
 
-      <div class="stat-card">
-        <div class="stat-header">
-          <div class="stat-icon used">
-            <Gift :size="24" />
-          </div>
+      <div class="surface-card stat-mini">
+        <div class="stat-mini-icon used">
+          <Gift :size="20" />
         </div>
-        <p class="stat-label">{{ t('adminCoupons.redeemed') }}</p>
-        <p class="stat-value">{{ items.reduce((sum, item) => sum + item.used_count, 0) }}</p>
-        <p class="stat-helper">{{ t('adminCoupons.totalUsageCount') }}</p>
+        <div class="stat-mini-content">
+          <span class="stat-mini-label">{{ t('adminCoupons.redeemed') }}</span>
+          <span class="stat-mini-value">{{ items.reduce((sum, item) => sum + item.used_count, 0) }}</span>
+        </div>
       </div>
     </div>
 
@@ -152,6 +149,56 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.stat-mini {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px !important;
+}
+
+.stat-mini-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-mini-icon.total {
+  background: var(--primary-lighter);
+  color: var(--primary-color);
+}
+
+.stat-mini-icon.active {
+  background: var(--success-light);
+  color: var(--success-color);
+}
+
+.stat-mini-icon.used {
+  background: var(--accent-light);
+  color: var(--accent-color);
+}
+
+.stat-mini-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-mini-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.stat-mini-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

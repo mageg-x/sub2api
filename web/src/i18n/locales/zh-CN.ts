@@ -473,7 +473,11 @@ export default {
     leaveBlankNoChange: '留空表示不修改',
     selectAllowedModels: '选择允许的模型；清空表示不限制',
     saveFailed: '保存失败',
-    noUsers: '暂无用户'
+    noUsers: '暂无用户',
+    active: '启用',
+    disabled: '禁用',
+    roleUser: '普通用户',
+    roleAdmin: '管理员'
   },
   adminAccounts: {
     totalAccounts: '账户总数',

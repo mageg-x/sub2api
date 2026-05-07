@@ -114,14 +114,14 @@
           </ElFormItem>
           <ElFormItem :label="t('adminUsers.status')" class="form-item">
             <ElSelect v-model="editForm.status" size="large">
-              <ElOption label="active" value="active" />
-              <ElOption label="disabled" value="disabled" />
+              <ElOption :label="t('adminUsers.active')" value="active" />
+              <ElOption :label="t('adminUsers.disabled')" value="disabled" />
             </ElSelect>
           </ElFormItem>
           <ElFormItem :label="t('adminUsers.role')" class="form-item">
             <ElSelect v-model="editForm.role" size="large">
-              <ElOption label="user" value="user" />
-              <ElOption label="admin" value="admin" />
+              <ElOption :label="t('adminUsers.roleUser')" value="user" />
+              <ElOption :label="t('adminUsers.roleAdmin')" value="admin" />
             </ElSelect>
           </ElFormItem>
           <ElFormItem :label="t('adminUsers.balance')" class="form-item">

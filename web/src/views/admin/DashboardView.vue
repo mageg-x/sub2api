@@ -5,16 +5,14 @@
     </div>
 
     <div class="card-grid">
-      <div v-for="item in metricCards" :key="item.label" class="stat-card">
-        <div class="stat-header">
-          <div class="stat-icon">
-            <component :is="item.icon" :size="24" />
-          </div>
-          <span v-if="item.trend" :class="['stat-trend', item.trend > 0 ? 'up' : 'down']"> {{ item.trend > 0 ? "+" : "" }}{{ item.trend }}% </span>
+      <div v-for="item in metricCards" :key="item.label" class="surface-card stat-mini">
+        <div class="stat-mini-icon" :class="'icon-' + item.label">
+          <component :is="item.icon" :size="20" />
         </div>
-        <p class="stat-label">{{ item.label }}</p>
-        <p class="stat-value">{{ item.value }}</p>
-        <p class="stat-helper">{{ item.helper }}</p>
+        <div class="stat-mini-content">
+          <span class="stat-mini-label">{{ item.label }}</span>
+          <span class="stat-mini-value">{{ item.value }}</span>
+        </div>
       </div>
     </div>
 
@@ -230,6 +228,52 @@ onMounted(() => {
 <style scoped>
 .error-banner {
   margin-bottom: 24px;
+}
+
+.stat-mini {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px !important;
+}
+
+.stat-mini-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-mini-icon.icon-users,
+.stat-mini-icon.icon-upstreamAccountPool {
+  background: var(--primary-lighter);
+  color: var(--primary-color);
+}
+
+.stat-mini-icon.icon-latestPayments {
+  background: var(--accent-light);
+  color: var(--accent-color);
+}
+
+.stat-mini-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-mini-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.stat-mini-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
 }
 
 .dashboard-grid {

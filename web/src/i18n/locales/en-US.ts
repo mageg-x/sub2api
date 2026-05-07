@@ -473,7 +473,11 @@ export default {
     leaveBlankNoChange: 'Leave blank to keep unchanged',
     selectAllowedModels: 'Select allowed models; clear to allow all',
     saveFailed: 'Save failed',
-    noUsers: 'No users'
+    noUsers: 'No users',
+    active: 'Active',
+    disabled: 'Disabled',
+    roleUser: 'User',
+    roleAdmin: 'Admin'
   },
   adminAccounts: {
     totalAccounts: 'Total Accounts',
