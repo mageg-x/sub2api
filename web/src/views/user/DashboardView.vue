@@ -284,8 +284,11 @@ onMounted(() => {
 
 .quick-actions .el-button {
   justify-content: flex-start;
-  height: 48px;
-  padding: 0 20px;
+  height: 46px !important;
+  min-height: 46px !important;
+  font-size: 14px !important;
+  border-radius: var(--radius-md) !important;
+  margin: 0px !important;
 }
 
 .quick-actions .el-button :deep(svg) {
