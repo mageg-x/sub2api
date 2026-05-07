@@ -67,5 +67,3 @@ onMounted(() => {
   void load();
 });
 </script>
-
-

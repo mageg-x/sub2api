@@ -20,7 +20,6 @@
   </ElCard>
 </template>
 
-
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { Bug } from "lucide-vue-next";
@@ -38,4 +37,3 @@ onMounted(() => {
   void load();
 });
 </script>
-

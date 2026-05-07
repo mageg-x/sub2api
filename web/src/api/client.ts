@@ -2,8 +2,28 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
 import { clearAuth, saveAuth } from '@/store/session'
 
-const API_BASE = ''
+const RAW_API_BASE = String(import.meta.env.VITE_API_BASE || '').trim()
+const API_BASE = RAW_API_BASE.endsWith('/') ? RAW_API_BASE.slice(0, -1) : RAW_API_BASE
 let refreshPromise: Promise<boolean> | null = null
+
+export function apiURL(path: string): string {
+  return `${API_BASE}${path}`
+}
+
+export function publicAPIOrigin(): string {
+  const explicit = String(import.meta.env.VITE_PUBLIC_API_ORIGIN || '').trim()
+  if (explicit) {
+    return explicit.replace(/\/$/, '')
+  }
+  if (/^https?:\/\//i.test(API_BASE)) {
+    try {
+      return new URL(API_BASE).origin
+    } catch {
+      return window.location.origin
+    }
+  }
+  return window.location.origin
+}
 
 function authHeaders(extra?: HeadersInit): HeadersInit {
   const token = localStorage.getItem('sub2api_access_token')
@@ -33,7 +53,7 @@ async function refreshAccessToken(): Promise<boolean> {
       clearAuth()
       return false
     }
-    const res = await fetch(API_BASE + '/api/auth/refresh', {
+    const res = await fetch(apiURL('/api/auth/refresh'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: refreshToken })
@@ -53,7 +73,7 @@ async function refreshAccessToken(): Promise<boolean> {
 }
 
 export async function request<T>(path: string, method: HttpMethod = 'GET', body?: unknown, extraHeaders?: HeadersInit, retry = true): Promise<T> {
-  const res = await fetch(API_BASE + path, {
+  const res = await fetch(apiURL(path), {
     method,
     headers: authHeaders(extraHeaders),
     body: body === undefined ? undefined : JSON.stringify(body)

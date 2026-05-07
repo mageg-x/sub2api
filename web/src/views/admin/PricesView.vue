@@ -102,5 +102,3 @@ onMounted(() => {
   void load();
 });
 </script>
-
-

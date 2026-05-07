@@ -18,7 +18,6 @@
   </ElCard>
 </template>
 
-
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { Bell } from "lucide-vue-next";
@@ -37,4 +36,3 @@ onMounted(() => {
   void load();
 });
 </script>
-

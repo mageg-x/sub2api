@@ -8,32 +8,12 @@
     </template>
     <ElForm label-position="top">
       <ElFormItem label="兑换码">
-        <ElInput
-          v-model="code"
-          placeholder="输入兑换码"
-        />
+        <ElInput v-model="code" placeholder="输入兑换码" />
       </ElFormItem>
-      <ElButton
-        type="primary"
-        @click="submit"
-      >
-        立即兑换
-      </ElButton>
+      <ElButton type="primary" @click="submit"> 立即兑换 </ElButton>
     </ElForm>
-    <ElAlert
-      v-if="message"
-      :title="message"
-      type="success"
-      :closable="false"
-      style="margin-top: 16px"
-    />
-    <ElAlert
-      v-if="error"
-      :title="error"
-      type="error"
-      :closable="false"
-      style="margin-top: 16px"
-    />
+    <ElAlert v-if="message" :title="message" type="success" :closable="false" style="margin-top: 16px" />
+    <ElAlert v-if="error" :title="error" type="error" :closable="false" style="margin-top: 16px" />
   </ElCard>
 </template>
 

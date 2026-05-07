@@ -15,10 +15,11 @@
     "vue-router": "^4.5.0"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "4.60.3",
+    "@rollup/rollup-linux-x64-gnu": "^4.60.3",
     "@rollup/rollup-win32-x64-msvc": "4.60.3"
   },
   "devDependencies": {
+    "@types/node": "^22.10.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "eslint": "^10.3.0",
     "eslint-plugin-vue": "^10.9.1",

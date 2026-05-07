@@ -1,153 +1,210 @@
 <template>
-  <div style="display: grid; gap: 18px">
-    <ElAlert v-if="error" :title="error" type="error" :closable="false" show-icon />
+  <div>
+    <div v-if="error" class="error-banner">
+      <el-alert :title="error" type="error" :closable="false" show-icon />
+    </div>
 
     <div class="card-grid">
-      <ElCard v-for="item in metricCards" :key="item.label" shadow="never" class="stat-card">
-        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
-          <div>
-            <p class="stat-label">{{ item.label }}</p>
-            <p class="stat-value">{{ item.value }}</p>
-            <p class="helper-copy" style="margin: 8px 0 0">{{ item.helper }}</p>
+      <div v-for="item in metricCards" :key="item.label" class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon">
+            <component :is="item.icon" :size="24" />
           </div>
-          <component :is="item.icon" :size="18" style="color: var(--accent)" />
+          <span v-if="item.trend" :class="['stat-trend', item.trend > 0 ? 'up' : 'down']"> {{ item.trend > 0 ? "+" : "" }}{{ item.trend }}% </span>
         </div>
-      </ElCard>
+        <p class="stat-label">{{ item.label }}</p>
+        <p class="stat-value">{{ item.value }}</p>
+        <p class="stat-helper">{{ item.helper }}</p>
+      </div>
     </div>
 
-    <ElCard shadow="never">
-      <template #header>
-        <div style="display: flex; align-items: center; gap: 8px">
-          <CircleDollarSign :size="16" />
-          <span>系统指标</span>
+    <div class="dashboard-grid">
+      <div class="surface-card">
+        <div class="card-header">
+          <h3 class="card-title">
+            <CircleDollarSign :size="20" />
+            系统指标
+          </h3>
         </div>
-      </template>
-      <ElEmpty v-if="!loading && statEntries.length === 0" description="暂无指标" />
-      <div v-else style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px">
-        <div v-for="[key, value] in statEntries" :key="key" style="padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255, 255, 255, 0.5)">
-          <div class="stat-label">{{ key }}</div>
-          <div style="font-size: 24px; margin-top: 6px">{{ value }}</div>
+        <div class="card-body">
+          <div v-if="!loading && statEntries.length === 0" class="empty-state">
+            <div class="empty-icon">
+              <Gauge :size="32" />
+            </div>
+            <h4 class="empty-title">暂无指标</h4>
+            <p class="empty-description">系统指标将在这里显示</p>
+          </div>
+          <div v-else class="stats-grid">
+            <div v-for="entry in statEntries" :key="entry[0]" class="stat-item">
+              <div class="stat-item-label">{{ entry[0] }}</div>
+              <div class="stat-item-value">{{ entry[1] }}</div>
+            </div>
+          </div>
         </div>
       </div>
-    </ElCard>
 
-    <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 18px">
-      <ElCard shadow="never">
-        <template #header>
-          <div style="display: flex; align-items: center; gap: 8px">
-            <Boxes :size="16" />
-            <span>最近账户池</span>
-          </div>
-        </template>
-        <ElTable :data="data?.accounts?.slice(0, 8) || []" empty-text="暂无账户">
-          <ElTableColumn prop="provider" label="Provider" min-width="120" />
-          <ElTableColumn prop="name" label="账户名" min-width="150" />
-          <ElTableColumn prop="auth_type" label="认证方式" min-width="120" />
-          <ElTableColumn label="状态" width="110">
-            <template #default="{ row }">
-              <ElTag :type="isActiveStatus(row.status) ? 'success' : 'info'">{{ row.status }}</ElTag>
-            </template>
-          </ElTableColumn>
-        </ElTable>
-      </ElCard>
-
-      <ElCard shadow="never">
-        <template #header>
-          <div style="display: flex; align-items: center; gap: 8px">
-            <Bell :size="16" />
-            <span>最近公告</span>
-          </div>
-        </template>
-        <ElEmpty v-if="!data?.announcements?.length" description="暂无公告" />
-        <div v-else style="display: grid; gap: 12px">
-          <div v-for="item in data.announcements.slice(0, 4)" :key="item.id" style="padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255, 255, 255, 0.5)">
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
-              <strong>{{ item.title }}</strong>
-              <ElTag size="small">{{ item.status }}</ElTag>
+      <div class="surface-card">
+        <div class="card-header">
+          <h3 class="card-title">
+            <Bell :size="20" />
+            最新公告
+          </h3>
+          <el-button type="primary" link @click="router.push('/admin/announcements')"> 查看全部 </el-button>
+        </div>
+        <div class="card-body">
+          <div v-if="!data?.announcements?.length" class="empty-state">
+            <div class="empty-icon">
+              <Bell :size="32" />
             </div>
-            <p class="helper-copy" style="margin: 8px 0 0">
-              {{ item.content }}
-            </p>
-            <p class="helper-copy" style="margin: 8px 0 0">
-              {{ formatTime(item.published_at_ms) }}
-            </p>
+            <h4 class="empty-title">暂无公告</h4>
+            <p class="empty-description">发布一条公告吧</p>
+          </div>
+          <div v-else class="announcement-list">
+            <div v-for="item in data.announcements.slice(0, 4)" :key="item.id" class="announcement-item">
+              <div class="announcement-header">
+                <h4 class="announcement-title">{{ item.title }}</h4>
+                <el-tag :type="item.status === 'active' ? 'success' : 'info'" size="small">
+                  {{ item.status }}
+                </el-tag>
+              </div>
+              <p class="announcement-content">{{ item.content }}</p>
+              <p class="announcement-time">{{ formatTime(item.published_at_ms) }}</p>
+            </div>
           </div>
         </div>
-      </ElCard>
+      </div>
     </div>
 
-    <ElCard shadow="never">
-      <template #header>
-        <div style="display: flex; align-items: center; gap: 8px">
-          <CreditCard :size="16" />
-          <span>最近订单</span>
-        </div>
-      </template>
-      <ElTable :data="data?.orders?.slice(0, 8) || []" empty-text="暂无订单">
-        <ElTableColumn prop="out_trade_no" label="商户单号" min-width="180" />
-        <ElTableColumn prop="user_id" label="用户" width="90" />
-        <ElTableColumn prop="provider" label="渠道" width="110" />
-        <ElTableColumn label="金额" min-width="120">
-          <template #default="{ row }"> {{ formatCurrency(row.amount) }} 元 </template>
-        </ElTableColumn>
-        <ElTableColumn label="状态" width="120">
-          <template #default="{ row }">
-            <ElTag :type="isPaidStatus(row.status) ? 'success' : 'warning'">{{ row.status }}</ElTag>
-          </template>
-        </ElTableColumn>
-        <ElTableColumn label="创建时间" min-width="180">
-          <template #default="{ row }">
-            {{ formatTime(row.created_at_ms) }}
-          </template>
-        </ElTableColumn>
-      </ElTable>
-    </ElCard>
+    <div class="surface-card">
+      <div class="card-header">
+        <h3 class="card-title">
+          <Boxes :size="20" />
+          上游账户池
+        </h3>
+        <el-button type="primary" link @click="router.push('/admin/accounts')"> 管理账户 </el-button>
+      </div>
+      <div class="card-body">
+        <el-table :data="data?.accounts?.slice(0, 8) || []" empty-text="暂无账户" class="data-table">
+          <el-table-column prop="provider" label="Provider" min-width="150" />
+          <el-table-column prop="name" label="账户名" min-width="180" />
+          <el-table-column prop="auth_type" label="认证方式" min-width="120" />
+          <el-table-column label="状态" width="120">
+            <template #default="{ row }">
+              <el-tag :type="isActiveStatus(row.status) ? 'success' : 'info'" size="small">
+                {{ row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </div>
+
+    <div class="surface-card">
+      <div class="card-header">
+        <h3 class="card-title">
+          <ListOrdered :size="20" />
+          最新订单
+        </h3>
+        <el-button type="primary" link @click="router.push('/admin/payments')"> 查看全部 </el-button>
+      </div>
+      <div class="card-body">
+        <el-table :data="data?.orders?.slice(0, 8) || []" empty-text="暂无订单" class="data-table">
+          <el-table-column prop="out_trade_no" label="商户单号" min-width="200">
+            <template #default="{ row }">
+              <span class="mono">{{ row.out_trade_no }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="user_id" label="用户" width="100" />
+          <el-table-column prop="provider" label="渠道" width="120" />
+          <el-table-column label="金额" min-width="120">
+            <template #default="{ row }">
+              <span class="mono">{{ formatCurrency(row.amount) }} 元</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="120">
+            <template #default="{ row }">
+              <el-tag :type="isPaidStatus(row.status) ? 'success' : 'warning'" size="small">
+                {{ row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="创建时间" min-width="180">
+            <template #default="{ row }">
+              <span class="mono">{{ formatTime(row.created_at_ms) }}</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { Bell, Boxes, CircleDollarSign, CreditCard, KeyRound, Users } from "lucide-vue-next";
-import { ElAlert, ElCard, ElEmpty, ElTable, ElTableColumn, ElTag } from "element-plus";
+import { useRouter } from "vue-router";
+import { Bell, Boxes, CircleDollarSign, Gauge, KeyRound, ListOrdered, Users } from "lucide-vue-next";
+import { ElAlert, ElButton, ElTable, ElTableColumn, ElTag } from "element-plus";
 import { adminAPI } from "@/api/admin";
 import type { DashboardResponse } from "@/api/types";
 import { formatCurrency, formatTime, isActiveStatus, isPaidStatus } from "@/utils";
+
+const router = useRouter();
 
 const data = ref<DashboardResponse | null>(null);
 const loading = ref(false);
 const error = ref("");
 
-const metricCards = computed(() => {
-  if (!data.value) return [];
+interface MetricCard {
+  label: string;
+  value: string | number;
+  helper: string;
+  icon: unknown;
+  trend: number | null;
+}
+
+const metricCards = computed<MetricCard[]>(() => {
+  if (!data.value) {
+    return [
+      { label: "用户数", value: "-", helper: "平台注册用户", icon: Users, trend: null },
+      { label: "API Keys", value: "-", helper: "已发放访问凭据", icon: KeyRound, trend: null },
+      { label: "上游账户", value: "-", helper: "OAuth / 静态密钥", icon: Boxes, trend: null },
+      { label: "支付订单", value: "-", helper: "一期仅 gopay", icon: ListOrdered, trend: null },
+    ];
+  }
+
   return [
     {
       label: "用户数",
       value: data.value.users.length,
       helper: "平台注册用户",
       icon: Users,
+      trend: null,
     },
     {
       label: "API Keys",
       value: data.value.api_keys.length,
       helper: "已发放访问凭据",
       icon: KeyRound,
+      trend: null,
     },
     {
       label: "上游账户",
       value: data.value.accounts.length,
-      helper: "OAuth / 静态密钥混合池",
+      helper: "OAuth / 静态密钥",
       icon: Boxes,
+      trend: null,
     },
     {
       label: "支付订单",
       value: data.value.orders.length,
       helper: "一期仅 gopay",
-      icon: CreditCard,
+      icon: ListOrdered,
+      trend: null,
     },
   ];
 });
 
-const statEntries = computed(() => Object.entries(data.value?.stats || {}));
+const statEntries = computed<Array<[string, unknown]>>(() => Object.entries(data.value?.stats || {}));
 
 async function load() {
   loading.value = true;
@@ -155,7 +212,7 @@ async function load() {
   try {
     data.value = await adminAPI.dashboard();
   } catch (err) {
-    error.value = err instanceof Error ? err.message : "load failed";
+    error.value = err instanceof Error ? err.message : "加载失败";
   } finally {
     loading.value = false;
   }
@@ -166,3 +223,97 @@ onMounted(() => {
 });
 </script>
 
+<style scoped>
+.error-banner {
+  margin-bottom: 24px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.stat-item {
+  padding: 20px;
+  background: var(--border-light);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-fast);
+}
+
+.stat-item:hover {
+  background: var(--border-color);
+}
+
+.stat-item-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-item-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.announcement-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.announcement-item {
+  padding: 16px;
+  background: var(--border-light);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-fast);
+}
+
+.announcement-item:hover {
+  background: var(--border-color);
+}
+
+.announcement-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.announcement-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.announcement-content {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+
+.announcement-time {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

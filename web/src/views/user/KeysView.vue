@@ -20,13 +20,7 @@
       </ElForm>
     </ElCard>
 
-    <ElAlert
-      v-if="lastCreatedKey"
-      type="success"
-      :closable="false"
-      show-icon
-      title="Key 已创建，可以直接复制用于客户端调用。"
-    >
+    <ElAlert v-if="lastCreatedKey" type="success" :closable="false" show-icon title="Key 已创建，可以直接复制用于客户端调用。">
       <template #default>
         <div style="display: grid; gap: 10px">
           <div class="mono">{{ lastCreatedKey.secret }}</div>
@@ -111,4 +105,3 @@ onMounted(() => {
   void load();
 });
 </script>
-

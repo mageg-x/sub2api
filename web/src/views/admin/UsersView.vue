@@ -81,7 +81,6 @@
   </div>
 </template>
 
-
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { CirclePlus, ShieldUser } from "lucide-vue-next";
@@ -135,4 +134,3 @@ onMounted(() => {
   void load();
 });
 </script>
-

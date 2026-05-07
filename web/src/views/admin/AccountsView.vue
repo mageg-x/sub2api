@@ -158,15 +158,7 @@
                 <ElButton text @click="toggleAccountStatus(row, isActiveStatus(row.status) ? 'disabled' : 'active')">
                   {{ isActiveStatus(row.status) ? "停用" : "启用" }}
                 </ElButton>
-                <ElButton
-                  v-if="row.auth_type === 'oauth'"
-                  text
-                  type="success"
-                  :loading="refreshingID === row.id"
-                  @click="refreshAccount(row)"
-                >
-                  刷新 Token
-                </ElButton>
+                <ElButton v-if="row.auth_type === 'oauth'" text type="success" :loading="refreshingID === row.id" @click="refreshAccount(row)"> 刷新 Token </ElButton>
               </div>
             </template>
           </ElTableColumn>

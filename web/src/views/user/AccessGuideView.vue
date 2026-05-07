@@ -114,9 +114,10 @@
 <script setup lang="ts">
 import { BookOpenText, Copy, KeyRound, Send } from "lucide-vue-next";
 import { ElButton, ElCard, ElTag } from "element-plus";
+import { publicAPIOrigin } from "@/api/client";
 import { session } from "@/store/session";
 
-const baseURL = window.location.origin;
+const baseURL = publicAPIOrigin();
 
 function copyText(value: string) {
   void navigator.clipboard.writeText(value);
@@ -138,4 +139,3 @@ const responsesExample = `curl ${baseURL}/v1/responses \\
     "input": "写一个摘要"
   }'`;
 </script>
-

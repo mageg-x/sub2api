@@ -43,13 +43,7 @@
       </ElForm>
     </ElCard>
 
-    <ElAlert
-      v-if="lastCreatedKey"
-      type="success"
-      :closable="false"
-      show-icon
-      title="API Key 已创建，可以复制交给用户。"
-    >
+    <ElAlert v-if="lastCreatedKey" type="success" :closable="false" show-icon title="API Key 已创建，可以复制交给用户。">
       <template #default>
         <div style="display: grid; gap: 10px">
           <div class="mono">{{ lastCreatedKey.secret }}</div>
@@ -149,4 +143,3 @@ onMounted(() => {
   void load();
 });
 </script>
-

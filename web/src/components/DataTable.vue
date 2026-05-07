@@ -30,5 +30,3 @@ defineProps<{
   rows: Array<Record<string, unknown>>;
 }>();
 </script>
-
-

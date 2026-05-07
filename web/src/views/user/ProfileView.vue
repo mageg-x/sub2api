@@ -1,19 +1,7 @@
 <template>
   <div style="display: grid; gap: 18px">
-    <ElAlert
-      v-if="message"
-      :title="message"
-      type="success"
-      :closable="false"
-      show-icon
-    />
-    <ElAlert
-      v-if="error"
-      :title="error"
-      type="error"
-      :closable="false"
-      show-icon
-    />
+    <ElAlert v-if="message" :title="message" type="success" :closable="false" show-icon />
+    <ElAlert v-if="error" :title="error" type="error" :closable="false" show-icon />
 
     <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px">
       <ElCard shadow="never">
@@ -25,20 +13,12 @@
         </template>
         <ElForm label-position="top">
           <ElFormItem label="邮箱">
-            <ElInput
-              :model-value="session.user?.email || ''"
-              readonly
-            />
+            <ElInput :model-value="session.user?.email || ''" readonly />
           </ElFormItem>
           <ElFormItem label="显示名称">
             <ElInput v-model="profileForm.name" />
           </ElFormItem>
-          <ElButton
-            type="primary"
-            @click="saveProfile"
-          >
-            保存资料
-          </ElButton>
+          <ElButton type="primary" @click="saveProfile"> 保存资料 </ElButton>
         </ElForm>
       </ElCard>
 
@@ -51,25 +31,12 @@
         </template>
         <ElForm label-position="top">
           <ElFormItem label="旧密码">
-            <ElInput
-              v-model="passwordForm.old_password"
-              type="password"
-              show-password
-            />
+            <ElInput v-model="passwordForm.old_password" type="password" show-password />
           </ElFormItem>
           <ElFormItem label="新密码">
-            <ElInput
-              v-model="passwordForm.new_password"
-              type="password"
-              show-password
-            />
+            <ElInput v-model="passwordForm.new_password" type="password" show-password />
           </ElFormItem>
-          <ElButton
-            type="primary"
-            @click="changePassword"
-          >
-            更新密码
-          </ElButton>
+          <ElButton type="primary" @click="changePassword"> 更新密码 </ElButton>
         </ElForm>
       </ElCard>
     </div>

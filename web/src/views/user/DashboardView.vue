@@ -1,98 +1,177 @@
 <template>
-  <div style="display: grid; gap: 18px">
+  <div>
     <div class="card-grid">
-      <ElCard shadow="never" class="stat-card">
-        <p class="stat-label">账户余额</p>
-        <p class="stat-value">
-          {{ formatCurrency(session.user?.balance || 0) }}
-        </p>
-        <p class="helper-copy" style="margin: 8px 0 0">单位：元</p>
-      </ElCard>
-      <ElCard shadow="never" class="stat-card">
-        <p class="stat-label">最近请求</p>
-        <p class="stat-value">{{ usage.length }}</p>
-        <p class="helper-copy" style="margin: 8px 0 0">最近加载的调用记录</p>
-      </ElCard>
-      <ElCard shadow="never" class="stat-card">
-        <p class="stat-label">订单数量</p>
-        <p class="stat-value">{{ orders.length }}</p>
-        <p class="helper-copy" style="margin: 8px 0 0">充值与回调状态追踪</p>
-      </ElCard>
-      <ElCard shadow="never" class="stat-card">
-        <p class="stat-label">可用角色</p>
-        <p class="stat-value">{{ session.user?.role || "-" }}</p>
-        <p class="helper-copy" style="margin: 8px 0 0">当前登录身份</p>
-      </ElCard>
-    </div>
-
-    <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 18px">
-      <ElCard shadow="never">
-        <template #header>
-          <div style="display: flex; align-items: center; gap: 8px">
-            <ReceiptText :size="16" />
-            <span>最近调用</span>
-          </div>
-        </template>
-        <ElEmpty v-if="usage.length === 0" description="暂无调用记录" />
-        <div v-else style="display: grid; gap: 12px">
-          <div v-for="item in usage.slice(0, 5)" :key="item.id" style="padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255, 255, 255, 0.5)">
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
-              <strong>{{ item.model }}</strong>
-              <ElTag size="small">{{ item.provider }}</ElTag>
-            </div>
-            <p class="helper-copy" style="margin: 8px 0 0">
-              {{ item.endpoint }}
-            </p>
-            <p class="helper-copy" style="margin: 8px 0 0">输入 {{ item.input_tokens }} / 输出 {{ item.output_tokens }} / 花费 {{ formatCurrency(item.cost) }} 元</p>
+      <div class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon">
+            <WalletCards :size="24" />
           </div>
         </div>
-      </ElCard>
+        <p class="stat-label">账户余额</p>
+        <p class="stat-value">{{ formatCurrency(session.user?.balance || 0) }}</p>
+        <p class="stat-helper">单位：元</p>
+      </div>
 
-      <div style="display: grid; gap: 18px">
-        <ElCard shadow="never">
-          <template #header>
-            <div style="display: flex; align-items: center; gap: 8px">
-              <WalletCards :size="16" />
-              <span>最近订单</span>
-            </div>
-          </template>
-          <ElEmpty v-if="!latestOrder" description="暂无订单" />
-          <div v-else>
-            <p class="stat-label">商户单号</p>
-            <div class="mono">{{ latestOrder.out_trade_no }}</div>
-            <p class="helper-copy" style="margin: 10px 0 0">
-              {{ formatCurrency(latestOrder.amount) }} 元 ·
-              {{ latestOrder.status }}
-            </p>
-            <p class="helper-copy" style="margin: 8px 0 0">
-              {{ formatTime(latestOrder.created_at_ms) }}
-            </p>
+      <div class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon">
+            <ReceiptText :size="24" />
           </div>
-        </ElCard>
+        </div>
+        <p class="stat-label">最近请求</p>
+        <p class="stat-value">{{ usage.length }}</p>
+        <p class="stat-helper">最近加载的调用记录</p>
+      </div>
 
-        <ElCard shadow="never">
-          <template #header>
-            <div style="display: flex; align-items: center; gap: 8px">
-              <Bell :size="16" />
-              <span>闭环说明</span>
+      <div class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon">
+            <ListOrdered :size="24" />
+          </div>
+        </div>
+        <p class="stat-label">订单数量</p>
+        <p class="stat-value">{{ orders.length }}</p>
+        <p class="stat-helper">充值与回调状态追踪</p>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon">
+            <ShieldUser :size="24" />
+          </div>
+        </div>
+        <p class="stat-label">用户角色</p>
+        <p class="stat-value">{{ session.user?.role || "-" }}</p>
+        <p class="stat-helper">当前登录身份</p>
+      </div>
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="surface-card">
+        <div class="card-header">
+          <h3 class="card-title">
+            <ReceiptText :size="20" />
+            最近调用
+          </h3>
+          <el-button type="primary" link @click="router.push('/user/usage')"> 查看全部 </el-button>
+        </div>
+        <div class="card-body">
+          <div v-if="usage.length === 0" class="empty-state">
+            <div class="empty-icon">
+              <ReceiptText :size="32" />
             </div>
-          </template>
-          <p class="helper-copy" style="margin: 0; line-height: 1.8">当前用户端已经覆盖登录、公告、兑换码、创建 API Key、查看用量、发起 gopay 订单、查看订单详情与个人资料维护。</p>
-        </ElCard>
+            <h4 class="empty-title">暂无调用记录</h4>
+            <p class="empty-description">您的 API 调用记录将显示在这里</p>
+          </div>
+          <div v-else class="usage-list">
+            <div v-for="item in usage.slice(0, 5)" :key="item.id" class="usage-item">
+              <div class="usage-header">
+                <span class="usage-model">{{ item.model }}</span>
+                <el-tag size="small">{{ item.provider }}</el-tag>
+              </div>
+              <p class="usage-endpoint mono">{{ item.endpoint }}</p>
+              <div class="usage-stats">
+                <span>输入 {{ item.input_tokens }}</span>
+                <span>输出 {{ item.output_tokens }}</span>
+                <span class="usage-cost">花费 {{ formatCurrency(item.cost) }} 元</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-side">
+        <div class="surface-card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <WalletCards :size="20" />
+              最新订单
+            </h3>
+            <el-button type="primary" link @click="router.push('/user/payment')"> 充值 </el-button>
+          </div>
+          <div class="card-body">
+            <div v-if="!latestOrder" class="empty-state">
+              <div class="empty-icon">
+                <WalletCards :size="32" />
+              </div>
+              <h4 class="empty-title">暂无订单</h4>
+              <p class="empty-description">您的充值订单将显示在这里</p>
+            </div>
+            <div v-else class="order-info">
+              <div class="order-detail">
+                <span class="order-label">商户单号</span>
+                <span class="order-value mono">{{ latestOrder.out_trade_no }}</span>
+              </div>
+              <div class="order-detail">
+                <span class="order-label">金额</span>
+                <span class="order-value">{{ formatCurrency(latestOrder.amount) }} 元</span>
+              </div>
+              <div class="order-detail">
+                <span class="order-label">状态</span>
+                <el-tag :type="latestOrder.status === 'paid' ? 'success' : 'warning'" size="small">
+                  {{ latestOrder.status }}
+                </el-tag>
+              </div>
+              <div class="order-detail">
+                <span class="order-label">创建时间</span>
+                <span class="order-value">{{ formatTime(latestOrder.created_at_ms) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="surface-card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <Bolt :size="20" />
+              快速操作
+            </h3>
+          </div>
+          <div class="card-body">
+            <div class="quick-actions">
+              <el-button type="primary" size="large" @click="router.push('/user/keys')">
+                <KeyRound :size="18" />
+                创建 API Key
+              </el-button>
+              <el-button type="warning" size="large" @click="router.push('/user/payment')">
+                <WalletCards :size="18" />
+                立即充值
+              </el-button>
+              <el-button size="large" @click="router.push('/user/access-guide')">
+                <BookOpenText :size="18" />
+                接入指南
+              </el-button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="surface-card">
+      <div class="card-header">
+        <h3 class="card-title">
+          <ShieldCheck :size="20" />
+          功能概览
+        </h3>
+      </div>
+      <div class="card-body">
+        <p class="helper-copy">当前用户端已覆盖登录、API Keys 管理、用量查看、余额充值、订单追踪、兑换码兑换、公告查看以及个人资料维护。 通过左侧导航栏可以快速访问各项功能。</p>
       </div>
     </div>
   </div>
 </template>
 
-
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { Bell, KeyRound, ReceiptText, WalletCards } from "lucide-vue-next";
-import { ElCard, ElEmpty, ElTag } from "element-plus";
+import { useRouter } from "vue-router";
+import { Bell, Bolt, BookOpenText, KeyRound, ListOrdered, ReceiptText, ShieldCheck, ShieldUser, WalletCards } from "lucide-vue-next";
+import { ElButton, ElTag } from "element-plus";
 import { session } from "@/store/session";
 import { userAPI } from "@/api/user";
 import type { PaymentOrder, UsageLog } from "@/api/types";
 import { formatCurrency, formatTime } from "@/utils";
+
+const router = useRouter();
 
 const usage = ref<UsageLog[]>([]);
 const orders = ref<PaymentOrder[]>([]);
@@ -109,3 +188,120 @@ onMounted(() => {
 });
 </script>
 
+<style scoped>
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.dashboard-side {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.usage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.usage-item {
+  padding: 16px;
+  background: var(--border-light);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-fast);
+}
+
+.usage-item:hover {
+  background: var(--border-color);
+}
+
+.usage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.usage-model {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.usage-endpoint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usage-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.usage-cost {
+  color: var(--warning-color);
+  font-weight: 500;
+}
+
+.order-info {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.order-detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.order-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.order-value {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.quick-actions .el-button {
+  justify-content: flex-start;
+  height: 48px;
+  padding: 0 20px;
+}
+
+.quick-actions .el-button :deep(svg) {
+  margin-right: 10px;
+}
+
+.helper-copy {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+  margin: 0;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
