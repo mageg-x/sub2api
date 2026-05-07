@@ -435,6 +435,7 @@ export default {
     channel: 'Channel',
     amount: 'Amount',
     orderStatus: 'Status',
+    merchantOrderNo: 'Merchant Order No.',
     createTime: 'Created At',
     userCount: 'Users',
     platformUsers: 'Platform registered users',
