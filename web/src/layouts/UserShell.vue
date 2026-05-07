@@ -44,6 +44,10 @@
         </div>
 
         <div class="header-right">
+          <el-button class="header-ghost-button" link @click="announcementDialogVisible = true">
+            <Bell :size="16" />
+            公告
+          </el-button>
           <el-tag type="success" effect="dark" size="large">用户</el-tag>
           <el-tag type="warning" effect="dark" size="large">余额 {{ formatCurrency(session.user?.balance || 0) }} 元</el-tag>
           <el-dropdown @command="handleCommand">
@@ -80,16 +84,44 @@
       </div>
     </main>
   </div>
+
+  <el-dialog v-model="announcementDialogVisible" title="公告" width="760px" class="announcement-dialog">
+    <div class="dialog-meta">
+      <span class="dialog-count">{{ announcements.length }} 条公告</span>
+    </div>
+    <el-empty v-if="announcementLoading" description="加载中" />
+    <el-empty v-else-if="announcements.length === 0" description="暂无公告" />
+    <el-timeline v-else class="announcement-timeline">
+      <el-timeline-item
+        v-for="item in announcements"
+        :key="item.id"
+        :timestamp="formatTime(item.published_at_ms)"
+        placement="top"
+      >
+        <div class="announcement-card">
+          <div class="announcement-header">
+            <h4 class="announcement-title">{{ item.title }}</h4>
+            <el-tag :type="item.status === 'active' ? 'success' : 'info'" size="small">
+              {{ item.status === 'active' ? '进行中' : '已结束' }}
+            </el-tag>
+          </div>
+          <p class="announcement-content">{{ item.content }}</p>
+        </div>
+      </el-timeline-item>
+    </el-timeline>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { RouterView, useRoute, useRouter } from "vue-router";
 import { Bell, BookOpenText, ChevronDown, Gift, KeyRound, LayoutDashboard, LogOut, ShieldCheck, User, UserCog, WalletCards, Bolt } from "lucide-vue-next";
-import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElTag } from "element-plus";
+import { ElDialog, ElDropdown, ElDropdownItem, ElDropdownMenu, ElEmpty, ElTag, ElTimeline, ElTimelineItem } from "element-plus";
+import { adminAPI } from "@/api/admin";
 import { me, logout } from "@/api/auth";
+import type { Announcement } from "@/api/types";
 import { clearAuth, session } from "@/store/session";
-import { formatCurrency } from "@/utils";
+import { formatCurrency, formatTime } from "@/utils";
 
 const route = useRoute();
 const router = useRouter();
@@ -99,35 +131,38 @@ const userLinks = [
   { to: "/user/keys", label: "API Keys", icon: KeyRound },
   { to: "/user/usage", label: "用量记录", icon: Bolt },
   { to: "/user/payment", label: "充值", icon: WalletCards },
-  { to: "/user/announcements", label: "公告", icon: Bell },
   { to: "/user/redeem", label: "兑换码", icon: Gift },
   { to: "/user/access-guide", label: "接入指南", icon: BookOpenText },
   { to: "/user/profile", label: "个人资料", icon: UserCog },
 ];
 
+const routeMeta: Record<string, { title: string; subtitle: string }> = {
+  "/user/dashboard": { title: "首页", subtitle: "您的账户概览" },
+  "/user/keys": { title: "API Keys", subtitle: "管理您的 API Keys" },
+  "/user/usage": { title: "用量记录", subtitle: "查看使用记录" },
+  "/user/payment": { title: "充值", subtitle: "充值余额" },
+  "/user/profile": { title: "个人资料", subtitle: "个人资料设置" },
+  "/user/redeem": { title: "兑换码", subtitle: "兑换码兑换" },
+  "/user/access-guide": { title: "接入指南", subtitle: "API 接入指南" },
+  "/user/announcements": { title: "公告", subtitle: "查看公告" },
+};
+
 const pageTitle = computed(() => {
-  const match = userLinks.find((item) => item.to === route.path);
-  return match?.label || "sub2api";
+  return routeMeta[route.path]?.title || "sub2api";
 });
 
 const pageSubtitle = computed(() => {
-  const descriptions: Record<string, string> = {
-    "/user/dashboard": "您的账户概览",
-    "/user/keys": "管理您的 API Keys",
-    "/user/usage": "查看使用记录",
-    "/user/payment": "充值余额",
-    "/user/profile": "个人资料设置",
-    "/user/announcements": "查看公告",
-    "/user/redeem": "兑换码兑换",
-    "/user/access-guide": "API 接入指南",
-  };
-  return descriptions[route.path] || "";
+  return routeMeta[route.path]?.subtitle || "";
 });
 
 const userInitials = computed(() => {
   const name = session.user?.name || session.user?.email || "U";
   return name.charAt(0).toUpperCase();
 });
+
+const announcementDialogVisible = ref(false);
+const announcementLoading = ref(false);
+const announcements = ref<Announcement[]>([]);
 
 function handleCommand(command: string) {
   switch (command) {
@@ -140,6 +175,16 @@ function handleCommand(command: string) {
     case "logout":
       void signOut();
       break;
+  }
+}
+
+async function loadAnnouncements() {
+  if (announcementLoading.value || announcements.value.length) return;
+  announcementLoading.value = true;
+  try {
+    announcements.value = await adminAPI.announcements();
+  } finally {
+    announcementLoading.value = false;
   }
 }
 
@@ -167,5 +212,62 @@ async function signOut() {
 
 onMounted(() => {
   void bootstrap();
+  void loadAnnouncements();
 });
 </script>
+
+<style scoped>
+.header-ghost-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 4px;
+  color: var(--text-secondary);
+}
+
+.header-ghost-button:hover {
+  color: var(--primary-color);
+}
+
+.dialog-meta {
+  margin-bottom: 16px;
+}
+
+.dialog-count {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.announcement-timeline {
+  padding-top: 8px;
+}
+
+.announcement-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+}
+
+.announcement-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.announcement-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.announcement-content {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+</style>
