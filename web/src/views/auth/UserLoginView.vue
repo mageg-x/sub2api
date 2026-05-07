@@ -10,7 +10,7 @@
 
       <div class="brand-section">
         <div class="brand-logo">
-          <KeyRound :size="48" />
+          <img :src="logoUrl" alt="sub2api" />
         </div>
         <h1 class="brand-name">sub2api</h1>
         <p class="brand-tagline">API 访问平台</p>
@@ -116,9 +116,10 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from "vue";
 import { useRouter } from "vue-router";
-import { KeyRound, Mail, Lock, User, ShieldCheck, Home } from "lucide-vue-next";
+import { Mail, Lock, User, Home } from "lucide-vue-next";
 import { ElAlert, ElButton, ElForm, ElFormItem, ElInput, ElLink } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
+import logoUrl from "@/assets/logo.svg";
 import { login, register } from "@/api/auth";
 import { saveAuth, saveAdminToken } from "@/store/session";
 

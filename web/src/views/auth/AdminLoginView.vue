@@ -3,7 +3,7 @@
     <div class="login-left">
       <div class="brand-section">
         <div class="brand-logo">
-          <ShieldCheck :size="48" />
+          <img :src="logoUrl" alt="sub2api" />
         </div>
         <h1 class="brand-name">sub2api</h1>
         <p class="brand-tagline">管理控制台</p>
@@ -114,9 +114,10 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from "vue";
 import { useRouter } from "vue-router";
-import { Mail, Lock, ShieldCheck, HelpCircle, ArrowLeft, Users, Boxes, Banknote, CreditCard, User, Key } from "lucide-vue-next";
+import { Mail, Lock, HelpCircle, ArrowLeft, Users, Boxes, Banknote, CreditCard, User, Key } from "lucide-vue-next";
 import { ElAlert, ElButton, ElForm, ElFormItem, ElInput, ElLink, ElTooltip } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
+import logoUrl from "@/assets/logo.svg";
 import { adminAPI } from "@/api/admin";
 import { login } from "@/api/auth";
 import { apiURL } from "@/api/client";

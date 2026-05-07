@@ -4,7 +4,7 @@
       <div class="sidebar-header">
         <div class="sidebar-brand">
           <div class="sidebar-logo">
-            <LayoutDashboard :size="20" />
+            <img :src="logoUrl" alt="sub2api" />
           </div>
           <div>
             <h1 class="sidebar-title">sub2api</h1>
@@ -83,6 +83,7 @@ import { computed, onMounted, ref } from "vue";
 import { RouterView, useRoute, useRouter } from "vue-router";
 import { Banknote, Bug, ChevronDown, Gauge, LayoutDashboard, LogOut, Megaphone, ReceiptText, ShieldUser, Ticket, Users, User } from "lucide-vue-next";
 import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElTag } from "element-plus";
+import logoUrl from "@/assets/logo.svg";
 import { me, logout } from "@/api/auth";
 import { clearAuth, session } from "@/store/session";
 

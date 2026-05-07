@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="card-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr))">
+    <div class="card-grid" style="grid-template-columns: 1fr 1fr">
       <div class="stat-card">
         <div class="stat-header">
           <div class="stat-icon error">

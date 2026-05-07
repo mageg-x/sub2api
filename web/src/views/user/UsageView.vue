@@ -197,7 +197,7 @@ import { formatCurrency, formatTime } from "@/utils";
 const usage = ref<UsageLog[]>([]);
 const dateRange = ref<number[] | null>(null);
 const modelFilter = ref("");
-const rangeMode = ref("all");
+const rangeMode = ref("today");
 
 const dateShortcuts = [
   {
@@ -369,6 +369,7 @@ async function load() {
 }
 
 onMounted(() => {
+  setRange("today");
   void load();
 });
 </script>
@@ -386,6 +387,7 @@ onMounted(() => {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 16px;
+  padding: 0px 16px;
 }
 
 .filter-left {
@@ -414,8 +416,14 @@ onMounted(() => {
 
 .stat-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
+  width: 100%;
+}
+
+.stat-row .surface-card {
+  min-width: 0;
+  width: 100%;
 }
 
 .stat-mini {

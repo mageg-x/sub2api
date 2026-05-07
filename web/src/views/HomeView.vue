@@ -9,6 +9,9 @@
         <span class="hero-badge-dot"></span>
         AI 订阅账户聚合平台
       </div>
+      <div class="hero-logo">
+        <img :src="logoUrl" alt="sub2api" />
+      </div>
       <h1 class="hero-title">sub2api</h1>
       <p class="hero-subtitle">把上游 AI 订阅账户变成可分发、可计费、可运营的 API 服务</p>
       <el-button class="cta-button" @click="goToLogin"> 立即开始 </el-button>
@@ -35,6 +38,7 @@
 import { useRouter } from "vue-router";
 import { ShieldCheck, Layers, KeyRound, Zap, DollarSign, WalletCards } from "lucide-vue-next";
 import { ElButton } from "element-plus";
+import logoUrl from "@/assets/logo.svg";
 
 const router = useRouter();
 
@@ -244,6 +248,28 @@ function goToLogin() {
   border-radius: 50%;
   background: var(--accent-color);
   box-shadow: 0 0 8px hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.5);
+}
+
+.hero-logo {
+  width: 86px;
+  height: 86px;
+  margin: 0 auto 14px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.hero-logo img {
+  width: 56px;
+  height: 56px;
+  display: block;
+  object-fit: contain;
 }
 
 .hero-title {
@@ -512,6 +538,17 @@ function goToLogin() {
 
   .hero-section {
     margin-bottom: 12px;
+  }
+
+  .hero-logo {
+    width: 74px;
+    height: 74px;
+    margin-bottom: 12px;
+  }
+
+  .hero-logo img {
+    width: 48px;
+    height: 48px;
   }
 
   .hero-title {

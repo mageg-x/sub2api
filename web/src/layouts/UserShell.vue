@@ -4,7 +4,7 @@
       <div class="sidebar-header">
         <div class="sidebar-brand">
           <div class="sidebar-logo">
-            <LayoutDashboard :size="20" />
+            <img :src="logoUrl" alt="sub2api" />
           </div>
           <div>
             <h1 class="sidebar-title">sub2api</h1>
@@ -112,6 +112,7 @@ import { computed, onMounted, ref } from "vue";
 import { RouterView, useRoute, useRouter } from "vue-router";
 import { Bell, BookOpenText, ChevronDown, Gift, KeyRound, LayoutDashboard, LogOut, ShieldCheck, Sparkles, User, UserCog, WalletCards, Bolt } from "lucide-vue-next";
 import { ElDialog, ElDropdown, ElDropdownItem, ElDropdownMenu, ElEmpty, ElTag, ElTimeline, ElTimelineItem } from "element-plus";
+import logoUrl from "@/assets/logo.svg";
 import { adminAPI } from "@/api/admin";
 import { me, logout } from "@/api/auth";
 import type { Announcement } from "@/api/types";
@@ -134,8 +135,8 @@ const userLinks = [
 
 const routeMeta: Record<string, { title: string; subtitle: string }> = {
   "/user/dashboard": { title: "首页", subtitle: "您的账户概览" },
-  "/user/keys": { title: "API Keys", subtitle: "管理您的 API Keys" },
-  "/user/usage": { title: "用量记录", subtitle: "查看使用记录" },
+  "/user/keys": { title: "令牌管理", subtitle: "管理您的 API Keys" },
+  "/user/usage": { title: "数据看板", subtitle: "查看使用记录" },
   "/user/payment": { title: "充值", subtitle: "充值余额" },
   "/user/models": { title: "模型广场", subtitle: "查看可用模型和价格" },
   "/user/profile": { title: "个人资料", subtitle: "个人资料设置" },

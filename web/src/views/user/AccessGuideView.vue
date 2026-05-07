@@ -185,7 +185,7 @@ const responsesExample = `curl ${baseURL}/v1/responses \\
 
 .info-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 24px;
 }
 
@@ -230,7 +230,7 @@ const responsesExample = `curl ${baseURL}/v1/responses \\
 
 .example-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 24px;
 }
 
