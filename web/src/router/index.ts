@@ -28,7 +28,7 @@ const router = createRouter({
     },
     {
       path: '/user',
-      component: () => import('@/layouts/AppShell.vue'),
+      component: () => import('@/layouts/UserShell.vue'),
       children: [
         { path: 'dashboard', name: 'user-dashboard', component: () => import('@/views/user/DashboardView.vue') },
         { path: 'keys', name: 'user-keys', component: () => import('@/views/user/KeysView.vue') },
@@ -43,7 +43,7 @@ const router = createRouter({
     },
     {
       path: '/admin',
-      component: () => import('@/layouts/AppShell.vue'),
+      component: () => import('@/layouts/AdminShell.vue'),
       children: [
         { path: 'dashboard', name: 'admin-dashboard', component: () => import('@/views/admin/DashboardView.vue') },
         { path: 'users', name: 'admin-users', component: () => import('@/views/admin/UsersView.vue') },

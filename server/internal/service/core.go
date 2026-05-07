@@ -1,3 +1,5 @@
+// Package service 提供核心业务逻辑服务
+// 包含用户管理、API密钥管理、AI账号管理、OAuth认证、代理转发、支付处理等功能
 package service
 
 import (
@@ -30,62 +32,91 @@ import (
 )
 
 const (
-	openAIAuthorizeURL      = "https://auth.openai.com/oauth/authorize"
-	openAITokenURL          = "https://auth.openai.com/oauth/token"
-	openAIDefaultRedirect   = "http://localhost:1455/auth/callback"
-	openAIScopes            = "openid profile email offline_access"
-	openAIRefreshScopes     = "openid profile email"
-	claudeAuthorizeURL      = "https://claude.ai/oauth/authorize"
-	claudeTokenURL          = "https://platform.claude.com/v1/oauth/token"
-	claudeRedirectURI       = "https://platform.claude.com/oauth/code/callback"
-	claudeScopeOAuth        = "org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload"
-	geminiAuthorizeURL      = "https://accounts.google.com/o/oauth2/v2/auth"
-	geminiTokenURL          = "https://oauth2.googleapis.com/token"
-	geminiCodeAssistScopes  = "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
-	geminiAIStudioScopes    = "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/generative-language.retriever"
-	geminiAIRedirectURI     = "http://localhost:1455/auth/callback"
-	geminiCLIRedirectURI    = "https://codeassist.google.com/authcode"
-	geminiBuiltinClientID   = "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com"
+	// OpenAI OAuth授权URL
+	openAIAuthorizeURL = "https://auth.openai.com/oauth/authorize"
+	// OpenAI OAuth令牌URL
+	openAITokenURL = "https://auth.openai.com/oauth/token"
+	// OpenAI默认回调地址
+	openAIDefaultRedirect = "http://localhost:1455/auth/callback"
+	// OpenAI授权范围
+	openAIScopes = "openid profile email offline_access"
+	// OpenAI刷新令牌范围
+	openAIRefreshScopes = "openid profile email"
+	// Claude OAuth授权URL
+	claudeAuthorizeURL = "https://claude.ai/oauth/authorize"
+	// Claude OAuth令牌URL
+	claudeTokenURL = "https://platform.claude.com/v1/oauth/token"
+	// Claude回调地址
+	claudeRedirectURI = "https://platform.claude.com/oauth/code/callback"
+	// Claude授权范围
+	claudeScopeOAuth = "org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload"
+	// Gemini OAuth授权URL
+	geminiAuthorizeURL = "https://accounts.google.com/o/oauth2/v2/auth"
+	// Gemini OAuth令牌URL
+	geminiTokenURL = "https://oauth2.googleapis.com/token"
+	// Gemini Code Assist授权范围
+	geminiCodeAssistScopes = "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
+	// Gemini AI Studio授权范围
+	geminiAIStudioScopes = "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/generative-language.retriever"
+	// Gemini AI重定向URI
+	geminiAIRedirectURI = "http://localhost:1455/auth/callback"
+	// Gemini CLI重定向URI
+	geminiCLIRedirectURI = "https://codeassist.google.com/authcode"
+	// Gemini内置客户端ID
+	geminiBuiltinClientID = "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com"
+	// Antigravity OAuth授权URL
 	antigravityAuthorizeURL = "https://accounts.google.com/o/oauth2/v2/auth"
-	antigravityTokenURL     = "https://oauth2.googleapis.com/token"
-	antigravityUserInfoURL  = "https://www.googleapis.com/oauth2/v2/userinfo"
-	antigravityRedirectURI  = "http://localhost:8085/callback"
-	antigravityScopes       = "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/cclog https://www.googleapis.com/auth/experimentsandconfigs"
-	antigravityClientID     = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
+	// Antigravity OAuth令牌URL
+	antigravityTokenURL = "https://oauth2.googleapis.com/token"
+	// Antigravity用户信息URL
+	antigravityUserInfoURL = "https://www.googleapis.com/oauth2/v2/userinfo"
+	// Antigravity回调地址
+	antigravityRedirectURI = "http://localhost:8085/callback"
+	// Antigravity授权范围
+	antigravityScopes = "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/cclog https://www.googleapis.com/auth/experimentsandconfigs"
+	// Antigravity客户端ID
+	antigravityClientID = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
 )
 
+// Core 核心服务结构体
+// 包含所有业务逻辑：用户管理、API密钥管理、AI账号管理、OAuth认证、代理转发、支付处理等
 type Core struct {
-	cfg          config.Config
-	db           *gorm.DB
-	providers    *provider.Registry
-	payments     *payment.Registry
-	httpClient   *http.Client
-	accountLoads map[uint64]int
-	loadMu       sync.Mutex
-	refreshMu    sync.Map
-	cacheMu      sync.RWMutex
-	cacheItems   map[string]cachedProxyResponse
+	cfg          config.Config                  // 应用配置
+	db           *gorm.DB                       // 数据库连接
+	providers    *provider.Registry             // AI Provider注册表
+	payments     *payment.Registry              // 支付Provider注册表
+	httpClient   *http.Client                   // HTTP客户端
+	accountLoads map[uint64]int                 // 账号并发负载计数
+	loadMu       sync.Mutex                     // 负载计数器的互斥锁
+	refreshMu    sync.Map                       // OAuth刷新锁（每个账号一个）
+	cacheMu      sync.RWMutex                   // 缓存的读写锁
+	cacheItems   map[string]cachedProxyResponse // 代理响应缓存
 }
 
+// cachedProxyResponse 缓存的代理响应
 type cachedProxyResponse struct {
-	StatusCode int
-	Header     http.Header
-	Body       []byte
-	ExpiresAt  time.Time
+	StatusCode int         // HTTP状态码
+	Header     http.Header // 响应头
+	Body       []byte      // 响应体
+	ExpiresAt  time.Time   // 过期时间
 }
 
+// usageTrackingReadCloser 用于跟踪API使用量的ReadCloser包装器
+// 在读取响应体的同时记录数据，用于后续使用量统计
 type usageTrackingReadCloser struct {
-	src          io.ReadCloser
-	buf          bytes.Buffer
-	finalizeOnce sync.Once
-	finalize     func([]byte)
+	src          io.ReadCloser // 原始的ReadCloser
+	buf          bytes.Buffer  // 缓冲区，用于存储已读取的数据
+	finalizeOnce sync.Once     // 确保finalize只执行一次
+	finalize     func([]byte)  // 最终回调函数，用于处理已读取的数据
 }
 
 func (r *usageTrackingReadCloser) Read(p []byte) (int, error) {
+	// Read 从源读取数据，同时复制到缓冲区
 	n, err := r.src.Read(p)
 	if n > 0 {
 		_, _ = r.buf.Write(p[:n])
 	}
+	// 读取完成后调用finish
 	if err == io.EOF {
 		r.finish()
 	}
@@ -93,12 +124,14 @@ func (r *usageTrackingReadCloser) Read(p []byte) (int, error) {
 }
 
 func (r *usageTrackingReadCloser) Close() error {
+	// Close 关闭源并调用finish
 	err := r.src.Close()
 	r.finish()
 	return err
 }
 
 func (r *usageTrackingReadCloser) finish() {
+	// finish 确保finalize只执行一次
 	r.finalizeOnce.Do(func() {
 		if r.finalize != nil {
 			r.finalize(append([]byte(nil), r.buf.Bytes()...))
@@ -106,47 +139,54 @@ func (r *usageTrackingReadCloser) finish() {
 	})
 }
 
+// userTokenClaims 用户令牌声明结构
 type userTokenClaims struct {
-	UserID       uint64 `json:"user_id"`
-	TokenVersion int64  `json:"token_version"`
-	ExpiresAtMS  int64  `json:"expires_at_ms"`
-	Kind         string `json:"kind"`
+	UserID       uint64 `json:"user_id"`       // 用户ID
+	TokenVersion int64  `json:"token_version"` // 令牌版本
+	ExpiresAtMS  int64  `json:"expires_at_ms"` // 过期时间（毫秒）
+	Kind         string `json:"kind"`          // 令牌类型
 }
 
+// AccountCredentials AI账号凭证结构
+// 存储各种OAuth和API密钥信息
 type AccountCredentials struct {
-	APIKey            string `json:"api_key,omitempty"`
-	AccessToken       string `json:"access_token,omitempty"`
-	RefreshToken      string `json:"refresh_token,omitempty"`
-	TokenURL          string `json:"token_url,omitempty"`
-	ClientID          string `json:"client_id,omitempty"`
-	ClientSecret      string `json:"client_secret,omitempty"`
-	RedirectURI       string `json:"redirect_uri,omitempty"`
-	CodeVerifier      string `json:"code_verifier,omitempty"`
-	ExpiresAtMS       int64  `json:"expires_at_ms,omitempty"`
-	ProjectID         string `json:"project_id,omitempty"`
-	OAuthType         string `json:"oauth_type,omitempty"`
-	Email             string `json:"email,omitempty"`
-	OrganizationID    string `json:"organization_id,omitempty"`
-	AccountID         string `json:"account_id,omitempty"`
-	BaseURL           string `json:"base_url,omitempty"`
-	UserAgent         string `json:"user_agent,omitempty"`
-	SetupToken        string `json:"setup_token,omitempty"`
-	TierID            string `json:"tier_id,omitempty"`
-	PlanType          string `json:"plan_type,omitempty"`
-	SubscriptionUntil string `json:"subscription_expires_at,omitempty"`
+	APIKey            string `json:"api_key,omitempty"`                 // API密钥
+	AccessToken       string `json:"access_token,omitempty"`            // 访问令牌
+	RefreshToken      string `json:"refresh_token,omitempty"`           // 刷新令牌
+	TokenURL          string `json:"token_url,omitempty"`               // 令牌URL
+	ClientID          string `json:"client_id,omitempty"`               // 客户端ID
+	ClientSecret      string `json:"client_secret,omitempty"`           // 客户端密钥
+	RedirectURI       string `json:"redirect_uri,omitempty"`            // 回调URI
+	CodeVerifier      string `json:"code_verifier,omitempty"`           // PKCE代码验证器
+	ExpiresAtMS       int64  `json:"expires_at_ms,omitempty"`           // 过期时间（毫秒）
+	ProjectID         string `json:"project_id,omitempty"`              // 项目ID
+	OAuthType         string `json:"oauth_type,omitempty"`              // OAuth类型
+	Email             string `json:"email,omitempty"`                   // 邮箱
+	OrganizationID    string `json:"organization_id,omitempty"`         // 组织ID
+	AccountID         string `json:"account_id,omitempty"`              // 账号ID
+	BaseURL           string `json:"base_url,omitempty"`                // 基础URL
+	UserAgent         string `json:"user_agent,omitempty"`              // 用户代理
+	SetupToken        string `json:"setup_token,omitempty"`             // 设置令牌
+	TierID            string `json:"tier_id,omitempty"`                 // 套餐ID
+	PlanType          string `json:"plan_type,omitempty"`               // 套餐类型
+	SubscriptionUntil string `json:"subscription_expires_at,omitempty"` // 订阅截止时间
 }
 
+// ProxyAuth 代理认证结构
+// 用于API代理请求的身份验证
 type ProxyAuth struct {
-	User   model.User
-	APIKey model.APIKey
+	User   model.User   // 用户信息
+	APIKey model.APIKey // API密钥信息
 }
 
+// UserAuth 用户认证结构
+// 包含用户信息和认证令牌
 type UserAuth struct {
-	User         model.User `json:"user"`
-	AccessToken  string     `json:"access_token"`
-	RefreshToken string     `json:"refresh_token"`
-	TokenType    string     `json:"token_type"`
-	ExpiresIn    int64      `json:"expires_in"`
+	User         model.User `json:"user"`          // 用户信息
+	AccessToken  string     `json:"access_token"`  // 访问令牌
+	RefreshToken string     `json:"refresh_token"` // 刷新令牌
+	TokenType    string     `json:"token_type"`    // 令牌类型
+	ExpiresIn    int64      `json:"expires_in"`    // 过期时间（秒）
 }
 
 type CreateUserInput struct {
@@ -214,71 +254,88 @@ type CreatePaymentOrderInput struct {
 	ReturnURL string `json:"return_url"`
 }
 
+// RegisterInput 用户注册输入结构
 type RegisterInput struct {
-	Email    string `json:"email"`
-	Name     string `json:"name"`
-	Password string `json:"password"`
+	Email    string `json:"email"`    // 邮箱
+	Name     string `json:"name"`     // 用户名
+	Password string `json:"password"` // 密码
 }
 
+// LoginInput 用户登录输入结构
 type LoginInput struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email    string `json:"email"`    // 邮箱
+	Password string `json:"password"` // 密码
 }
 
+// RefreshTokenInput 刷新令牌输入结构
 type RefreshTokenInput struct {
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refresh_token"` // 刷新令牌
 }
 
+// UpdateProfileInput 更新用户资料输入结构
 type UpdateProfileInput struct {
-	Name string `json:"name"`
+	Name string `json:"name"` // 用户名
 }
 
+// ChangePasswordInput 修改密码输入结构
 type ChangePasswordInput struct {
-	OldPassword string `json:"old_password"`
-	NewPassword string `json:"new_password"`
+	OldPassword string `json:"old_password"` // 旧密码
+	NewPassword string `json:"new_password"` // 新密码
 }
 
+// OAuthStartInput OAuth授权开始输入结构
 type OAuthStartInput struct {
-	Provider    string `json:"provider"`
-	RedirectURI string `json:"redirect_uri"`
-	OAuthType   string `json:"oauth_type"`
-	ProjectID   string `json:"project_id"`
-	TierID      string `json:"tier_id"`
+	Provider    string `json:"provider"`     // OAuth提供商
+	RedirectURI string `json:"redirect_uri"` // 回调URI
+	OAuthType   string `json:"oauth_type"`   // OAuth类型
+	ProjectID   string `json:"project_id"`   // 项目ID
+	TierID      string `json:"tier_id"`      // 套餐ID
 }
 
+// OAuthStartResult OAuth授权开始结果结构
 type OAuthStartResult struct {
-	Provider  string `json:"provider"`
-	SessionID string `json:"session_id"`
-	State     string `json:"state"`
-	AuthURL   string `json:"auth_url"`
+	Provider  string `json:"provider"`   // OAuth提供商
+	SessionID string `json:"session_id"` // 会话ID
+	State     string `json:"state"`      // 状态
+	AuthURL   string `json:"auth_url"`   // 授权URL
 }
 
+// OAuthExchangeInput OAuth令牌交换输入结构
 type OAuthExchangeInput struct {
-	SessionID string `json:"session_id"`
-	State     string `json:"state"`
-	Code      string `json:"code"`
+	SessionID string `json:"session_id"` // 会话ID
+	State     string `json:"state"`      // 状态
+	Code      string `json:"code"`       // 授权码
 }
 
+// OAuthExchangeResult OAuth令牌交换结果结构
 type OAuthExchangeResult struct {
-	AccountCredentials
+	AccountCredentials // 账号凭证
 }
 
+// DashboardData 仪表盘数据结构
 type DashboardData struct {
-	Users         []model.User         `json:"users"`
-	APIKeys       []model.APIKey       `json:"api_keys"`
-	Accounts      []AccountView        `json:"accounts"`
-	Prices        []model.ModelPrice   `json:"prices"`
-	Orders        []model.PaymentOrder `json:"orders"`
-	Announcements []model.Announcement `json:"announcements"`
-	Coupons       []model.Coupon       `json:"coupons"`
-	Stats         map[string]any       `json:"stats"`
+	Users         []model.User         `json:"users"`         // 用户列表
+	APIKeys       []model.APIKey       `json:"api_keys"`      // API密钥列表
+	Accounts      []AccountView        `json:"accounts"`      // 账号列表
+	Prices        []model.ModelPrice   `json:"prices"`        // 价格列表
+	Orders        []model.PaymentOrder `json:"orders"`        // 订单列表
+	Announcements []model.Announcement `json:"announcements"` // 公告列表
+	Coupons       []model.Coupon       `json:"coupons"`       // 优惠券列表
+	Stats         map[string]any       `json:"stats"`         // 统计数据
 }
 
+// AccountView 账号视图结构（包含脱敏后的凭证）
 type AccountView struct {
 	model.Account
-	Credentials map[string]any `json:"credentials,omitempty"`
+	Credentials map[string]any `json:"credentials,omitempty"` // 凭证信息
 }
 
+// New 创建Core核心服务实例
+// 参数：
+//   - cfg: 应用配置
+//   - db: 数据库连接
+//   - providers: AI Provider注册表
+//   - payments: 支付Provider注册表
 func New(cfg config.Config, db *gorm.DB, providers *provider.Registry, payments *payment.Registry) *Core {
 	return &Core{
 		cfg:          cfg,
@@ -291,11 +348,18 @@ func New(cfg config.Config, db *gorm.DB, providers *provider.Registry, payments 
 	}
 }
 
+// Start 启动核心服务
+// 启动后台任务：OAuth刷新循环和指标快照循环
 func (c *Core) Start(ctx context.Context) {
 	go c.refreshOAuthLoop(ctx)
 	go c.snapshotMetricsLoop(ctx)
 }
 
+// CheckAdminToken 检查管理员令牌是否有效
+// 参数：
+//   - token: 待验证的令牌
+//
+// 返回：令牌是否有效
 func (c *Core) CheckAdminToken(token string) bool {
 	if token == "" {
 		return false
@@ -303,6 +367,14 @@ func (c *Core) CheckAdminToken(token string) bool {
 	return subtle.ConstantTimeCompare([]byte(token), []byte(c.cfg.AdminToken)) == 1
 }
 
+// BootstrapAdmin 引导创建管理员账号
+// 如果系统中不存在管理员，则创建第一个管理员
+// 参数：
+//   - name: 管理员名称
+//   - email: 管理员邮箱
+//   - password: 管理员密码
+//
+// 返回：用户认证信息和错误
 func (c *Core) BootstrapAdmin(name, email, password string) (*UserAuth, error) {
 	var count int64
 	if err := c.db.Model(&model.User{}).Where("role = ?", "admin").Count(&count).Error; err != nil {
@@ -320,6 +392,11 @@ func (c *Core) BootstrapAdmin(name, email, password string) (*UserAuth, error) {
 	})
 }
 
+// CreateUser 创建用户
+// 参数：
+//   - in: 创建用户输入参数
+//
+// 返回：创建的用户和错误
 func (c *Core) CreateUser(in CreateUserInput) (*model.User, error) {
 	allowed, _ := json.Marshal(normalizeStrings(in.AllowedModels))
 	salt, hash, err := hashPassword(in.Password)
@@ -342,12 +419,19 @@ func (c *Core) CreateUser(in CreateUserInput) (*model.User, error) {
 	return user, c.db.Create(user).Error
 }
 
+// ListUsers 获取所有用户列表
+// 返回：用户列表和错误
 func (c *Core) ListUsers() ([]model.User, error) {
 	var items []model.User
 	err := c.db.Order("id asc").Find(&items).Error
 	return items, err
 }
 
+// GetUserByID 根据ID获取用户
+// 参数：
+//   - id: 用户ID
+//
+// 返回：用户信息和错误
 func (c *Core) GetUserByID(id uint64) (*model.User, error) {
 	var user model.User
 	if err := c.db.Where("id = ? AND status = ?", id, "active").First(&user).Error; err != nil {
@@ -356,6 +440,11 @@ func (c *Core) GetUserByID(id uint64) (*model.User, error) {
 	return &user, nil
 }
 
+// Register 用户注册
+// 参数：
+//   - in: 注册输入参数
+//
+// 返回：用户认证信息和错误
 func (c *Core) Register(in RegisterInput) (*UserAuth, error) {
 	return c.createUserAuth(CreateUserInput{
 		Email:       in.Email,
@@ -374,6 +463,11 @@ func (c *Core) createUserAuth(in CreateUserInput) (*UserAuth, error) {
 	return c.issueUserAuth(user)
 }
 
+// Login 用户登录
+// 参数：
+//   - in: 登录输入参数
+//
+// 返回：用户认证信息和错误
 func (c *Core) Login(in LoginInput) (*UserAuth, error) {
 	var user model.User
 	if err := c.db.Where("email = ?", strings.TrimSpace(strings.ToLower(in.Email))).First(&user).Error; err != nil {
@@ -394,6 +488,11 @@ func (c *Core) Login(in LoginInput) (*UserAuth, error) {
 	return c.issueUserAuth(&user)
 }
 
+// RefreshUserToken 刷新用户令牌
+// 参数：
+//   - in: 刷新令牌输入参数
+//
+// 返回：新的用户认证信息和错误
 func (c *Core) RefreshUserToken(in RefreshTokenInput) (*UserAuth, error) {
 	claims, err := c.parseUserToken(strings.TrimSpace(in.RefreshToken), "refresh")
 	if err != nil {
@@ -409,6 +508,11 @@ func (c *Core) RefreshUserToken(in RefreshTokenInput) (*UserAuth, error) {
 	return c.issueUserAuth(user)
 }
 
+// LogoutUser 用户登出
+// 参数：
+//   - refreshToken: 刷新令牌
+//
+// 返回：错误
 func (c *Core) LogoutUser(refreshToken string) error {
 	if strings.TrimSpace(refreshToken) == "" {
 		return nil
@@ -423,6 +527,11 @@ func (c *Core) LogoutUser(refreshToken string) error {
 	}).Error
 }
 
+// AuthenticateUserToken 验证用户访问令牌
+// 参数：
+//   - token: 访问令牌
+//
+// 返回：用户信息和错误
 func (c *Core) AuthenticateUserToken(token string) (*model.User, error) {
 	claims, err := c.parseUserToken(strings.TrimSpace(token), "access")
 	if err != nil {
@@ -438,6 +547,12 @@ func (c *Core) AuthenticateUserToken(token string) (*model.User, error) {
 	return user, nil
 }
 
+// UpdateProfile 更新用户资料
+// 参数：
+//   - userID: 用户ID
+//   - in: 更新资料输入参数
+//
+// 返回：更新后的用户信息和错误
 func (c *Core) UpdateProfile(userID uint64, in UpdateProfileInput) (*model.User, error) {
 	updates := map[string]any{
 		"updated_at_ms": time.Now().UnixMilli(),
@@ -451,6 +566,12 @@ func (c *Core) UpdateProfile(userID uint64, in UpdateProfileInput) (*model.User,
 	return c.GetUserByID(userID)
 }
 
+// ChangePassword 修改用户密码
+// 参数：
+//   - userID: 用户ID
+//   - in: 修改密码输入参数
+//
+// 返回：错误
 func (c *Core) ChangePassword(userID uint64, in ChangePasswordInput) error {
 	var user model.User
 	if err := c.db.Where("id = ?", userID).First(&user).Error; err != nil {
@@ -471,12 +592,25 @@ func (c *Core) ChangePassword(userID uint64, in ChangePasswordInput) error {
 	}).Error
 }
 
+// ListUserAPIKeys 获取用户的所有API密钥
+// 参数：
+//   - userID: 用户ID
+//
+// 返回：API密钥列表和错误
 func (c *Core) ListUserAPIKeys(userID uint64) ([]model.APIKey, error) {
 	var items []model.APIKey
 	err := c.db.Where("user_id = ?", userID).Order("id desc").Find(&items).Error
 	return items, err
 }
 
+// CreateUserAPIKey 为用户创建API密钥
+// 参数：
+//   - userID: 用户ID
+//   - name: 密钥名称
+//   - allowedModels: 允许使用的模型列表
+//   - expiresAtMS: 过期时间（毫秒）
+//
+// 返回：创建的API密钥和错误
 func (c *Core) CreateUserAPIKey(userID uint64, name string, allowedModels []string, expiresAtMS int64) (*model.APIKey, error) {
 	return c.CreateAPIKey(CreateAPIKeyInput{
 		UserID:        userID,
@@ -486,6 +620,12 @@ func (c *Core) CreateUserAPIKey(userID uint64, name string, allowedModels []stri
 	})
 }
 
+// ListUserUsage 获取用户的使用记录
+// 参数：
+//   - userID: 用户ID
+//   - limit: 返回记录数量限制
+//
+// 返回：使用记录列表和错误
 func (c *Core) ListUserUsage(userID uint64, limit int) ([]model.UsageLog, error) {
 	if limit <= 0 || limit > 500 {
 		limit = 100
@@ -495,6 +635,11 @@ func (c *Core) ListUserUsage(userID uint64, limit int) ([]model.UsageLog, error)
 	return items, err
 }
 
+// ListUsage 获取所有使用记录
+// 参数：
+//   - limit: 返回记录数量限制
+//
+// 返回：使用记录列表和错误
 func (c *Core) ListUsage(limit int) ([]model.UsageLog, error) {
 	if limit <= 0 || limit > 1000 {
 		limit = 200
@@ -504,12 +649,23 @@ func (c *Core) ListUsage(limit int) ([]model.UsageLog, error) {
 	return items, err
 }
 
+// ListUserPaymentOrders 获取用户的支付订单列表
+// 参数：
+//   - userID: 用户ID
+//
+// 返回：支付订单列表和错误
 func (c *Core) ListUserPaymentOrders(userID uint64) ([]model.PaymentOrder, error) {
 	var items []model.PaymentOrder
 	err := c.db.Where("user_id = ?", userID).Order("id desc").Find(&items).Error
 	return items, err
 }
 
+// GetUserPaymentOrder 获取用户的指定支付订单
+// 参数：
+//   - userID: 用户ID
+//   - orderID: 订单ID
+//
+// 返回：支付订单和错误
 func (c *Core) GetUserPaymentOrder(userID, orderID uint64) (*model.PaymentOrder, error) {
 	var order model.PaymentOrder
 	if err := c.db.Where("id = ? AND user_id = ?", orderID, userID).First(&order).Error; err != nil {
@@ -518,6 +674,12 @@ func (c *Core) GetUserPaymentOrder(userID, orderID uint64) (*model.PaymentOrder,
 	return &order, nil
 }
 
+// RedeemCoupon 兑换优惠券
+// 参数：
+//   - userID: 用户ID
+//   - code: 优惠券代码
+//
+// 返回：优惠券信息和错误
 func (c *Core) RedeemCoupon(userID uint64, code string) (*model.Coupon, error) {
 	code = strings.TrimSpace(code)
 	if code == "" {
@@ -553,6 +715,11 @@ func (c *Core) RedeemCoupon(userID uint64, code string) (*model.Coupon, error) {
 	return &coupon, nil
 }
 
+// CreateAPIKey 创建API密钥
+// 参数：
+//   - in: 创建API密钥输入参数
+//
+// 返回：创建的API密钥和错误
 func (c *Core) CreateAPIKey(in CreateAPIKeyInput) (*model.APIKey, error) {
 	allowed, _ := json.Marshal(normalizeStrings(in.AllowedModels))
 	key := &model.APIKey{
@@ -566,12 +733,19 @@ func (c *Core) CreateAPIKey(in CreateAPIKeyInput) (*model.APIKey, error) {
 	return key, c.db.Create(key).Error
 }
 
+// ListAPIKeys 获取所有API密钥列表
+// 返回：API密钥列表和错误
 func (c *Core) ListAPIKeys() ([]model.APIKey, error) {
 	var items []model.APIKey
 	err := c.db.Order("id asc").Find(&items).Error
 	return items, err
 }
 
+// CreateAccount 创建AI账号
+// 参数：
+//   - in: 创建账号输入参数
+//
+// 返回：创建的账号和错误
 func (c *Core) CreateAccount(in CreateAccountInput) (*model.Account, error) {
 	models, _ := json.Marshal(normalizeStrings(in.ModelScope))
 	encrypted, err := cryptoext.Encrypt(c.cfg.AESKey, normalizeJSON(in.Credentials, "{}"))
@@ -593,6 +767,12 @@ func (c *Core) CreateAccount(in CreateAccountInput) (*model.Account, error) {
 	return account, c.db.Create(account).Error
 }
 
+// UpdateAccount 更新AI账号
+// 参数：
+//   - id: 账号ID
+//   - in: 更新账号输入参数
+//
+// 返回：错误
 func (c *Core) UpdateAccount(id uint64, in UpdateAccountInput) error {
 	updates := map[string]any{}
 	if status := strings.TrimSpace(in.Status); status != "" {
@@ -611,6 +791,12 @@ func (c *Core) UpdateAccount(id uint64, in UpdateAccountInput) error {
 	return c.db.Model(&model.Account{}).Where("id = ?", id).Updates(updates).Error
 }
 
+// RefreshAccountOAuth 手动刷新OAuth账号
+// 参数：
+//   - ctx: 上下文
+//   - id: 账号ID
+//
+// 返回：账号视图和错误
 func (c *Core) RefreshAccountOAuth(ctx context.Context, id uint64) (*AccountView, error) {
 	var account model.Account
 	if err := c.db.First(&account, id).Error; err != nil {
@@ -634,12 +820,16 @@ func (c *Core) RefreshAccountOAuth(ctx context.Context, id uint64) (*AccountView
 	}, nil
 }
 
+// ListAccounts 获取所有AI账号列表
+// 返回：账号列表和错误
 func (c *Core) ListAccounts() ([]model.Account, error) {
 	var items []model.Account
 	err := c.db.Order("priority desc, id asc").Find(&items).Error
 	return items, err
 }
 
+// ListAccountViews 获取所有AI账号视图列表（包含脱敏后的凭证）
+// 返回：账号视图列表和错误
 func (c *Core) ListAccountViews() ([]AccountView, error) {
 	accounts, err := c.ListAccounts()
 	if err != nil {
@@ -656,6 +846,11 @@ func (c *Core) ListAccountViews() ([]AccountView, error) {
 	return views, nil
 }
 
+// CreateModelPrice 创建模型价格
+// 参数：
+//   - in: 创建价格输入参数
+//
+// 返回：创建的价格和错误
 func (c *Core) CreateModelPrice(in CreateModelPriceInput) (*model.ModelPrice, error) {
 	item := &model.ModelPrice{
 		Provider:    strings.TrimSpace(in.Provider),
@@ -668,12 +863,19 @@ func (c *Core) CreateModelPrice(in CreateModelPriceInput) (*model.ModelPrice, er
 	return item, c.db.Create(item).Error
 }
 
+// ListModelPrices 获取所有模型价格列表
+// 返回：价格列表和错误
 func (c *Core) ListModelPrices() ([]model.ModelPrice, error) {
 	var items []model.ModelPrice
 	err := c.db.Order("provider asc, model asc").Find(&items).Error
 	return items, err
 }
 
+// CreateAnnouncement 创建公告
+// 参数：
+//   - in: 创建公告输入参数
+//
+// 返回：创建的公告和错误
 func (c *Core) CreateAnnouncement(in CreateAnnouncementInput) (*model.Announcement, error) {
 	item := &model.Announcement{
 		Title:         strings.TrimSpace(in.Title),
@@ -684,12 +886,19 @@ func (c *Core) CreateAnnouncement(in CreateAnnouncementInput) (*model.Announceme
 	return item, c.db.Create(item).Error
 }
 
+// ListAnnouncements 获取所有公告列表
+// 返回：公告列表和错误
 func (c *Core) ListAnnouncements() ([]model.Announcement, error) {
 	var items []model.Announcement
 	err := c.db.Order("published_at_ms desc, id desc").Find(&items).Error
 	return items, err
 }
 
+// CreateCoupon 创建优惠券
+// 参数：
+//   - in: 创建优惠券输入参数
+//
+// 返回：创建的优惠券和错误
 func (c *Core) CreateCoupon(in CreateCouponInput) (*model.Coupon, error) {
 	item := &model.Coupon{
 		Code:         strings.TrimSpace(in.Code),
@@ -703,12 +912,19 @@ func (c *Core) CreateCoupon(in CreateCouponInput) (*model.Coupon, error) {
 	return item, c.db.Create(item).Error
 }
 
+// ListCoupons 获取所有优惠券列表
+// 返回：优惠券列表和错误
 func (c *Core) ListCoupons() ([]model.Coupon, error) {
 	var items []model.Coupon
 	err := c.db.Order("id desc").Find(&items).Error
 	return items, err
 }
 
+// ListErrorLogs 获取错误日志列表
+// 参数：
+//   - limit: 返回记录数量限制
+//
+// 返回：错误日志列表和错误
 func (c *Core) ListErrorLogs(limit int) ([]model.ErrorLog, error) {
 	if limit <= 0 || limit > 500 {
 		limit = 100
@@ -718,6 +934,8 @@ func (c *Core) ListErrorLogs(limit int) ([]model.ErrorLog, error) {
 	return items, err
 }
 
+// Dashboard 获取仪表盘数据
+// 返回：仪表盘数据结构和错误
 func (c *Core) Dashboard() (*DashboardData, error) {
 	stats, err := c.Stats()
 	if err != nil {
@@ -764,35 +982,42 @@ func (c *Core) Dashboard() (*DashboardData, error) {
 }
 
 func (c *Core) CreatePaymentOrder(ctx context.Context, in CreatePaymentOrderInput, clientIP, device, baseURL string) (*model.PaymentOrder, *payment.CreateOrderResponse, error) {
+	// 获取支付提供商（GoPay）
 	providerImpl, err := c.payments.Get("gopay")
 	if err != nil {
 		return nil, nil, err
 	}
+	// 验证用户ID
 	if in.UserID == 0 {
 		return nil, nil, fmt.Errorf("user_id is required")
 	}
+	// 验证金额
 	if in.Amount <= 0 {
 		return nil, nil, fmt.Errorf("amount must be greater than 0")
 	}
+	// 设置基础URL
 	if baseURL == "" {
 		baseURL = c.cfg.PublicBaseURL
 	}
 	if baseURL == "" {
 		return nil, nil, fmt.Errorf("public base url is required for payment notify")
 	}
+	// 创建支付订单记录
 	order := &model.PaymentOrder{
 		UserID:         in.UserID,
 		Provider:       "gopay",
-		OutTradeNo:     "pay_" + randomHex(12),
+		OutTradeNo:     "pay_" + randomHex(12), // 生成唯一订单号
 		Subject:        defaultString(strings.TrimSpace(in.Subject), "Balance Recharge"),
-		Status:         "PENDING",
+		Status:         "PENDING", // 初始状态为待支付
 		Amount:         in.Amount,
 		CreditedAmount: in.Amount,
 		MetadataJSON:   "{}",
 	}
+	// 保存订单到数据库
 	if err := c.db.Create(order).Error; err != nil {
 		return nil, nil, err
 	}
+	// 调用支付提供商创建订单
 	result, err := providerImpl.CreateOrder(ctx, payment.CreateOrderRequest{
 		OutTradeNo: order.OutTradeNo,
 		Subject:    order.Subject,
@@ -806,6 +1031,7 @@ func (c *Core) CreatePaymentOrder(ctx context.Context, in CreatePaymentOrderInpu
 		c.recordError("payment.create", "gopay create order failed", err.Error())
 		return nil, nil, err
 	}
+	// 更新订单的交易号
 	now := time.Now().UnixMilli()
 	if err := c.db.Model(order).Updates(map[string]any{
 		"provider_trade_no": result.ProviderTradeNo,
@@ -823,22 +1049,28 @@ func (c *Core) HandlePaymentNotify(r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	// 验证支付通知
 	notify, err := providerImpl.VerifyNotify(r)
 	if err != nil {
 		c.recordError("payment.notify", "gopay notify verify failed", err.Error())
 		return err
 	}
+	// 检查支付是否完成
 	if !notify.Paid {
 		return fmt.Errorf("payment not completed")
 	}
+	// 事务处理：更新订单状态和用户余额
 	return c.db.Transaction(func(tx *gorm.DB) error {
 		var order model.PaymentOrder
+		// 查找订单
 		if err := tx.Where("out_trade_no = ?", notify.OutTradeNo).First(&order).Error; err != nil {
 			return err
 		}
+		// 如果已经支付，则跳过
 		if order.Status == "PAID" {
 			return nil
 		}
+		// 更新订单状态为已支付
 		now := time.Now().UnixMilli()
 		if err := tx.Model(&order).Updates(map[string]any{
 			"status":            "PAID",
@@ -848,6 +1080,7 @@ func (c *Core) HandlePaymentNotify(r *http.Request) error {
 		}).Error; err != nil {
 			return err
 		}
+		// 增加用户余额
 		return tx.Model(&model.User{}).Where("id = ?", order.UserID).Updates(map[string]any{
 			"balance":       gorm.Expr("balance + ?", order.CreditedAmount),
 			"updated_at_ms": now,
@@ -855,25 +1088,38 @@ func (c *Core) HandlePaymentNotify(r *http.Request) error {
 	})
 }
 
+// RefundPayment 退款
+// 参数：
+//   - ctx: 上下文
+//   - outTradeNo: 订单号
+//   - amount: 退款金额
+//
+// 返回：错误
 func (c *Core) RefundPayment(ctx context.Context, outTradeNo string, amount int64) error {
+	// 获取支付提供商
 	providerImpl, err := c.payments.Get("gopay")
 	if err != nil {
 		return err
 	}
+	// 查找原订单
 	var order model.PaymentOrder
 	if err := c.db.Where("out_trade_no = ?", outTradeNo).First(&order).Error; err != nil {
 		return err
 	}
+	// 检查订单是否已支付
 	if order.Status != "PAID" {
 		return fmt.Errorf("payment order is not paid")
 	}
+	// 查找用户
 	var user model.User
 	if err := c.db.First(&user, order.UserID).Error; err != nil {
 		return err
 	}
+	// 检查用户余额是否足够
 	if user.Balance < amount {
 		return fmt.Errorf("user balance is insufficient for refund")
 	}
+	// 调用支付提供商退款
 	if err := providerImpl.Refund(ctx, payment.RefundRequest{
 		ProviderTradeNo: order.ProviderTradeNo,
 		Amount:          amount,
@@ -881,14 +1127,17 @@ func (c *Core) RefundPayment(ctx context.Context, outTradeNo string, amount int6
 		c.recordError("payment.refund", "gopay refund failed", err.Error())
 		return err
 	}
+	// 更新订单状态和用户余额
 	now := time.Now().UnixMilli()
 	return c.db.Transaction(func(tx *gorm.DB) error {
+		// 更新订单状态为已退款
 		if err := tx.Model(&order).Updates(map[string]any{
 			"status":        "REFUNDED",
 			"updated_at_ms": now,
 		}).Error; err != nil {
 			return err
 		}
+		// 扣减用户余额
 		return tx.Model(&user).Updates(map[string]any{
 			"balance":       gorm.Expr("balance - ?", amount),
 			"updated_at_ms": now,
@@ -896,36 +1145,61 @@ func (c *Core) RefundPayment(ctx context.Context, outTradeNo string, amount int6
 	})
 }
 
+// AuthenticateAPIKey 验证API密钥
+// 参数：
+//   - secret: API密钥
+//
+// 返回：代理认证信息和错误
 func (c *Core) AuthenticateAPIKey(secret string) (*ProxyAuth, error) {
+	// 查找API密钥
 	var key model.APIKey
 	if err := c.db.Where("secret = ? AND status = ?", strings.TrimSpace(secret), "active").First(&key).Error; err != nil {
 		return nil, fmt.Errorf("invalid api key")
 	}
+	// 检查密钥是否过期
 	if key.ExpiresAtMS > 0 && key.ExpiresAtMS < time.Now().UnixMilli() {
 		return nil, fmt.Errorf("api key expired")
 	}
+	// 查找关联的用户
 	var user model.User
 	if err := c.db.Where("id = ? AND status = ?", key.UserID, "active").First(&user).Error; err != nil {
 		return nil, fmt.Errorf("user not available")
 	}
+	// 更新最后使用时间
 	now := time.Now().UnixMilli()
 	_ = c.db.Model(&key).Updates(map[string]any{"last_used_at_ms": now, "updated_at_ms": now}).Error
 	return &ProxyAuth{User: user, APIKey: key}, nil
 }
 
+// Proxy 代理AI请求
+// 核心转发逻辑：根据API Key查找用户和AI账号，构建上游请求并转发
+// 参数：
+//   - ctx: 上下文
+//   - auth: 代理认证信息
+//   - path: 请求路径
+//   - rawQuery: 原始查询字符串
+//   - hdr: 请求头
+//   - body: 请求体
+//
+// 返回：上游响应、响应体和错误
 func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string, hdr http.Header, body []byte) (*http.Response, []byte, error) {
+	// 检测请求路由：模型名、是否流式、Provider名称
 	modelName, stream, providerName, err := detectRoute(path, body)
 	if err != nil {
 		return nil, nil, err
 	}
+	// 检查用户余额是否充足
 	if auth.User.Balance <= 0 {
 		return nil, nil, fmt.Errorf("insufficient balance")
 	}
+	// 检查模型是否在允许列表中
 	if modelName != "" && (!isModelAllowed(auth.User.AllowedModelsJSON, modelName) || !isModelAllowed(auth.APIKey.AllowedModelsJSON, modelName)) {
 		return nil, nil, fmt.Errorf("model is not allowed")
 	}
+	// 生成缓存键，检查是否可缓存
 	cacheKey, cacheable := c.cacheKey(providerName, path, rawQuery, body, stream)
 	if cacheable {
+		// 尝试从缓存获取响应
 		if cached, ok := c.getCachedResponse(cacheKey); ok {
 			respBody, err := io.ReadAll(cached.Body)
 			if err != nil {
@@ -935,47 +1209,61 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 			return cached, respBody, nil
 		}
 	}
+	// 选择一个可用的AI账号
 	account, err := c.pickAccount(providerName, modelName, path)
 	if err != nil {
 		return nil, nil, err
 	}
+	// 请求完成后释放账号
 	defer c.releaseAccount(account.ID)
+	// 获取账号的访问令牌
 	token, err := c.accountToken(ctx, &account)
 	if err != nil {
 		c.recordError("proxy.token", "resolve upstream token failed", err.Error())
 		return nil, nil, err
 	}
+	// 获取Provider实现
 	providerImpl, err := c.providers.Get(account.Provider)
 	if err != nil {
 		return nil, nil, err
 	}
+	// 构建上游URL
 	upstreamURL := providerImpl.BuildUpstreamURL(account, path, rawQuery)
+	// 创建上游请求
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, upstreamURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, nil, err
 	}
+	// 复制请求头
 	copyHeaders(req.Header, hdr)
 	req.Header.Del("Authorization")
+	// 应用Provider特定的请求处理（如签名、认证头等）
 	if err := providerImpl.ApplyRequest(req, account, token); err != nil {
 		return nil, nil, err
 	}
+	// 发送上游请求
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		c.recordError("proxy.request", "upstream request failed", err.Error())
 		return nil, nil, err
 	}
+	// 处理流式响应
 	if stream || strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "event-stream") {
 		if resp.StatusCode < 400 && modelName != "" {
+			// 使用usageTrackingReadCloser跟踪流式响应的使用量
 			resp.Body = &usageTrackingReadCloser{
 				src: resp.Body,
 				finalize: func(body []byte) {
+					// 解析使用量
 					inTokens, outTokens := providerImpl.ParseUsage(body)
+					// 尝试从流式响应中解析使用量
 					if parser, ok := providerImpl.(provider.StreamUsageParser); ok {
 						if in, out, found := parser.ParseStreamUsage(body); found {
 							inTokens = in
 							outTokens = out
 						}
 					}
+					// 记录使用量
 					if inTokens > 0 || outTokens > 0 {
 						_ = c.recordUsage(auth, &account, modelName, path, inTokens, outTokens)
 					}
@@ -984,15 +1272,18 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 		}
 		return resp, nil, nil
 	}
+	// 处理非流式响应
 	respBody, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if err != nil {
 		return nil, nil, err
 	}
 	resp.Body = io.NopCloser(bytes.NewReader(respBody))
+	// 缓存成功响应
 	if cacheable && resp.StatusCode < 400 {
 		c.putCachedResponse(cacheKey, resp.StatusCode, resp.Header, respBody, 30*time.Second)
 	}
+	// 解析并记录使用量
 	if resp.StatusCode < 400 && modelName != "" {
 		inTokens, outTokens := providerImpl.ParseUsage(respBody)
 		_ = c.recordUsage(auth, &account, modelName, path, inTokens, outTokens)
@@ -1000,15 +1291,26 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 	return resp, respBody, nil
 }
 
+// OAuthStart 开始OAuth授权流程
+// 参数：
+//   - in: OAuth授权开始输入参数
+//
+// 返回：OAuth授权结果和错误
 func (c *Core) OAuthStart(in OAuthStartInput) (*OAuthStartResult, error) {
+	// 标准化Provider名称
 	providerName := normalizeProvider(in.Provider)
+	// 生成会话ID
 	sessionID := randomHex(16)
+	// 生成state参数用于防止CSRF攻击
 	state := randomState()
+	// 生成PKCE code verifier
 	codeVerifier := randomCodeVerifier(providerName)
+	// 处理回调URL
 	redirectURI := strings.TrimSpace(in.RedirectURI)
 	if redirectURI == "" {
 		redirectURI = defaultRedirectURI(providerName, strings.TrimSpace(in.OAuthType))
 	}
+	// 构建元数据
 	meta := map[string]string{
 		"provider":   providerName,
 		"oauth_type": strings.TrimSpace(in.OAuthType),
@@ -1016,18 +1318,20 @@ func (c *Core) OAuthStart(in OAuthStartInput) (*OAuthStartResult, error) {
 		"tier_id":    strings.TrimSpace(in.TierID),
 	}
 	metaRaw, _ := json.Marshal(meta)
+	// 创建OAuth会话记录
 	session := &model.OAuthSession{
 		Provider:     providerName,
 		State:        state,
 		CodeVerifier: codeVerifier,
 		RedirectURI:  redirectURI,
-		ExpiresAtMS:  time.Now().Add(30 * time.Minute).UnixMilli(),
+		ExpiresAtMS:  time.Now().Add(30 * time.Minute).UnixMilli(), // 会话30分钟有效
 		MetadataJSON: string(metaRaw),
 	}
 	if err := c.db.Create(session).Error; err != nil {
 		return nil, err
 	}
 	_ = sessionID
+	// 构建授权URL
 	authURL, err := c.buildAuthorizationURL(providerName, state, codeVerifier, redirectURI, meta)
 	if err != nil {
 		return nil, err
@@ -1040,27 +1344,50 @@ func (c *Core) OAuthStart(in OAuthStartInput) (*OAuthStartResult, error) {
 	}, nil
 }
 
+// OAuthExchange 交换OAuth授权码获取令牌
+// 参数：
+//   - ctx: 上下文
+//   - in: OAuth令牌交换输入参数
+//
+// 返回：OAuth令牌交换结果和错误
 func (c *Core) OAuthExchange(ctx context.Context, in OAuthExchangeInput) (*OAuthExchangeResult, error) {
+	// 查找OAuth会话
 	var session model.OAuthSession
 	if err := c.db.Where("id = ?", in.SessionID).First(&session).Error; err != nil {
 		return nil, fmt.Errorf("oauth session not found")
 	}
+	// 检查会话是否过期
 	if session.ExpiresAtMS < time.Now().UnixMilli() {
 		return nil, fmt.Errorf("oauth session expired")
 	}
+	// 验证state参数防止CSRF攻击
 	if subtle.ConstantTimeCompare([]byte(strings.TrimSpace(in.State)), []byte(session.State)) != 1 {
 		return nil, fmt.Errorf("invalid oauth state")
 	}
+	// 解析元数据
 	meta := map[string]string{}
 	_ = json.Unmarshal([]byte(session.MetadataJSON), &meta)
+	// 交换授权码获取令牌
 	result, err := c.exchangeOAuthCode(ctx, &session, meta, strings.TrimSpace(in.Code))
 	if err != nil {
 		return nil, err
 	}
+	// 删除会话记录
 	_ = c.db.Delete(&session).Error
 	return &OAuthExchangeResult{AccountCredentials: *result}, nil
 }
 
+// CreateAccountFromOAuth 从OAuth凭证创建AI账号
+// 参数：
+//   - providerName: Provider名称
+//   - name: 账号名称
+//   - modelScope: 支持的模型列表
+//   - creds: OAuth凭证
+//   - baseURL: 基础URL
+//   - priority: 优先级
+//   - limit: 并发限制
+//
+// 返回：创建的账号和错误
 func (c *Core) CreateAccountFromOAuth(providerName, name string, modelScope []string, creds *AccountCredentials, baseURL string, priority, limit int) (*model.Account, error) {
 	raw := mustJSON(creds)
 	return c.CreateAccount(CreateAccountInput{
@@ -1076,11 +1403,14 @@ func (c *Core) CreateAccountFromOAuth(providerName, name string, modelScope []st
 	})
 }
 
+// Stats 获取系统统计信息
+// 返回：统计数据映射和错误
 func (c *Core) Stats() (map[string]any, error) {
 	type target struct {
 		name  string
 		model any
 	}
+	// 定义需要统计的模型
 	targets := []target{
 		{"users", &model.User{}},
 		{"api_keys", &model.APIKey{}},
@@ -1091,6 +1421,7 @@ func (c *Core) Stats() (map[string]any, error) {
 		{"coupons", &model.Coupon{}},
 		{"usage_logs", &model.UsageLog{}},
 	}
+	// 统计各模型数量
 	data := map[string]any{}
 	for _, item := range targets {
 		var count int64
@@ -1099,6 +1430,7 @@ func (c *Core) Stats() (map[string]any, error) {
 		}
 		data[item.name] = count
 	}
+	// 获取内存统计
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
 	data["memory_alloc_mb"] = ms.Alloc / 1024 / 1024
@@ -1106,12 +1438,18 @@ func (c *Core) Stats() (map[string]any, error) {
 	return data, nil
 }
 
+// ListPaymentOrders 获取所有支付订单列表
+// 返回：订单列表和错误
 func (c *Core) ListPaymentOrders() ([]model.PaymentOrder, error) {
 	var items []model.PaymentOrder
 	err := c.db.Order("id desc").Find(&items).Error
 	return items, err
 }
 
+// snapshotMetricsLoop 指标快照循环
+// 每5分钟记录一次系统指标到数据库
+// 参数：
+//   - ctx: 上下文
 func (c *Core) snapshotMetricsLoop(ctx context.Context) {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
@@ -1120,10 +1458,12 @@ func (c *Core) snapshotMetricsLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			// 获取系统统计
 			stats, err := c.Stats()
 			if err != nil {
 				continue
 			}
+			// 记录每个指标
 			for k, v := range stats {
 				_ = c.db.Create(&model.SystemMetric{
 					MetricKey:    k,
@@ -1136,6 +1476,10 @@ func (c *Core) snapshotMetricsLoop(ctx context.Context) {
 	}
 }
 
+// refreshOAuthLoop OAuth令牌刷新循环
+// 每分钟检查并刷新即将过期的OAuth令牌
+// 参数：
+//   - ctx: 上下文
 func (c *Core) refreshOAuthLoop(ctx context.Context) {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
@@ -1144,10 +1488,12 @@ func (c *Core) refreshOAuthLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			// 查找所有OAuth类型的活跃账号
 			var accounts []model.Account
 			if err := c.db.Where("auth_type = ? AND status = ?", "oauth", "active").Find(&accounts).Error; err != nil {
 				continue
 			}
+			// 刷新即将过期的令牌（剩余时间少于10分钟）
 			for i := range accounts {
 				if accounts[i].ExpiresAtMS > 0 && accounts[i].ExpiresAtMS-time.Now().UnixMilli() > 10*60*1000 {
 					continue
@@ -1158,11 +1504,19 @@ func (c *Core) refreshOAuthLoop(ctx context.Context) {
 	}
 }
 
+// accountCredentials 获取账号凭证
+// 从加密的凭证中解密并解析出AccountCredentials
+// 参数：
+//   - account: AI账号
+//
+// 返回：账号凭证和错误
 func (c *Core) accountCredentials(account *model.Account) (*AccountCredentials, error) {
+	// 解密凭证
 	plain, err := cryptoext.Decrypt(c.cfg.AESKey, account.CredentialsEncrypted)
 	if err != nil {
 		return nil, err
 	}
+	// 解析JSON
 	var cred AccountCredentials
 	if err := json.Unmarshal([]byte(plain), &cred); err != nil {
 		return nil, err
@@ -1170,36 +1524,59 @@ func (c *Core) accountCredentials(account *model.Account) (*AccountCredentials, 
 	return &cred, nil
 }
 
+// accountToken 获取账号访问令牌
+// 根据账号类型返回API密钥或OAuth访问令牌
+// 参数：
+//   - ctx: 上下文
+//   - account: AI账号
+//
+// 返回：访问令牌和错误
 func (c *Core) accountToken(ctx context.Context, account *model.Account) (string, error) {
+	// 获取账号凭证
 	cred, err := c.accountCredentials(account)
 	if err != nil {
 		return "", err
 	}
+	// 根据认证类型返回令牌
 	switch account.AuthType {
 	case "api_key", "static":
+		// 直接返回API密钥或访问令牌
 		if cred.APIKey != "" {
 			return cred.APIKey, nil
 		}
 		return cred.AccessToken, nil
 	case "oauth":
+		// 检查访问令牌是否还有效（剩余超过3分钟）
 		if cred.AccessToken != "" && cred.ExpiresAtMS-time.Now().UnixMilli() > 3*60*1000 {
 			return cred.AccessToken, nil
 		}
+		// 刷新OAuth令牌
 		return c.refreshOAuthToken(ctx, account, cred)
 	default:
 		return "", fmt.Errorf("unsupported auth_type %s", account.AuthType)
 	}
 }
 
+// refreshOAuthToken 刷新OAuth访问令牌
+// 使用刷新令牌获取新的访问令牌
+// 参数：
+//   - ctx: 上下文
+//   - account: AI账号
+//   - cred: 当前凭证
+//
+// 返回：新的访问令牌和错误
 func (c *Core) refreshOAuthToken(ctx context.Context, account *model.Account, cred *AccountCredentials) (string, error) {
+	// 检查是否有刷新令牌
 	if cred.RefreshToken == "" {
 		return "", fmt.Errorf("oauth refresh token is missing")
 	}
+	// 使用互斥锁防止并发刷新同一账号
 	lockAny, _ := c.refreshMu.LoadOrStore(account.ID, &sync.Mutex{})
 	lock := lockAny.(*sync.Mutex)
 	lock.Lock()
 	defer lock.Unlock()
 
+	// 构建刷新令牌请求表单
 	form := url.Values{}
 	switch normalizeProvider(account.Provider) {
 	case "openai":
@@ -1240,6 +1617,7 @@ func (c *Core) refreshOAuthToken(ctx context.Context, account *model.Account, cr
 	default:
 		return "", fmt.Errorf("unsupported oauth provider %s", account.Provider)
 	}
+	// 发送刷新令牌请求
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cred.TokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return "", err
@@ -1250,13 +1628,16 @@ func (c *Core) refreshOAuthToken(ctx context.Context, account *model.Account, cr
 		return "", err
 	}
 	defer resp.Body.Close()
+	// 读取响应
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
+	// 检查响应状态
 	if resp.StatusCode >= 400 {
 		return "", fmt.Errorf("oauth refresh failed: %s", strings.TrimSpace(string(body)))
 	}
+	// 解析响应
 	var result struct {
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
@@ -1269,6 +1650,7 @@ func (c *Core) refreshOAuthToken(ctx context.Context, account *model.Account, cr
 	if result.AccessToken == "" {
 		return "", fmt.Errorf("oauth refresh returned empty access token")
 	}
+	// 更新凭证
 	cred.AccessToken = result.AccessToken
 	if result.RefreshToken != "" {
 		cred.RefreshToken = result.RefreshToken
@@ -1276,17 +1658,28 @@ func (c *Core) refreshOAuthToken(ctx context.Context, account *model.Account, cr
 	if result.ExpiresIn > 0 {
 		cred.ExpiresAtMS = time.Now().Add(time.Duration(result.ExpiresIn) * time.Second).UnixMilli()
 	}
+	// 处理ID Token
 	if result.IDToken != "" {
 		c.populateOpenAIIDToken(cred, result.IDToken)
 	}
+	// 返回新令牌并保存凭证
 	return cred.AccessToken, c.persistCredentials(account, cred)
 }
 
+// persistCredentials 持久化账号凭证
+// 加密并保存凭证到数据库
+// 参数：
+//   - account: AI账号
+//   - cred: 账号凭证
+//
+// 返回：错误
 func (c *Core) persistCredentials(account *model.Account, cred *AccountCredentials) error {
+	// 加密凭证
 	encrypted, err := cryptoext.Encrypt(c.cfg.AESKey, mustJSON(cred))
 	if err != nil {
 		return err
 	}
+	// 更新数据库
 	now := time.Now().UnixMilli()
 	if err := c.db.Model(&model.Account{}).Where("id = ?", account.ID).Updates(map[string]any{
 		"credentials_encrypted": encrypted,
@@ -1296,13 +1689,25 @@ func (c *Core) persistCredentials(account *model.Account, cred *AccountCredentia
 	}).Error; err != nil {
 		return err
 	}
+	// 更新本地对象
 	account.CredentialsEncrypted = encrypted
 	account.ExpiresAtMS = cred.ExpiresAtMS
 	account.LastRefreshedAtMS = now
 	return nil
 }
 
+// buildAuthorizationURL 构建OAuth授权URL
+// 根据Provider生成授权跳转URL
+// 参数：
+//   - providerName: Provider名称
+//   - state: 状态参数
+//   - codeVerifier: PKCE代码验证器
+//   - redirectURI: 回调URI
+//   - meta: 元数据
+//
+// 返回：授权URL和错误
 func (c *Core) buildAuthorizationURL(providerName, state, codeVerifier, redirectURI string, meta map[string]string) (string, error) {
+	// 生成code challenge
 	challenge := pkceChallenge(codeVerifier)
 	switch providerName {
 	case "openai":
@@ -1361,6 +1766,7 @@ func (c *Core) buildAuthorizationURL(providerName, state, codeVerifier, redirect
 }
 
 func (c *Core) exchangeOAuthCode(ctx context.Context, session *model.OAuthSession, meta map[string]string, code string) (*AccountCredentials, error) {
+	// 根据Provider类型分发处理
 	providerName := normalizeProvider(session.Provider)
 	switch providerName {
 	case "openai":
@@ -1376,17 +1782,22 @@ func (c *Core) exchangeOAuthCode(ctx context.Context, session *model.OAuthSessio
 	}
 }
 
+// exchangeOpenAI 交换OpenAI授权码
+// 使用授权码换取访问令牌
 func (c *Core) exchangeOpenAI(ctx context.Context, session *model.OAuthSession, code string) (*AccountCredentials, error) {
+	// 构建令牌请求
 	form := url.Values{}
 	form.Set("grant_type", "authorization_code")
 	form.Set("client_id", c.cfg.OpenAI.ClientID)
 	form.Set("code", code)
 	form.Set("redirect_uri", session.RedirectURI)
 	form.Set("code_verifier", session.CodeVerifier)
+	// 发送请求
 	resp, err := c.oauthFormRequest(ctx, openAITokenURL, form)
 	if err != nil {
 		return nil, err
 	}
+	// 构建凭证
 	cred := &AccountCredentials{
 		AccessToken:  resp["access_token"],
 		RefreshToken: resp["refresh_token"],
@@ -1394,14 +1805,19 @@ func (c *Core) exchangeOpenAI(ctx context.Context, session *model.OAuthSession, 
 		TokenURL:     openAITokenURL,
 		RedirectURI:  session.RedirectURI,
 	}
+	// 设置过期时间
 	if expiresIn := parseExpires(resp["expires_in"]); expiresIn > 0 {
 		cred.ExpiresAtMS = time.Now().Add(time.Duration(expiresIn) * time.Second).UnixMilli()
 	}
+	// 处理ID Token
 	c.populateOpenAIIDToken(cred, resp["id_token"])
 	return cred, nil
 }
 
+// exchangeClaude 交换Claude授权码
+// 使用授权码换取访问令牌
 func (c *Core) exchangeClaude(ctx context.Context, session *model.OAuthSession, code string) (*AccountCredentials, error) {
+	// 构建请求载荷
 	payload := map[string]any{
 		"grant_type":    "authorization_code",
 		"client_id":     c.cfg.Claude.ClientID,
@@ -1474,6 +1890,7 @@ func (c *Core) exchangeGemini(ctx context.Context, session *model.OAuthSession, 
 	if err != nil {
 		return nil, err
 	}
+	// 构建凭证
 	cred := &AccountCredentials{
 		AccessToken:  resp["access_token"],
 		RefreshToken: resp["refresh_token"],
@@ -1486,13 +1903,17 @@ func (c *Core) exchangeGemini(ctx context.Context, session *model.OAuthSession, 
 		TierID:       meta["tier_id"],
 	}
 	_ = scopes
+	// 设置过期时间
 	if expiresIn := parseExpires(resp["expires_in"]); expiresIn > 0 {
 		cred.ExpiresAtMS = time.Now().Add(time.Duration(expiresIn) * time.Second).UnixMilli()
 	}
 	return cred, nil
 }
 
+// exchangeAntigravity 交换Antigravity授权码
+// 使用授权码换取访问令牌
 func (c *Core) exchangeAntigravity(ctx context.Context, session *model.OAuthSession, code string) (*AccountCredentials, error) {
+	// 构建令牌请求
 	form := url.Values{}
 	form.Set("client_id", antigravityClientID)
 	form.Set("client_secret", c.cfg.Antigravity.ClientSecret)
@@ -1500,10 +1921,12 @@ func (c *Core) exchangeAntigravity(ctx context.Context, session *model.OAuthSess
 	form.Set("redirect_uri", antigravityRedirectURI)
 	form.Set("grant_type", "authorization_code")
 	form.Set("code_verifier", session.CodeVerifier)
+	// 发送请求
 	resp, err := c.oauthFormRequest(ctx, antigravityTokenURL, form)
 	if err != nil {
 		return nil, err
 	}
+	// 构建凭证
 	cred := &AccountCredentials{
 		AccessToken:  resp["access_token"],
 		RefreshToken: resp["refresh_token"],
@@ -1513,9 +1936,11 @@ func (c *Core) exchangeAntigravity(ctx context.Context, session *model.OAuthSess
 		RedirectURI:  antigravityRedirectURI,
 		UserAgent:    "antigravity/1.21.9 windows/amd64",
 	}
+	// 设置过期时间
 	if expiresIn := parseExpires(resp["expires_in"]); expiresIn > 0 {
 		cred.ExpiresAtMS = time.Now().Add(time.Duration(expiresIn) * time.Second).UnixMilli()
 	}
+	// 获取用户信息
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, antigravityUserInfoURL, nil)
 	if err == nil {
 		req.Header.Set("Authorization", "Bearer "+cred.AccessToken)
@@ -1534,17 +1959,28 @@ func (c *Core) exchangeAntigravity(ctx context.Context, session *model.OAuthSess
 	return cred, nil
 }
 
+// oauthFormRequest 发送OAuth表单请求
+// 通用方法：发送表单编码的请求并解析JSON响应
+// 参数：
+//   - ctx: 上下文
+//   - endpoint: 请求端点
+//   - form: 表单数据
+//
+// 返回：响应映射和错误
 func (c *Core) oauthFormRequest(ctx context.Context, endpoint string, form url.Values) (map[string]string, error) {
+	// 创建请求
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	// 发送请求
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	// 读取响应
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
@@ -1563,14 +1999,21 @@ func (c *Core) oauthFormRequest(ctx context.Context, endpoint string, form url.V
 	return result, nil
 }
 
+// populateOpenAIIDToken 解析OpenAI ID Token
+// 从JWT中提取用户信息和组织信息
+// 参数：
+//   - cred: 账号凭证
+//   - idToken: ID Token字符串
 func (c *Core) populateOpenAIIDToken(cred *AccountCredentials, idToken string) {
 	if idToken == "" {
 		return
 	}
+	// 解析JWT（header.payload.signature）
 	parts := strings.Split(idToken, ".")
 	if len(parts) != 3 {
 		return
 	}
+	// 解码payload
 	payload := parts[1]
 	switch len(payload) % 4 {
 	case 2:
@@ -1582,26 +2025,38 @@ func (c *Core) populateOpenAIIDToken(cred *AccountCredentials, idToken string) {
 	if err != nil {
 		return
 	}
+	// 解析JSON
 	var claims map[string]any
 	if json.Unmarshal(raw, &claims) != nil {
 		return
 	}
+	// 提取邮箱
 	if email, _ := claims["email"].(string); email != "" {
 		cred.Email = email
 	}
+	// 提取API认证声明
 	if authClaims, ok := claims["https://api.openai.com/auth"].(map[string]any); ok {
+		// 提取ChatGPT账号ID
 		if id, _ := authClaims["chatgpt_account_id"].(string); id != "" {
 			cred.AccountID = id
 		}
+		// 提取套餐类型
 		if plan, _ := authClaims["chatgpt_plan_type"].(string); plan != "" {
 			cred.PlanType = plan
 		}
+		// 提取组织ID
 		if oid, _ := authClaims["poid"].(string); oid != "" {
 			cred.OrganizationID = oid
 		}
 	}
 }
 
+// geminiOAuthConfig 获取Gemini OAuth配置
+// 根据OAuth类型返回对应的客户端配置
+// 参数：
+//   - oauthType: OAuth类型
+//
+// 返回：Gemini配置、回调URI和授权范围
 func (c *Core) geminiOAuthConfig(oauthType string) (config.GeminiConfig, string, string) {
 	effective := config.GeminiConfig{
 		ClientID:            strings.TrimSpace(c.cfg.Gemini.ClientID),
@@ -1636,47 +2091,69 @@ func (c *Core) geminiOAuthConfig(oauthType string) (config.GeminiConfig, string,
 	return effective, redirectURI, scopes
 }
 
+// pickAccount 选择一个可用的AI账号
+// 使用负载均衡策略：优先选择优先级高、负载低的账号
+// 参数：
+//   - providerName: Provider名称
+//   - modelName: 模型名称
+//   - path: 请求路径
+//
+// 返回：选中的账号和错误
 func (c *Core) pickAccount(providerName, modelName, path string) (model.Account, error) {
+	// 从数据库获取该Provider的所有活跃账号
 	var accounts []model.Account
 	if err := c.db.Where("provider = ? AND status = ?", providerName, "active").Order("priority desc, id asc").Find(&accounts).Error; err != nil {
 		return model.Account{}, err
 	}
+	// 获取Provider实现
 	providerImpl, err := c.providers.Get(providerName)
 	if err != nil {
 		return model.Account{}, err
 	}
+	// 加锁以保护负载计数器
 	c.loadMu.Lock()
 	defer c.loadMu.Unlock()
+	// 遍历账号，找到最合适的
 	bestIndex := -1
-	bestLoad := int(^uint(0) >> 1)
+	bestLoad := int(^uint(0) >> 1) // 取最大int值
 	for i := range accounts {
+		// 检查是否支持该路径
 		if !providerImpl.SupportsPath(path) {
 			continue
 		}
+		// 检查模型是否在账号支持范围内
 		if modelName != "" && !isModelAllowed(accounts[i].ModelScopeJSON, modelName) {
 			continue
 		}
+		// 获取当前负载
 		load := c.accountLoads[accounts[i].ID]
 		limit := accounts[i].ConcurrencyLimit
 		if limit <= 0 {
 			limit = 1
 		}
+		// 检查是否超过并发限制
 		if load >= limit {
 			continue
 		}
+		// 选择负载最低的账号
 		if bestIndex == -1 || load < bestLoad {
 			bestIndex = i
 			bestLoad = load
 		}
 	}
+	// 如果没有可用账号，返回错误
 	if bestIndex == -1 {
 		return model.Account{}, fmt.Errorf("no active %s account available", providerName)
 	}
+	// 选中账号，负载加1
 	account := accounts[bestIndex]
 	c.accountLoads[account.ID]++
 	return account, nil
 }
 
+// releaseAccount 释放账号（减少负载计数）
+// 参数：
+//   - accountID: 账号ID
 func (c *Core) releaseAccount(accountID uint64) {
 	c.loadMu.Lock()
 	defer c.loadMu.Unlock()
@@ -1685,13 +2162,26 @@ func (c *Core) releaseAccount(accountID uint64) {
 	}
 }
 
+// recordUsage 记录API使用量
+// 参数：
+//   - auth: 代理认证信息
+//   - account: AI账号
+//   - modelName: 模型名称
+//   - endpoint: 端点
+//   - inTokens: 输入token数
+//   - outTokens: 输出token数
+//
+// 返回：错误
 func (c *Core) recordUsage(auth *ProxyAuth, account *model.Account, modelName, endpoint string, inTokens, outTokens int64) error {
+	// 计算费用
 	cost, err := c.calculateCost(account.Provider, modelName, auth.User.RatePercent, inTokens, outTokens)
 	if err != nil {
 		return err
 	}
+	// 事务中记录使用量并扣减余额
 	now := time.Now().UnixMilli()
 	return c.db.Transaction(func(tx *gorm.DB) error {
+		// 创建使用记录
 		if err := tx.Create(&model.UsageLog{
 			UserID:       auth.User.ID,
 			APIKeyID:     auth.APIKey.ID,
@@ -1705,6 +2195,7 @@ func (c *Core) recordUsage(auth *ProxyAuth, account *model.Account, modelName, e
 		}).Error; err != nil {
 			return err
 		}
+		// 扣减用户余额
 		if cost > 0 {
 			return tx.Model(&model.User{}).Where("id = ?", auth.User.ID).Updates(map[string]any{
 				"balance":       gorm.Expr("balance - ?", cost),
@@ -1715,23 +2206,38 @@ func (c *Core) recordUsage(auth *ProxyAuth, account *model.Account, modelName, e
 	})
 }
 
+// calculateCost 计算费用
+// 根据模型价格和用户费率计算实际费用
+// 参数：
+//   - providerName: Provider名称
+//   - modelName: 模型名称
+//   - ratePercent: 用户费率（百分比）
+//   - inTokens: 输入token数
+//   - outTokens: 输出token数
+//
+// 返回：计算出的费用和错误
 func (c *Core) calculateCost(providerName, modelName string, ratePercent int, inTokens, outTokens int64) (int64, error) {
+	// 查找模型价格
 	var price model.ModelPrice
 	if err := c.db.Where("provider = ? AND model = ? AND status = ?", providerName, modelName, "active").First(&price).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return 0, nil
+			return 0, nil // 没找到价格则免费
 		}
 		return 0, err
 	}
+	// 计算基础费用：输入价格*输入token + 输出价格*输出token，结果除以1000（因为价格单位是CNY_1E4，即万分之）
 	base := (inTokens*price.InputPrice + outTokens*price.OutputPrice + 999) / 1000
+	// 应用用户费率
 	return int64(ratePercent) * base / 100, nil
 }
 
 func (c *Core) recordError(scope, message, detail string) {
+	// 记录或更新错误日志
 	now := time.Now().UnixMilli()
 	var item model.ErrorLog
 	err := c.db.Where("scope = ? AND message = ?", scope, message).First(&item).Error
 	if err == nil {
+		// 已存在，增加计数
 		_ = c.db.Model(&item).Updates(map[string]any{
 			"count":           gorm.Expr("count + 1"),
 			"detail":          detail,
@@ -1740,6 +2246,7 @@ func (c *Core) recordError(scope, message, detail string) {
 		}).Error
 		return
 	}
+	// 创建新记录
 	_ = c.db.Create(&model.ErrorLog{
 		Scope:        scope,
 		Message:      message,
@@ -1749,6 +2256,8 @@ func (c *Core) recordError(scope, message, detail string) {
 	}).Error
 }
 
+// normalizeProvider 标准化Provider名称
+// 转换为小写并去除空格
 func normalizeProvider(name string) string {
 	name = strings.ToLower(strings.TrimSpace(name))
 	switch name {
@@ -1759,6 +2268,8 @@ func normalizeProvider(name string) string {
 	}
 }
 
+// normalizeStrings 标准化字符串数组
+// 去除空格和空字符串
 func normalizeStrings(items []string) []string {
 	out := make([]string, 0, len(items))
 	for _, item := range items {
@@ -1770,6 +2281,8 @@ func normalizeStrings(items []string) []string {
 	return out
 }
 
+// normalizeJSON 标准化JSON字符串
+// 返回原始JSON或默认值
 func normalizeJSON(raw json.RawMessage, fallback string) string {
 	if len(bytes.TrimSpace(raw)) == 0 {
 		return fallback
@@ -1777,6 +2290,8 @@ func normalizeJSON(raw json.RawMessage, fallback string) string {
 	return string(raw)
 }
 
+// redactCredentialsForView 脱敏凭证信息
+// 返回用于展示的凭证映射（隐藏敏感信息）
 func redactCredentialsForView(account *model.Account, cred *AccountCredentials) map[string]any {
 	if cred == nil {
 		return nil
@@ -1791,18 +2306,23 @@ func redactCredentialsForView(account *model.Account, cred *AccountCredentials) 
 		"plan_type":          cred.PlanType,
 		"subscription_until": cred.SubscriptionUntil,
 	}
+	// 脱敏API密钥
 	if cred.APIKey != "" {
 		data["api_key_masked"] = maskSecret(cred.APIKey)
 	}
+	// 脱敏刷新令牌
 	if cred.RefreshToken != "" {
 		data["refresh_token_masked"] = maskSecret(cred.RefreshToken)
 	}
+	// 脱敏访问令牌
 	if cred.AccessToken != "" {
 		data["access_token_masked"] = maskSecret(cred.AccessToken)
 	}
+	// 脱敏设置令牌
 	if cred.SetupToken != "" {
 		data["setup_token_masked"] = maskSecret(cred.SetupToken)
 	}
+	// OAuth类型显示额外信息
 	if account.AuthType == "oauth" {
 		data["token_url"] = cred.TokenURL
 		data["redirect_uri"] = cred.RedirectURI
@@ -1810,8 +2330,11 @@ func redactCredentialsForView(account *model.Account, cred *AccountCredentials) 
 	return data
 }
 
+// detectRoute 检测路由并提取模型信息
+// 根据请求路径和请求体判断Provider和模型
 func detectRoute(path string, body []byte) (modelName string, stream bool, providerName string, err error) {
 	switch {
+	// OpenAI兼容接口
 	case strings.HasPrefix(path, "/v1/chat/completions"), strings.HasPrefix(path, "/v1/responses"), strings.HasPrefix(path, "/v1/embeddings"):
 		providerName = "openai"
 		var payload struct {
@@ -1823,6 +2346,7 @@ func detectRoute(path string, body []byte) (modelName string, stream bool, provi
 			stream = payload.Stream
 		}
 		return
+	// Claude兼容接口
 	case strings.HasPrefix(path, "/v1/messages"), strings.HasPrefix(path, "/v1/messages/count_tokens"):
 		providerName = "claude"
 		var payload struct {
@@ -1833,11 +2357,13 @@ func detectRoute(path string, body []byte) (modelName string, stream bool, provi
 		}
 		stream = bytes.Contains(body, []byte(`"stream":true`))
 		return
+	// Gemini兼容接口
 	case strings.HasPrefix(path, "/v1beta/models/"), strings.HasPrefix(path, "/v1/models/"):
 		providerName = "gemini"
 		modelName = parseGeminiModelFromPath(path)
 		stream = strings.Contains(path, ":streamGenerateContent")
 		return
+	// Antigravity接口
 	case strings.HasPrefix(path, "/v1internal:"):
 		providerName = "antigravity"
 		return
@@ -1847,6 +2373,7 @@ func detectRoute(path string, body []byte) (modelName string, stream bool, provi
 	}
 }
 
+// parseGeminiModelFromPath 从路径解析Gemini模型名
 func parseGeminiModelFromPath(path string) string {
 	parts := strings.Split(path, "/")
 	for i := range parts {
@@ -1857,6 +2384,7 @@ func parseGeminiModelFromPath(path string) string {
 	return ""
 }
 
+// defaultString 返回默认值如果为空
 func defaultString(value, fallback string) string {
 	if strings.TrimSpace(value) == "" {
 		return fallback
@@ -1864,6 +2392,7 @@ func defaultString(value, fallback string) string {
 	return value
 }
 
+// defaultInt 返回默认值如果是0
 func defaultInt(value, fallback int) int {
 	if value == 0 {
 		return fallback
@@ -1871,6 +2400,7 @@ func defaultInt(value, fallback int) int {
 	return value
 }
 
+// defaultInt64 返回默认值如果是0
 func defaultInt64(value, fallback int64) int64 {
 	if value == 0 {
 		return fallback
@@ -1878,6 +2408,8 @@ func defaultInt64(value, fallback int64) int64 {
 	return value
 }
 
+// isModelAllowed 检查模型是否在允许列表中
+// 空列表或包含*表示允许所有
 func isModelAllowed(raw, modelName string) bool {
 	var items []string
 	if err := json.Unmarshal([]byte(raw), &items); err != nil || len(items) == 0 || modelName == "" {
@@ -1886,6 +2418,8 @@ func isModelAllowed(raw, modelName string) bool {
 	return slices.Contains(items, "*") || slices.Contains(items, modelName)
 }
 
+// copyHeaders 复制HTTP请求头
+// 跳过Host和Content-Length
 func copyHeaders(dst, src http.Header) {
 	for k, values := range src {
 		if strings.EqualFold(k, "Host") || strings.EqualFold(k, "Content-Length") {
@@ -1897,6 +2431,7 @@ func copyHeaders(dst, src http.Header) {
 	}
 }
 
+// cloneHeader 克隆HTTP头
 func cloneHeader(src http.Header) http.Header {
 	dst := make(http.Header, len(src))
 	for k, values := range src {
@@ -1907,6 +2442,7 @@ func cloneHeader(src http.Header) http.Header {
 	return dst
 }
 
+// cloneBody 克隆响应体
 func cloneBody(body []byte) []byte {
 	if len(body) == 0 {
 		return nil
@@ -1916,33 +2452,54 @@ func cloneBody(body []byte) []byte {
 	return out
 }
 
+// cacheKey 生成缓存键
+// 判断请求是否可缓存，返回缓存键
+// 参数：
+//   - providerName: Provider名称
+//   - path: 请求路径
+//   - rawQuery: 原始查询字符串
+//   - body: 请求体
+//   - stream: 是否流式请求
+//
+// 返回：缓存键和是否可缓存
 func (c *Core) cacheKey(providerName, path, rawQuery string, body []byte, stream bool) (string, bool) {
+	// 流式请求不可缓存
 	if stream || providerName == "antigravity" {
 		return "", false
 	}
+	// 检查请求体中是否有stream标志
 	if bytes.Contains(body, []byte(`"stream":true`)) || bytes.Contains(body, []byte(`"stream": true`)) {
 		return "", false
 	}
+	// 生成SHA256哈希作为缓存键
 	sum := sha256.Sum256(append([]byte(providerName+"|"+path+"?"+rawQuery+"|"), body...))
 	return hex.EncodeToString(sum[:]), true
 }
 
+// getCachedResponse 获取缓存的响应
+// 参数：
+//   - key: 缓存键
+//
+// 返回：缓存的HTTP响应和是否存在
 func (c *Core) getCachedResponse(key string) (*http.Response, bool) {
 	if key == "" {
 		return nil, false
 	}
+	// 读取缓存
 	c.cacheMu.RLock()
 	item, ok := c.cacheItems[key]
 	c.cacheMu.RUnlock()
 	if !ok {
 		return nil, false
 	}
+	// 检查是否过期
 	if time.Now().After(item.ExpiresAt) {
 		c.cacheMu.Lock()
 		delete(c.cacheItems, key)
 		c.cacheMu.Unlock()
 		return nil, false
 	}
+	// 构造响应
 	resp := &http.Response{
 		StatusCode: item.StatusCode,
 		Header:     cloneHeader(item.Header),
@@ -1951,6 +2508,13 @@ func (c *Core) getCachedResponse(key string) (*http.Response, bool) {
 	return resp, true
 }
 
+// putCachedResponse 保存响应到缓存
+// 参数：
+//   - key: 缓存键
+//   - statusCode: HTTP状态码
+//   - header: 响应头
+//   - body: 响应体
+//   - ttl: 过期时间
 func (c *Core) putCachedResponse(key string, statusCode int, header http.Header, body []byte, ttl time.Duration) {
 	if key == "" || ttl <= 0 {
 		return
@@ -1965,6 +2529,8 @@ func (c *Core) putCachedResponse(key string, statusCode int, header http.Header,
 	c.cacheMu.Unlock()
 }
 
+// parseExpires 解析过期时间字符串
+// 返回秒数
 func parseExpires(raw string) int64 {
 	if raw == "" {
 		return 0
@@ -1974,6 +2540,7 @@ func parseExpires(raw string) int64 {
 	return n
 }
 
+// randomHex 生成随机十六进制字符串
 func randomHex(n int) string {
 	buf := make([]byte, n)
 	if _, err := rand.Read(buf); err != nil {
@@ -1982,10 +2549,13 @@ func randomHex(n int) string {
 	return hex.EncodeToString(buf)
 }
 
+// randomState 生成随机state参数
 func randomState() string {
 	return base64.RawURLEncoding.EncodeToString(randomBytes(32))
 }
 
+// randomCodeVerifier 生成随机PKCE代码验证器
+// 不同Provider有不同的长度要求
 func randomCodeVerifier(providerName string) string {
 	size := 32
 	if providerName == "openai" {
@@ -1995,17 +2565,22 @@ func randomCodeVerifier(providerName string) string {
 	return base64.RawURLEncoding.EncodeToString(randomBytes(size))
 }
 
+// randomBytes 生成随机字节数组
 func randomBytes(n int) []byte {
 	buf := make([]byte, n)
 	_, _ = rand.Read(buf)
 	return buf
 }
 
+// pkceChallenge 生成PKCE代码挑战
+// 使用S256方法
 func pkceChallenge(verifier string) string {
 	sum := sha256.Sum256([]byte(verifier))
 	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
+// defaultRedirectURI 获取默认回调URI
+// 根据Provider和OAuth类型返回默认回调地址
 func defaultRedirectURI(providerName, oauthType string) string {
 	switch providerName {
 	case "openai":
@@ -2024,6 +2599,8 @@ func defaultRedirectURI(providerName, oauthType string) string {
 	}
 }
 
+// maskSecret 脱敏处理
+// 将长字符串脱敏显示，只保留首尾部分
 func maskSecret(value string) string {
 	value = strings.TrimSpace(value)
 	if len(value) <= 10 {
@@ -2032,11 +2609,14 @@ func maskSecret(value string) string {
 	return value[:6] + "..." + value[len(value)-4:]
 }
 
+// mustJSON 强制转换为JSON字符串
+// 忽略错误
 func mustJSON(v any) string {
 	raw, _ := json.Marshal(v)
 	return string(raw)
 }
 
+// sortedKeys 获取排序后的键列表
 func sortedKeys(m map[string]string) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
@@ -2046,6 +2626,8 @@ func sortedKeys(m map[string]string) []string {
 	return keys
 }
 
+// hashPassword 密码哈希
+// 使用SHA256和随机盐
 func hashPassword(password string) (string, string, error) {
 	password = strings.TrimSpace(password)
 	if len(password) < 6 {
@@ -2056,6 +2638,13 @@ func hashPassword(password string) (string, string, error) {
 	return salt, hex.EncodeToString(sum[:]), nil
 }
 
+// verifyPassword 验证密码
+// 参数：
+//   - salt: 盐值
+//   - expectedHash: 期望的哈希值
+//   - password: 待验证的密码
+//
+// 返回：密码是否正确
 func verifyPassword(salt, expectedHash, password string) bool {
 	if salt == "" || expectedHash == "" {
 		return false
@@ -2064,11 +2653,19 @@ func verifyPassword(salt, expectedHash, password string) bool {
 	return subtle.ConstantTimeCompare([]byte(expectedHash), []byte(hex.EncodeToString(sum[:]))) == 1
 }
 
+// issueUserAuth 发放用户认证信息
+// 生成访问令牌和刷新令牌
+// 参数：
+//   - user: 用户
+//
+// 返回：用户认证信息和错误
 func (c *Core) issueUserAuth(user *model.User) (*UserAuth, error) {
+	// 生成访问令牌（2小时有效期）
 	accessToken, err := c.signUserToken(user.ID, user.TokenVersion, "access", time.Now().Add(2*time.Hour))
 	if err != nil {
 		return nil, err
 	}
+	// 生成刷新令牌（30天有效期）
 	refreshToken, err := c.signUserToken(user.ID, user.TokenVersion, "refresh", time.Now().Add(30*24*time.Hour))
 	if err != nil {
 		return nil, err
@@ -2082,6 +2679,15 @@ func (c *Core) issueUserAuth(user *model.User) (*UserAuth, error) {
 	}, nil
 }
 
+// signUserToken 签名用户令牌
+// 使用RSA签名生成JWT
+// 参数：
+//   - userID: 用户ID
+//   - tokenVersion: 令牌版本
+//   - kind: 令牌类型（access/refresh）
+//   - expiresAt: 过期时间
+//
+// 返回：签名的令牌和错误
 func (c *Core) signUserToken(userID uint64, tokenVersion int64, kind string, expiresAt time.Time) (string, error) {
 	claims := userTokenClaims{
 		UserID:       userID,
@@ -2098,26 +2704,39 @@ func (c *Core) signUserToken(userID uint64, tokenVersion int64, kind string, exp
 	return rawPayload + "." + base64.RawURLEncoding.EncodeToString(mac[:]), nil
 }
 
+// parseUserToken 解析用户令牌
+// 验证并解析令牌声明
+// 参数：
+//   - token: 待解析的令牌
+//   - expectedKind: 期望的令牌类型
+//
+// 返回：令牌声明和错误
 func (c *Core) parseUserToken(token, expectedKind string) (*userTokenClaims, error) {
+	// 解析令牌（payload.signature格式）
 	parts := strings.Split(strings.TrimSpace(token), ".")
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("invalid token")
 	}
+	// 验证签名
 	mac := sha256.Sum256([]byte(parts[0] + "." + hex.EncodeToString(c.cfg.AESKey)))
 	if subtle.ConstantTimeCompare([]byte(parts[1]), []byte(base64.RawURLEncoding.EncodeToString(mac[:]))) != 1 {
 		return nil, fmt.Errorf("invalid token signature")
 	}
+	// 解码payload
 	payload, err := base64.RawURLEncoding.DecodeString(parts[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid token payload")
 	}
+	// 解析声明
 	var claims userTokenClaims
 	if err := json.Unmarshal(payload, &claims); err != nil {
 		return nil, fmt.Errorf("invalid token payload")
 	}
+	// 验证令牌类型
 	if claims.Kind != expectedKind {
 		return nil, fmt.Errorf("invalid token type")
 	}
+	// 验证过期时间
 	if claims.ExpiresAtMS <= time.Now().UnixMilli() {
 		return nil, fmt.Errorf("token expired")
 	}

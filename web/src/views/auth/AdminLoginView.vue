@@ -10,19 +10,28 @@
       </div>
 
       <div class="login-card">
-        <el-form ref="formRef" :model="formData" :rules="rules" @submit.prevent="handleLogin">
+        <div class="mode-switch">
+          <el-button :type="setupMode ? 'default' : 'primary'" plain @click="setupMode = false">登录</el-button>
+          <el-button :type="setupMode ? 'primary' : 'default'" plain @click="setupMode = true">注册</el-button>
+        </div>
+
+        <el-form ref="formRef" :model="formData" :rules="rules" @submit.prevent="setupMode ? handleBootstrap() : handleLogin()">
+          <el-form-item v-if="setupMode" prop="name">
+            <el-input v-model="formData.name" placeholder="管理员名称" size="large" :prefix-icon="User" />
+          </el-form-item>
+
           <el-form-item prop="email">
             <el-input v-model="formData.email" placeholder="管理员邮箱" size="large" :prefix-icon="Mail" />
           </el-form-item>
 
           <el-form-item prop="password">
-            <el-input v-model="formData.password" type="password" placeholder="密码" size="large" show-password :prefix-icon="Lock" />
+            <el-input v-model="formData.password" type="password" :placeholder="setupMode ? '设置管理员密码' : '密码'" size="large" show-password :prefix-icon="Lock" />
           </el-form-item>
 
           <el-form-item prop="adminToken">
             <el-input v-model="formData.adminToken" placeholder="管理员 Token" size="large" :prefix-icon="Key">
               <template #append>
-                <el-tooltip content="首次部署时填写初始化 Token">
+                <el-tooltip content="首次部署时填写初始化 Token，之后仍用于访问管理接口">
                   <el-button><HelpCircle /></el-button>
                 </el-tooltip>
               </template>
@@ -31,7 +40,9 @@
 
           <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon class="error-alert" />
 
-          <el-button type="primary" native-type="submit" size="large" :loading="loading" class="login-button"> 进入控制台 </el-button>
+          <el-button type="primary" native-type="submit" size="large" :loading="loading" class="login-button">
+            {{ setupMode ? "注册并进入控制台" : "进入控制台" }}
+          </el-button>
         </el-form>
 
         <div class="card-footer">
@@ -86,13 +97,13 @@
 
         <div class="stats-row">
           <div class="stat-item">
-            <div class="stat-value">99.5%</div>
-            <div class="stat-label">服务可用</div>
+            <div class="stat-value">OAuth</div>
+            <div class="stat-label">多上游认证接入</div>
           </div>
           <div class="stat-divider"></div>
           <div class="stat-item">
-            <div class="stat-value">24/7</div>
-            <div class="stat-label">技术支持</div>
+            <div class="stat-value">Token</div>
+            <div class="stat-label">用量计费闭环</div>
           </div>
         </div>
       </div>
@@ -101,26 +112,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from "vue";
+import { ref, reactive, computed } from "vue";
 import { useRouter } from "vue-router";
-import { Mail, Lock, Key, ShieldCheck, HelpCircle, ArrowLeft, Users, BarChart3, CreditCard } from "lucide-vue-next";
+import { Mail, Lock, Key, ShieldCheck, HelpCircle, ArrowLeft, Users, BarChart3, CreditCard, User } from "lucide-vue-next";
 import { ElAlert, ElButton, ElForm, ElFormItem, ElInput, ElLink, ElTooltip } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
+import { adminAPI } from "@/api/admin";
 import { login } from "@/api/auth";
-import { saveAuth, saveAdminToken } from "@/store/session";
+import { apiURL } from "@/api/client";
+import { clearAdminToken, saveAuth, saveAdminToken } from "@/store/session";
 
 const router = useRouter();
 const formRef = ref<FormInstance>();
 const loading = ref(false);
 const error = ref("");
+const setupMode = ref(false);
 
 const formData = reactive({
+  name: "",
   email: "",
   password: "",
   adminToken: localStorage.getItem("sub2api_admin_token") || "",
 });
 
-const rules: FormRules = {
+const rules = computed<FormRules>(() => ({
+  name: setupMode.value ? [{ required: true, message: "请输入管理员名称", trigger: "blur" }] : [],
   email: [
     { required: true, message: "请输入邮箱", trigger: "blur" },
     { type: "email", message: "请输入有效的邮箱地址", trigger: "blur" },
@@ -130,7 +146,7 @@ const rules: FormRules = {
     { min: 6, message: "密码至少 6 位", trigger: "blur" },
   ],
   adminToken: [{ required: true, message: "请输入管理员 Token", trigger: "blur" }],
-};
+}));
 
 async function handleLogin() {
   if (!formRef.value) return;
@@ -145,9 +161,48 @@ async function handleLogin() {
       const result = await login(formData.email, formData.password);
       saveAuth(result.access_token, result.refresh_token, result.user);
       saveAdminToken(formData.adminToken);
+      await adminAPI.dashboard();
       await router.replace("/admin/dashboard");
     } catch (err) {
+      clearAdminToken();
       error.value = err instanceof Error ? err.message : "登录失败";
+    } finally {
+      loading.value = false;
+    }
+  });
+}
+
+async function handleBootstrap() {
+  if (!formRef.value) return;
+
+  await formRef.value.validate(async (valid) => {
+    if (!valid) return;
+
+    loading.value = true;
+    error.value = "";
+
+    try {
+      const res = await fetch(apiURL("/api/admin/bootstrap"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Token": formData.adminToken,
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload?.error || "初始化失败");
+      }
+      saveAuth(payload.access_token, payload.refresh_token, payload.user);
+      saveAdminToken(formData.adminToken);
+      await router.replace("/admin/dashboard");
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : "初始化失败";
     } finally {
       loading.value = false;
     }
@@ -216,6 +271,16 @@ function goToHome() {
   border-radius: 16px;
   padding: 22px;
   box-shadow: 0 16px 32px rgba(0, 0, 0, 0.08);
+}
+
+.mode-switch {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.mode-switch :deep(.el-button) {
+  flex: 1;
 }
 
 .card-header {

@@ -9,16 +9,22 @@ import (
 	"sub2api/server/internal/model"
 )
 
+// Provider Claude API Provider实现
+// 支持Anthropic Claude API接口
 type Provider struct{}
 
+// New 创建Claude Provider实例
 func New() *Provider {
 	return &Provider{}
 }
 
+// Name 返回Provider名称
 func (p *Provider) Name() string {
 	return "claude"
 }
 
+// BuildUpstreamURL 构建Claude API的完整URL
+// 使用api.anthropic.com作为默认端点
 func (p *Provider) BuildUpstreamURL(account model.Account, path, rawQuery string) string {
 	base := strings.TrimRight(account.BaseURL, "/")
 	if base == "" {
@@ -31,6 +37,8 @@ func (p *Provider) BuildUpstreamURL(account model.Account, path, rawQuery string
 	return url
 }
 
+// ApplyRequest 为请求添加Claude所需的认证头
+// 使用x-api-key头和anthropic-version头
 func (p *Provider) ApplyRequest(req *http.Request, account model.Account, token string) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("anthropic-version", "2023-06-01")
@@ -39,6 +47,7 @@ func (p *Provider) ApplyRequest(req *http.Request, account model.Account, token 
 	return nil
 }
 
+// ParseUsage 从响应体解析token使用量
 func (p *Provider) ParseUsage(body []byte) (int64, int64) {
 	var payload struct {
 		Usage struct {
@@ -52,6 +61,7 @@ func (p *Provider) ParseUsage(body []byte) (int64, int64) {
 	return payload.Usage.InputTokens, payload.Usage.OutputTokens
 }
 
+// SupportsPath 判断Claude Provider支持的API路径
 func (p *Provider) SupportsPath(path string) bool {
 	switch path {
 	case "/v1/messages", "/v1/messages/count_tokens":
@@ -61,6 +71,7 @@ func (p *Provider) SupportsPath(path string) bool {
 	}
 }
 
+// ParseStreamUsage 解析流式响应中的使用量
 func (p *Provider) ParseStreamUsage(body []byte) (int64, int64, bool) {
 	var inMax int64
 	var outMax int64
@@ -93,6 +104,7 @@ func (p *Provider) ParseStreamUsage(body []byte) (int64, int64, bool) {
 	return inMax, outMax, found
 }
 
+// extractClaudeUsage 从任意JSON结构中递归提取usage信息
 func extractClaudeUsage(v any) (int64, int64, bool) {
 	switch value := v.(type) {
 	case map[string]any:
@@ -120,6 +132,7 @@ func extractClaudeUsage(v any) (int64, int64, bool) {
 	return 0, 0, false
 }
 
+// int64Value 安全地将任意类型转换为int64
 func int64Value(v any) int64 {
 	switch n := v.(type) {
 	case float64:

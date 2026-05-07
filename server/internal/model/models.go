@@ -7,6 +7,8 @@ import (
 	"gorm.io/gorm"
 )
 
+// User 用户模型
+// 存储用户账户信息、认证凭证和余额等
 type User struct {
 	ID                uint64 `gorm:"primaryKey;autoIncrement:false" json:"id"`
 	Email             string `gorm:"uniqueIndex;size:200;not null" json:"email"`
@@ -25,6 +27,8 @@ type User struct {
 	UpdatedAtMS       int64  `gorm:"not null" json:"updated_at_ms"`
 }
 
+// APIKey API密钥模型
+// 用户可以通过API密钥访问AI服务
 type APIKey struct {
 	ID                uint64 `gorm:"primaryKey;autoIncrement:false" json:"id"`
 	UserID            uint64 `gorm:"index;not null" json:"user_id"`
@@ -38,6 +42,8 @@ type APIKey struct {
 	UpdatedAtMS       int64  `gorm:"not null" json:"updated_at_ms"`
 }
 
+// Account AI账号模型
+// 存储AI服务提供商的认证信息，如API Key、OAuth令牌等
 type Account struct {
 	ID                   uint64 `gorm:"primaryKey;autoIncrement:false" json:"id"`
 	Provider             string `gorm:"index;size:40;not null" json:"provider"`
@@ -56,6 +62,8 @@ type Account struct {
 	UpdatedAtMS          int64  `gorm:"not null" json:"updated_at_ms"`
 }
 
+// ModelPrice 模型价格模型
+// 存储不同AI模型的定价信息，用于计算使用成本
 type ModelPrice struct {
 	ID          uint64 `gorm:"primaryKey;autoIncrement:false" json:"id"`
 	Provider    string `gorm:"index;size:40;not null" json:"provider"`
@@ -68,6 +76,8 @@ type ModelPrice struct {
 	UpdatedAtMS int64  `gorm:"not null" json:"updated_at_ms"`
 }
 
+// PaymentOrder 支付订单模型
+// 存储用户的充值订单信息
 type PaymentOrder struct {
 	ID              uint64 `gorm:"primaryKey;autoIncrement:false" json:"id"`
 	UserID          uint64 `gorm:"index;not null" json:"user_id"`
@@ -84,6 +94,8 @@ type PaymentOrder struct {
 	UpdatedAtMS     int64  `gorm:"not null" json:"updated_at_ms"`
 }
 
+// Coupon 优惠券模型
+// 存储可兑换的优惠券信息
 type Coupon struct {
 	ID           uint64 `gorm:"primaryKey;autoIncrement:false" json:"id"`
 	Code         string `gorm:"uniqueIndex;size:80;not null" json:"code"`
@@ -98,6 +110,8 @@ type Coupon struct {
 	UpdatedAtMS  int64  `gorm:"not null" json:"updated_at_ms"`
 }
 
+// Announcement 公告模型
+// 存储系统公告信息
 type Announcement struct {
 	ID            uint64 `gorm:"primaryKey;autoIncrement:false" json:"id"`
 	Title         string `gorm:"size:200;not null" json:"title"`
@@ -109,6 +123,8 @@ type Announcement struct {
 	UpdatedAtMS   int64  `gorm:"not null" json:"updated_at_ms"`
 }
 
+// ErrorLog 错误日志模型
+// 存储系统错误信息，用于问题排查
 type ErrorLog struct {
 	ID           uint64 `gorm:"primaryKey;autoIncrement:false" json:"id"`
 	Scope        string `gorm:"index;size:80;not null" json:"scope"`
@@ -120,6 +136,8 @@ type ErrorLog struct {
 	UpdatedAtMS  int64  `gorm:"not null" json:"updated_at_ms"`
 }
 
+// SystemMetric 系统指标模型
+// 存储系统运行时的各种指标数据
 type SystemMetric struct {
 	ID           uint64 `gorm:"primaryKey;autoIncrement:false" json:"id"`
 	MetricKey    string `gorm:"index;size:80;not null" json:"metric_key"`
@@ -128,6 +146,8 @@ type SystemMetric struct {
 	MetadataJSON string `gorm:"type:text;not null;default:'{}'" json:"metadata_json"`
 }
 
+// UsageLog 使用日志模型
+// 记录用户使用AI服务的详细情况
 type UsageLog struct {
 	ID           uint64 `gorm:"primaryKey;autoIncrement:false" json:"id"`
 	UserID       uint64 `gorm:"index;not null" json:"user_id"`
@@ -142,6 +162,8 @@ type UsageLog struct {
 	CreatedAtMS  int64  `gorm:"not null" json:"created_at_ms"`
 }
 
+// OAuthSession OAuth会话模型
+// 存储OAuth授权过程中的会话信息
 type OAuthSession struct {
 	ID           uint64 `gorm:"primaryKey;autoIncrement:false" json:"id"`
 	Provider     string `gorm:"size:40;not null" json:"provider"`
@@ -153,6 +175,8 @@ type OAuthSession struct {
 	CreatedAtMS  int64  `gorm:"not null" json:"created_at_ms"`
 }
 
+// BeforeCreate 创建记录前的钩子函数
+// 自动初始化ID、创建时间和更新时间
 func (m *User) BeforeCreate(tx *gorm.DB) error {
 	return initCreate(tx, "users", &m.ID, &m.CreatedAtMS, &m.UpdatedAtMS)
 }
@@ -187,24 +211,31 @@ func (m *OAuthSession) BeforeCreate(tx *gorm.DB) error {
 	return initCreate(tx, "oauth_sessions", &m.ID, &m.CreatedAtMS, nil)
 }
 
+// initCreate 初始化创建的记录
+// 自动生成ID（如果为0）和时间戳
 func initCreate(tx *gorm.DB, table string, id *uint64, createdAt *int64, updatedAt *int64) error {
 	if *id == 0 {
+		// 生成新的ID
 		next, err := nextID(tx, table)
 		if err != nil {
 			return err
 		}
 		*id = next
 	}
+	// 设置创建时间
 	now := nowMS()
 	if createdAt != nil && *createdAt == 0 {
 		*createdAt = now
 	}
+	// 设置更新时间
 	if updatedAt != nil && *updatedAt == 0 {
 		*updatedAt = now
 	}
 	return nil
 }
 
+// nextID 生成下一个自增ID
+// 从数据库表中获取最大ID并加1
 func nextID(tx *gorm.DB, table string) (uint64, error) {
 	var max sql.NullInt64
 	if err := tx.Table(table).Select("COALESCE(MAX(id), 9999)").Scan(&max).Error; err != nil {
@@ -213,6 +244,7 @@ func nextID(tx *gorm.DB, table string) (uint64, error) {
 	return uint64(max.Int64 + 1), nil
 }
 
+// nowMS 获取当前时间戳（毫秒）
 func nowMS() int64 {
 	return time.Now().UnixMilli()
 }

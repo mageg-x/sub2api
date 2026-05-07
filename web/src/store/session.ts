@@ -38,3 +38,8 @@ export function saveAdminToken(token: string) {
   localStorage.setItem('sub2api_admin_token', token)
   session.adminToken = token
 }
+
+export function clearAdminToken() {
+  localStorage.removeItem('sub2api_admin_token')
+  session.adminToken = ''
+}

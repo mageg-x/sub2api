@@ -9,19 +9,26 @@ import (
 	"sub2api/server/internal/model"
 )
 
+// Provider Gemini API Provider实现
+// 支持Google Gemini API接口
 type Provider struct{}
 
+// New 创建Gemini Provider实例
 func New() *Provider {
 	return &Provider{}
 }
 
+// Name 返回Provider名称
 func (p *Provider) Name() string {
 	return "gemini"
 }
 
+// BuildUpstreamURL 构建Gemini API的完整URL
+// 支持不同的端点：generativelanguage.googleapis.com（标准）和cloudcode-pa.googleapis.com（内部）
 func (p *Provider) BuildUpstreamURL(account model.Account, path, rawQuery string) string {
 	base := strings.TrimRight(account.BaseURL, "/")
 	if base == "" {
+		// 根据路径选择默认端点
 		if strings.HasPrefix(path, "/v1internal:") {
 			base = "https://cloudcode-pa.googleapis.com"
 		} else {
@@ -35,15 +42,19 @@ func (p *Provider) BuildUpstreamURL(account model.Account, path, rawQuery string
 	return url
 }
 
+// ApplyRequest 为请求添加Gemini所需的认证头
 func (p *Provider) ApplyRequest(req *http.Request, account model.Account, token string) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
+	// 为内部API添加User-Agent
 	if strings.HasPrefix(req.URL.Path, "/v1internal:") {
 		req.Header.Set("User-Agent", "GeminiCLI/0.1.5 (Windows; AMD64)")
 	}
 	return nil
 }
 
+// ParseUsage 从响应体解析token使用量
+// 解析Gemini API响应中的usageMetadata字段
 func (p *Provider) ParseUsage(body []byte) (int64, int64) {
 	var payload struct {
 		UsageMetadata struct {
@@ -57,16 +68,19 @@ func (p *Provider) ParseUsage(body []byte) (int64, int64) {
 	}
 	in := payload.UsageMetadata.PromptTokenCount
 	out := payload.UsageMetadata.CandidatesTokenCount
+	// 如果输出token为0但有总数，计算输出
 	if out == 0 && payload.UsageMetadata.TotalTokenCount > in {
 		out = payload.UsageMetadata.TotalTokenCount - in
 	}
 	return in, out
 }
 
+// SupportsPath 判断Gemini Provider支持的API路径
 func (p *Provider) SupportsPath(path string) bool {
 	return strings.HasPrefix(path, "/v1beta/models/") || strings.HasPrefix(path, "/v1/models/") || strings.HasPrefix(path, "/v1internal:")
 }
 
+// ParseStreamUsage 解析流式响应中的使用量
 func (p *Provider) ParseStreamUsage(body []byte) (int64, int64, bool) {
 	var inMax int64
 	var outMax int64
@@ -99,6 +113,7 @@ func (p *Provider) ParseStreamUsage(body []byte) (int64, int64, bool) {
 	return inMax, outMax, found
 }
 
+// extractGeminiUsage 从任意JSON结构中递归提取usageMetadata信息
 func extractGeminiUsage(v any) (int64, int64, bool) {
 	switch value := v.(type) {
 	case map[string]any:
@@ -130,6 +145,7 @@ func extractGeminiUsage(v any) (int64, int64, bool) {
 	return 0, 0, false
 }
 
+// int64Value 安全地将任意类型转换为int64
 func int64Value(v any) int64 {
 	switch n := v.(type) {
 	case float64:
