@@ -7,6 +7,7 @@ export const adminAPI = {
   updateUser: (id: number, payload: UserUpdatePayload) => adminRequest<User>(`/api/admin/users/${id}`, 'PATCH', payload),
   accounts: () => adminRequest<Account[]>('/api/admin/accounts'),
   createAccount: (payload: Record<string, unknown>) => adminRequest<Account>('/api/admin/accounts', 'POST', payload),
+  deleteAccount: (id: number) => adminRequest(`/api/admin/accounts/${id}`, 'DELETE'),
   updateAccount: (id: number, payload: Record<string, unknown>) => adminRequest(`/api/admin/accounts/${id}`, 'PATCH', payload),
   refreshAccount: (id: number) => adminRequest<Account>(`/api/admin/accounts/${id}/refresh`, 'POST'),
   oauthStart: (payload: Record<string, unknown>) => adminRequest<OAuthStartResult>('/api/admin/accounts/oauth/start', 'POST', payload),

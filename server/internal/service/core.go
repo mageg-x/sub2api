@@ -792,6 +792,16 @@ func (c *Core) CreateAPIKey(in CreateAPIKeyInput) (*model.APIKey, error) {
 	return key, c.db.Create(key).Error
 }
 
+// DeleteUserAPIKey 删除用户的API密钥
+// 参数：
+//   - userID: 用户ID
+//   - keyID: 密钥ID
+//
+// 返回：错误
+func (c *Core) DeleteUserAPIKey(userID, keyID uint64) error {
+	return c.db.Where("id = ? AND user_id = ?", keyID, userID).Delete(&model.APIKey{}).Error
+}
+
 // CreateAccount 创建AI账号
 // 参数：
 //   - in: 创建账号输入参数
@@ -816,6 +826,15 @@ func (c *Core) CreateAccount(in CreateAccountInput) (*model.Account, error) {
 		MetadataJSON:         normalizeJSON(in.Metadata, "{}"),
 	}
 	return account, c.db.Create(account).Error
+}
+
+// DeleteAccount 删除AI账号
+// 参数：
+//   - id: 账号ID
+//
+// 返回：错误
+func (c *Core) DeleteAccount(id uint64) error {
+	return c.db.Where("id = ?", id).Delete(&model.Account{}).Error
 }
 
 // UpdateAccount 更新AI账号

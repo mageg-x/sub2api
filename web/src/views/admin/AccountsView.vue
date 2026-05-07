@@ -110,8 +110,7 @@ const providerCount = computed(() => new Set(accounts.value.map((item) => item.p
 
 async function load() {
   try {
-    const data = await adminAPI.dashboard();
-    accounts.value = data.accounts || [];
+    accounts.value = await adminAPI.accounts();
   } catch (err) {
     error.value = err instanceof Error ? err.message : "加载失败";
   }

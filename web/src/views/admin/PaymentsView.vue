@@ -105,8 +105,7 @@ const totalRevenue = computed(() => orders.value.filter((item) => isPaidStatus(i
 
 async function load() {
   try {
-    const data = await adminAPI.dashboard();
-    orders.value = data.orders || [];
+    orders.value = await adminAPI.orders();
   } catch (err) {
     console.error(err);
   }

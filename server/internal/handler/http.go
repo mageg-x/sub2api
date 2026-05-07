@@ -64,6 +64,7 @@ func (h *HTTP) Routes() http.Handler {
 	mux.HandleFunc("PATCH /api/admin/users/", h.adminUpdateUser)
 	mux.HandleFunc("GET /api/admin/accounts", h.adminAccounts)
 	mux.HandleFunc("POST /api/admin/accounts", h.adminCreateAccount)
+	mux.HandleFunc("DELETE /api/admin/accounts/", h.adminDeleteAccount)
 	mux.HandleFunc("PATCH /api/admin/accounts/", h.adminUpdateAccount)
 	mux.HandleFunc("POST /api/admin/accounts/", h.adminAccountAction)
 	mux.HandleFunc("POST /api/admin/accounts/oauth/start", h.adminOAuthStart)
@@ -88,6 +89,7 @@ func (h *HTTP) Routes() http.Handler {
 	mux.HandleFunc("POST /api/user/redeem", h.userRedeemCoupon)
 	mux.HandleFunc("GET /api/keys", h.userAPIKeys)
 	mux.HandleFunc("POST /api/keys", h.userCreateAPIKey)
+	mux.HandleFunc("DELETE /api/keys/", h.userDeleteAPIKey)
 	mux.HandleFunc("GET /api/usage", h.userUsage)
 	mux.HandleFunc("GET /api/payment/orders/my", h.userPaymentOrders)
 	mux.HandleFunc("GET /api/payment/orders/", h.userPaymentOrderByID)
@@ -322,6 +324,22 @@ func (h *HTTP) adminCreateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	// 返回结果
 	writeJSON(w, http.StatusOK, item)
+}
+
+func (h *HTTP) adminDeleteAccount(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(w, r) {
+		return
+	}
+	id, err := strconv.ParseUint(strings.TrimPrefix(r.URL.Path, "/api/admin/accounts/"), 10, 64)
+	if err != nil || id == 0 {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid account id"))
+		return
+	}
+	if err := h.core.DeleteAccount(id); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (h *HTTP) adminUpdateAccount(w http.ResponseWriter, r *http.Request) {
@@ -796,6 +814,24 @@ func (h *HTTP) userCreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 	// 返回结果（包含密钥）
 	writeJSON(w, http.StatusOK, item)
+}
+
+// userDeleteAPIKey 用户删除API密钥
+func (h *HTTP) userDeleteAPIKey(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.requireUser(w, r)
+	if !ok {
+		return
+	}
+	id, err := strconv.ParseUint(strings.TrimPrefix(r.URL.Path, "/api/keys/"), 10, 64)
+	if err != nil || id == 0 {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid key id"))
+		return
+	}
+	if err := h.core.DeleteUserAPIKey(user.ID, id); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 // userUsage 用户使用量查询
