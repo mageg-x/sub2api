@@ -9,26 +9,26 @@
         <div class="card-header">
           <h3 class="card-title">
             <PlusCircle :size="20" />
-            发布新公告
+            {{ t('adminAnnouncements.publishNewAnnouncement') }}
           </h3>
         </div>
         <div class="card-body">
           <el-form label-position="top" class="create-form">
-            <el-form-item label="公告标题" class="form-item">
-              <el-input v-model="form.title" placeholder="请输入公告标题" size="large" />
+            <el-form-item :label="t('adminAnnouncements.announcementTitle')" class="form-item">
+              <el-input v-model="form.title" :placeholder="t('adminAnnouncements.pleaseInputTitle')" size="large" />
             </el-form-item>
-            <el-form-item label="公告内容" class="form-item">
-              <el-input v-model="form.content" type="textarea" :rows="4" placeholder="请输入公告内容" size="large" />
+            <el-form-item :label="t('adminAnnouncements.announcementContent')" class="form-item">
+              <el-input v-model="form.content" type="textarea" :rows="4" :placeholder="t('adminAnnouncements.pleaseInputContent')" size="large" />
             </el-form-item>
-            <el-form-item label="状态" class="form-item">
+            <el-form-item :label="t('adminAnnouncements.status')" class="form-item">
               <el-radio-group v-model="form.status">
-                <el-radio-button value="active">立即发布</el-radio-button>
-                <el-radio-button value="draft">保存草稿</el-radio-button>
+                <el-radio-button value="active">{{ t('adminAnnouncements.publishNow') }}</el-radio-button>
+                <el-radio-button value="draft">{{ t('adminAnnouncements.saveDraft') }}</el-radio-button>
               </el-radio-group>
             </el-form-item>
             <el-button type="primary" size="large" :loading="submitting" @click="create" class="submit-button">
               <Send :size="18" />
-              发布公告
+              {{ t('adminAnnouncements.publishAnnouncement') }}
             </el-button>
           </el-form>
         </div>
@@ -38,13 +38,13 @@
         <div class="card-header">
           <h3 class="card-title">
             <Bell :size="20" />
-            公告列表
+            {{ t('adminAnnouncements.announcementList') }}
           </h3>
-          <span class="announcement-count">{{ items.length }} 条公告</span>
+          <span class="announcement-count">{{ items.length }} {{ t('adminAnnouncements.announcementCount') }}</span>
         </div>
         <div class="card-body">
-          <el-table :data="items" empty-text="暂无公告" class="modern-table" :stripe="true">
-            <el-table-column prop="title" label="标题" width="140">
+          <el-table :data="items" :empty-text="t('adminAnnouncements.noAnnouncements')" class="modern-table" :stripe="true">
+            <el-table-column prop="title" :label="t('adminAnnouncements.title')" width="140">
               <template #default="{ row }">
                 <div class="title-cell">
                   <Bell :size="14" />
@@ -52,19 +52,19 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column prop="content" label="内容" min-width="200">
+            <el-table-column prop="content" :label="t('adminAnnouncements.content')" min-width="200">
               <template #default="{ row }">
                 <span class="content-text">{{ row.content }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="状态" width="80">
+            <el-table-column :label="t('adminAnnouncements.status')" width="80">
               <template #default="{ row }">
                 <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
-                  {{ row.status === "active" ? "已发布" : "草稿" }}
+                  {{ row.status === "active" ? t('adminAnnouncements.published') : t('adminAnnouncements.draft') }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="发布时间" width="140">
+            <el-table-column :label="t('adminAnnouncements.publishTime')" width="140">
               <template #default="{ row }">
                 <span class="time-text">{{ formatTime(row.published_at_ms) }}</span>
               </template>
@@ -83,7 +83,9 @@ import { ElAlert, ElButton, ElForm, ElFormItem, ElInput, ElRadioButton, ElRadioG
 import { adminAPI } from "@/api/admin";
 import type { Announcement } from "@/api/types";
 import { formatTime } from "@/utils";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const items = ref<Announcement[]>([]);
 const submitting = ref(false);
 const error = ref("");
@@ -98,13 +100,13 @@ async function load() {
     const data = await adminAPI.dashboard();
     items.value = data.announcements || [];
   } catch (err) {
-    error.value = err instanceof Error ? err.message : "加载失败";
+    error.value = err instanceof Error ? err.message : t('adminAnnouncements.loadFailed');
   }
 }
 
 async function create() {
   if (!form.value.title || !form.value.content) {
-    error.value = "请填写标题和内容";
+    error.value = t('adminAnnouncements.pleaseFillTitleAndContent');
     return;
   }
 
@@ -119,7 +121,7 @@ async function create() {
     form.value = { title: "", content: "", status: "active" };
     await load();
   } catch (err) {
-    error.value = err instanceof Error ? err.message : "创建失败";
+    error.value = err instanceof Error ? err.message : t('adminAnnouncements.createFailed');
   } finally {
     submitting.value = false;
   }

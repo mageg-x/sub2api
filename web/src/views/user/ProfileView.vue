@@ -12,24 +12,24 @@
         <div class="card-header">
           <h3 class="card-title">
             <UserCog :size="20" />
-            个人资料
+            {{ t('profile.personalProfile') }}
           </h3>
         </div>
         <div class="card-body">
           <el-form label-position="top" class="modern-form">
-            <el-form-item label="邮箱">
+            <el-form-item :label="t('profile.email')">
               <el-input :model-value="session.user?.email || ''" readonly disabled>
                 <template #prefix><Mail :size="16" /></template>
               </el-input>
             </el-form-item>
-            <el-form-item label="显示名称">
-              <el-input v-model="profileForm.name" placeholder="输入显示名称">
+            <el-form-item :label="t('profile.displayName')">
+              <el-input v-model="profileForm.name" :placeholder="t('profile.inputDisplayName')">
                 <template #prefix><User :size="16" /></template>
               </el-input>
             </el-form-item>
             <el-button type="primary" @click="saveProfile">
               <Check :size="16" style="margin-right: 6px" />
-              保存资料
+              {{ t('profile.saveProfile') }}
             </el-button>
           </el-form>
         </div>
@@ -39,24 +39,24 @@
         <div class="card-header">
           <h3 class="card-title">
             <LockKeyhole :size="20" />
-            修改密码
+            {{ t('profile.changePassword') }}
           </h3>
         </div>
         <div class="card-body">
           <el-form label-position="top" class="modern-form">
-            <el-form-item label="旧密码">
-              <el-input v-model="passwordForm.old_password" type="password" show-password placeholder="输入当前密码">
+            <el-form-item :label="t('auth.oldPassword')">
+              <el-input v-model="passwordForm.old_password" type="password" show-password :placeholder="t('profile.inputCurrentPassword')">
                 <template #prefix><Lock :size="16" /></template>
               </el-input>
             </el-form-item>
-            <el-form-item label="新密码">
-              <el-input v-model="passwordForm.new_password" type="password" show-password placeholder="输入新密码">
+            <el-form-item :label="t('auth.newPassword')">
+              <el-input v-model="passwordForm.new_password" type="password" show-password :placeholder="t('profile.inputNewPassword')">
                 <template #prefix><KeyRound :size="16" /></template>
               </el-input>
             </el-form-item>
             <el-button type="primary" @click="changePassword">
               <ShieldCheck :size="16" style="margin-right: 6px" />
-              更新密码
+              {{ t('profile.updatePassword') }}
             </el-button>
           </el-form>
         </div>
@@ -71,7 +71,9 @@ import { Check, KeyRound, Lock, LockKeyhole, Mail, ShieldCheck, User, UserCog } 
 import { ElAlert, ElButton, ElForm, ElFormItem, ElInput } from "element-plus";
 import { session } from "@/store/session";
 import { userAPI } from "@/api/user";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const message = ref("");
 const error = ref("");
 const profileForm = reactive({
@@ -88,9 +90,9 @@ async function saveProfile() {
   try {
     const user = await userAPI.updateProfile({ name: profileForm.name });
     session.user = user;
-    message.value = "资料已更新";
+    message.value = t('profile.profileUpdated');
   } catch (err) {
-    error.value = err instanceof Error ? err.message : "update failed";
+    error.value = err instanceof Error ? err.message : t('profile.updateFailed');
   }
 }
 
@@ -101,9 +103,9 @@ async function changePassword() {
     await userAPI.changePassword(passwordForm);
     passwordForm.old_password = "";
     passwordForm.new_password = "";
-    message.value = "密码已更新";
+    message.value = t('profile.passwordUpdated');
   } catch (err) {
-    error.value = err instanceof Error ? err.message : "change password failed";
+    error.value = err instanceof Error ? err.message : t('profile.changePasswordFailed');
   }
 }
 </script>

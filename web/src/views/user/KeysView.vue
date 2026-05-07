@@ -5,17 +5,17 @@
         <div class="card-header">
           <h3 class="card-title">
             <KeyRound :size="20" />
-            创建新的 API Key
+            {{ t('keys.createNewApiKey') }}
           </h3>
         </div>
         <div class="card-body">
           <el-form label-position="top" class="key-form">
             <div class="form-row">
-              <el-form-item label="Key 名称" class="form-item">
-                <el-input v-model="form.name" placeholder="如 default-client" size="large" />
+              <el-form-item :label="t('keys.keyName')" class="form-item">
+                <el-input v-model="form.name" :placeholder="t('keys.keyNamePlaceholder')" size="large" />
               </el-form-item>
-              <el-form-item label="允许模型" class="form-item">
-                <ElSelect v-model="form.models" multiple filterable clearable size="large" style="width: 100%" placeholder="选择允许的模型，留空表示继承用户权限">
+              <el-form-item :label="t('keys.allowedModels')" class="form-item">
+                <ElSelect v-model="form.models" multiple filterable clearable size="large" style="width: 100%" :placeholder="t('keys.selectAllowedModels')">
                   <ElOption v-for="model in modelOptions" :key="model.value" :label="model.label" :value="model.value" />
                 </ElSelect>
               </el-form-item>
@@ -23,7 +23,7 @@
             <div class="form-actions">
               <el-button type="primary" size="large" @click="create">
                 <KeyRound :size="18" />
-                创建 Key
+                {{ t('keys.createKey') }}
               </el-button>
             </div>
           </el-form>
@@ -37,8 +37,8 @@
               <ShieldCheck :size="20" />
             </div>
             <div class="alert-content">
-              <h4>Key 创建成功</h4>
-              <p>请立即复制并妥善保管，关闭后将无法再次查看完整 Secret</p>
+              <h4>{{ t('keys.keyCreatedSuccess') }}</h4>
+              <p>{{ t('keys.keyCreatedWarning') }}</p>
             </div>
             <el-button text @click="lastCreatedKey = null">
               <X :size="18" />
@@ -50,9 +50,9 @@
           <div class="secret-actions">
             <el-button type="primary" @click="copySecret(lastCreatedKey.secret)">
               <Copy :size="16" />
-              复制 Secret
+              {{ t('keys.copySecret') }}
             </el-button>
-            <el-button @click="lastCreatedKey = null">关闭</el-button>
+            <el-button @click="lastCreatedKey = null">{{ t('common.close') }}</el-button>
           </div>
         </div>
       </transition>
@@ -61,13 +61,13 @@
         <div class="card-header">
           <h3 class="card-title">
             <ShieldCheck :size="20" />
-            我的 API Keys
+            {{ t('keys.myApiKeys') }}
           </h3>
-          <span class="key-count">{{ keys.length }} 个 Key</span>
+          <span class="key-count">{{ keys.length }} {{ t('keys.keyCount') }}</span>
         </div>
         <div class="card-body">
-          <el-table :data="keys" empty-text="暂无 Keys" class="modern-table" :stripe="true">
-            <el-table-column prop="name" label="名称" width="100">
+          <el-table :data="keys" :empty-text="t('common.noKeys')" class="modern-table" :stripe="true">
+            <el-table-column prop="name" :label="t('keys.name')" width="100">
               <template #default="{ row }">
                 <div class="key-name">
                   <KeyRound :size="16" />
@@ -75,7 +75,7 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column label="Secret" min-width="200">
+            <el-table-column :label="t('keys.secret')" min-width="200">
               <template #default="{ row }">
                 <div class="secret-row">
                   <code class="secret-value mono">
@@ -84,34 +84,34 @@
                   <div class="secret-actions-inline">
                     <el-button text size="small" @click="revealed[row.id] = !revealed[row.id]">
                       <component :is="revealed[row.id] ? EyeOff : Eye" :size="14" />
-                      {{ revealed[row.id] ? "隐藏" : "显示" }}
+                      {{ revealed[row.id] ? t('keys.hide') : t('keys.show') }}
                     </el-button>
                     <el-button text size="small" type="primary" @click="copySecret(row.secret)">
                       <Copy :size="14" />
-                      复制
+                      {{ t('common.copy') }}
                     </el-button>
                   </div>
                 </div>
               </template>
             </el-table-column>
-            <el-table-column label="状态" width="80">
+            <el-table-column :label="t('keys.status')" width="80">
               <template #default="{ row }">
                 <el-tag :type="isActiveStatus(row.status) ? 'success' : 'info'">
                   {{ row.status }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="allowed_models_json" label="允许模型" width="120">
+            <el-table-column prop="allowed_models_json" :label="t('keys.allowedModelsHeader')" width="120">
               <template #default="{ row }">
                 <div v-if="parseAllowedModels(row.allowed_models_json).length" class="models-list">
                   <el-tag v-for="model in parseAllowedModels(row.allowed_models_json)" :key="model" size="small" type="info" effect="plain">
                     {{ model }}
                   </el-tag>
                 </div>
-                <span v-else class="models-text">全部</span>
+                <span v-else class="models-text">{{ t('keys.all') }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="最后使用" width="130">
+            <el-table-column :label="t('keys.lastUsed')" width="130">
               <template #default="{ row }">
                 <span class="time-text">{{ formatTime(row.last_used_at_ms) }}</span>
               </template>
@@ -130,7 +130,9 @@ import { ElButton, ElForm, ElFormItem, ElInput, ElOption, ElSelect, ElTable, ElT
 import { userAPI } from "@/api/user";
 import type { APIKey, ModelCatalogChannel } from "@/api/types";
 import { formatTime, isActiveStatus, maskSecret } from "@/utils";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const keys = ref<APIKey[]>([]);
 const catalog = ref<ModelCatalogChannel[]>([]);
 const lastCreatedKey = ref<APIKey | null>(null);

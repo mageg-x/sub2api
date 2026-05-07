@@ -6,16 +6,10 @@
     <div class="models-layout">
       <aside class="provider-sidebar">
         <div class="provider-list">
-          <button
-            v-for="(provider, idx) in providers"
-            :key="provider.key"
-            class="provider-card"
-            :class="{ active: selectedKey === provider.key, [`color-${idx % 6}`]: true }"
-            @click="selectedKey = provider.key"
-          >
+          <button v-for="(provider, idx) in providers" :key="provider.key" class="provider-card" :class="{ active: selectedKey === provider.key, [`color-${idx % 6}`]: true }" @click="selectedKey = provider.key">
             <div class="provider-card-header">
               <span class="provider-name">{{ provider.name }}</span>
-              <span class="rate-badge">计费倍率: {{ provider.multiplier }}x</span>
+              <span class="rate-badge">{{ t('models.billingRate') }}: {{ provider.multiplier }}x</span>
             </div>
             <div class="provider-path">
               <FileText :size="14" />
@@ -27,19 +21,19 @@
 
       <main class="model-panel">
         <div class="panel-header">
-          <span class="exchange-hint">本站充值单价：1$ = ¥1.00</span>
+          <span class="exchange-hint">{{ t('models.stationExchangeRate') }}</span>
         </div>
 
         <div class="model-table-wrap">
           <table class="price-table" v-if="currentModels.length">
             <thead>
               <tr>
-                <th>模型</th>
-                <th>输入价格</th>
-                <th>输出价格</th>
-                <th>缓存创建价格</th>
-                <th>缓存读取价格</th>
-                <th>状态</th>
+                <th>{{ t('models.model') }}</th>
+                <th>{{ t('models.inputPrice') }}</th>
+                <th>{{ t('models.outputPrice') }}</th>
+                <th>{{ t('models.cacheCreatePrice') }}</th>
+                <th>{{ t('models.cacheReadPrice') }}</th>
+                <th>{{ t('models.status') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -57,11 +51,11 @@
                 <td>
                   <span class="price-tag cache-read">${{ model.cache_read_price.toFixed(2) }}/M</span>
                 </td>
-                <td><span class="status-badge" :class="isActiveStatus(model.status) ? 'active' : ''">可用</span></td>
+                <td><span class="status-badge" :class="isActiveStatus(model.status) ? 'active' : ''">{{ t('models.available') }}</span></td>
               </tr>
             </tbody>
           </table>
-          <div v-else class="empty-hint">请选择左侧供应商查看模型定价</div>
+          <div v-else class="empty-hint">{{ t('models.selectProvider') }}</div>
         </div>
       </main>
     </div>
@@ -75,7 +69,9 @@ import { ElAlert } from "element-plus";
 import { userAPI } from "@/api/user";
 import type { ModelCatalogChannel } from "@/api/types";
 import { isActiveStatus } from "@/utils";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const catalog = ref<ModelCatalogChannel[]>([]);
 const selectedKey = ref("");
 const loadError = ref("");
@@ -95,7 +91,7 @@ onMounted(async () => {
       selectedKey.value = catalog.value[0].key;
     }
   } catch (err) {
-    loadError.value = err instanceof Error ? err.message : "加载失败";
+    loadError.value = err instanceof Error ? err.message : t('models.loadingFailed');
   }
 });
 </script>

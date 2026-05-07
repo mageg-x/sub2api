@@ -7,8 +7,8 @@
             <WalletCards :size="20" />
           </div>
           <div class="stat-mini-content">
-            <span class="stat-mini-label">当前余额</span>
-            <span class="stat-mini-value">{{ formatCurrency(session.user?.balance || 0) }} 元</span>
+            <span class="stat-mini-label">{{ t('payment.currentBalance') }}</span>
+            <span class="stat-mini-value">{{ formatCurrency(session.user?.balance || 0) }} {{ t('common.currency') }}</span>
           </div>
         </div>
         <div class="surface-card stat-mini">
@@ -16,7 +16,7 @@
             <ReceiptText :size="20" />
           </div>
           <div class="stat-mini-content">
-            <span class="stat-mini-label">订单总数</span>
+            <span class="stat-mini-label">{{ t('payment.totalOrders') }}</span>
             <span class="stat-mini-value">{{ orders.length }}</span>
           </div>
         </div>
@@ -25,7 +25,7 @@
             <CheckCircle :size="20" />
           </div>
           <div class="stat-mini-content">
-            <span class="stat-mini-label">已支付</span>
+            <span class="stat-mini-label">{{ t('payment.paidOrders') }}</span>
             <span class="stat-mini-value">{{ paidOrders }}</span>
           </div>
         </div>
@@ -40,29 +40,29 @@
           <div class="card-header">
             <h3 class="card-title">
               <CreditCard :size="20" />
-              发起充值
+              {{ t('payment.initiatePayment') }}
             </h3>
           </div>
           <div class="card-body">
             <el-form label-position="top" class="payment-form">
-              <el-form-item label="充值金额" class="form-item-highlight">
-                <el-input v-model.number="form.amount" type="number" size="large" placeholder="请输入充值金额">
+              <el-form-item :label="t('payment.rechargeAmount')" class="form-item-highlight">
+                <el-input v-model.number="form.amount" type="number" size="large" :placeholder="t('payment.pleaseInputAmount')">
                   <template #suffix>
-                    <span class="input-suffix">元</span>
+                    <span class="input-suffix">{{ t('common.currency') }}</span>
                   </template>
                 </el-input>
                 <div class="quick-amounts">
-                  <el-button v-for="amount in quickAmounts" :key="amount" size="small" @click="form.amount = amount"> {{ amount }} 元 </el-button>
+                  <el-button v-for="amount in quickAmounts" :key="amount" size="small" @click="form.amount = amount"> {{ amount }} {{ t('common.currency') }} </el-button>
                 </div>
               </el-form-item>
 
-              <el-form-item label="订单标题" class="form-item">
+              <el-form-item :label="t('payment.orderTitle')" class="form-item">
                 <el-input v-model="form.subject" placeholder="如 Balance Recharge" size="large" />
               </el-form-item>
 
               <el-button type="primary" size="large" :loading="submitting" class="submit-button" @click="createOrder">
                 <CreditCard :size="18" />
-                创建支付订单
+                {{ t('payment.createPaymentOrder') }}
               </el-button>
             </el-form>
           </div>
@@ -72,7 +72,7 @@
           <div class="card-header">
             <h3 class="card-title">
               <ReceiptText :size="20" />
-              支付回执
+              {{ t('payment.paymentReceipt') }}
             </h3>
           </div>
           <div class="card-body">
@@ -80,11 +80,11 @@
               <div class="empty-icon-inline">
                 <ReceiptText :size="24" />
               </div>
-              <p>创建订单后，回执信息将显示在这里</p>
+              <p>{{ t('payment.receiptInfo') }}</p>
             </div>
             <div v-else class="result-display">
               <pre class="json-preview mono">{{ prettyJSON(result) }}</pre>
-              <p class="helper-text">一期仅接入 `gopay`。订单状态由回调更新，请关注下方订单列表。</p>
+              <p class="helper-text">{{ t('payment.orderStatusNote') }}</p>
             </div>
           </div>
         </div>
@@ -94,37 +94,37 @@
         <div class="card-header">
           <h3 class="card-title">
             <ListOrdered :size="20" />
-            我的订单
+            {{ t('payment.myOrders') }}
           </h3>
-          <span class="order-count">{{ orders.length }} 个订单</span>
+          <span class="order-count">{{ orders.length }} {{ t('payment.orderCount') }}</span>
         </div>
         <div class="card-body">
-          <el-table :data="orders" empty-text="暂无订单" class="modern-table" :stripe="true">
-            <el-table-column prop="out_trade_no" label="商户单号" min-width="160">
+          <el-table :data="orders" :empty-text="t('common.noOrders')" class="modern-table" :stripe="true">
+            <el-table-column prop="out_trade_no" :label="t('payment.merchantOrderNo')" min-width="160">
               <template #default="{ row }">
                 <code class="trade-no mono">{{ row.out_trade_no }}</code>
               </template>
             </el-table-column>
-            <el-table-column label="金额" width="90">
+            <el-table-column :label="t('payment.amount')" width="90">
               <template #default="{ row }">
                 <span class="amount-value">{{ formatCurrency(row.amount) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="状态" width="80">
+            <el-table-column :label="t('payment.status')" width="80">
               <template #default="{ row }">
                 <el-tag :type="isPaidStatus(row.status) ? 'success' : 'warning'">
-                  {{ row.status === "paid" ? "已支付" : "待支付" }}
+                  {{ row.status === "paid" ? t('payment.paid') : t('payment.pending') }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="创建时间" width="140">
+            <el-table-column :label="t('payment.createTime')" width="140">
               <template #default="{ row }">
                 <span class="time-text">{{ formatTime(row.created_at_ms) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="70">
+            <el-table-column :label="t('payment.actions')" width="70">
               <template #default="{ row }">
-                <el-link type="primary" @click="goDetail(row.id)"> 查看详情 </el-link>
+                <el-link type="primary" @click="goDetail(row.id)"> {{ t('payment.viewDetails') }} </el-link>
               </template>
             </el-table-column>
           </el-table>
@@ -143,7 +143,9 @@ import { userAPI } from "@/api/user";
 import { session } from "@/store/session";
 import type { PaymentCreateResponse, PaymentOrder } from "@/api/types";
 import { formatCurrency, formatTime, isPaidStatus, prettyJSON } from "@/utils";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const router = useRouter();
 const result = ref<PaymentCreateResponse | null>(null);
 const orders = ref<PaymentOrder[]>([]);
@@ -172,7 +174,7 @@ async function createOrder() {
     });
     await load();
   } catch (err) {
-    error.value = err instanceof Error ? err.message : "创建失败";
+    error.value = err instanceof Error ? err.message : t('payment.createFailed');
   } finally {
     submitting.value = false;
   }

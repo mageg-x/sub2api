@@ -48,11 +48,11 @@ type Account struct {
 	ID                   uint64 `gorm:"primaryKey;autoIncrement:false" json:"id"`
 	Provider             string `gorm:"index;size:40;not null" json:"provider"`
 	Name                 string `gorm:"size:120;not null" json:"name"`
-	AuthType             string `gorm:"size:40;not null" json:"auth_type"`
+	AuthType             string `gorm:"index:idx_accounts_auth_status,priority:1;size:40;not null" json:"auth_type"`
 	BaseURL              string `gorm:"size:300;not null" json:"base_url"`
 	ModelScopeJSON       string `gorm:"type:text;not null;default:'[]'" json:"model_scope_json"`
 	CredentialsEncrypted string `gorm:"type:text;not null" json:"-"`
-	Status               string `gorm:"size:20;not null;default:active" json:"status"`
+	Status               string `gorm:"index:idx_accounts_auth_status,priority:2;size:20;not null;default:active" json:"status"`
 	Priority             int    `gorm:"not null;default:100" json:"priority"`
 	ConcurrencyLimit     int    `gorm:"not null;default:4" json:"concurrency_limit"`
 	ExpiresAtMS          int64  `gorm:"not null;default:0" json:"expires_at_ms"`

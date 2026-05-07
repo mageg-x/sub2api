@@ -4,11 +4,11 @@
       <div class="card-header">
         <h3 class="card-title">
           <BookOpenText :size="20" />
-          接入指南
+          {{ t('accessGuide.accessGuide') }}
         </h3>
       </div>
       <div class="card-body">
-        <p class="guide-intro">管理员先接入上游 OpenAI、Claude、Gemini、Antigravity 账户并配置价格；用户再创建自己的 API Key，通过平台代理接口发起调用。</p>
+        <p class="guide-intro">{{ t('accessGuide.guideIntro') }}</p>
       </div>
     </div>
 
@@ -29,26 +29,26 @@
         <div class="card-header">
           <h3 class="card-title">
             <KeyRound :size="20" />
-            接入信息
+            {{ t('accessGuide.accessInfo') }}
           </h3>
         </div>
         <div class="card-body">
           <div class="info-item">
-            <span class="info-label">用户 ID</span>
+            <span class="info-label">{{ t('accessGuide.userId') }}</span>
             <code class="info-value mono">{{ session.user?.id || "-" }}</code>
             <el-button text size="small" @click="copyText(String(session.user?.id))">
               <Copy :size="14" />
             </el-button>
           </div>
           <div class="info-item">
-            <span class="info-label">代理 Base URL</span>
+            <span class="info-label">{{ t('accessGuide.proxyBaseUrl') }}</span>
             <code class="info-value mono">{{ baseURL }}</code>
             <el-button text size="small" @click="copyText(baseURL)">
               <Copy :size="14" />
             </el-button>
           </div>
           <div class="info-item">
-            <span class="info-label">认证方式</span>
+            <span class="info-label">{{ t('accessGuide.authMethod') }}</span>
             <el-tag type="primary">Authorization: Bearer YOUR_API_KEY</el-tag>
           </div>
         </div>
@@ -58,7 +58,7 @@
         <div class="card-header">
           <h3 class="card-title">
             <Send :size="20" />
-            支持接口
+            {{ t('accessGuide.supportedEndpoints') }}
           </h3>
         </div>
         <div class="card-body">
@@ -72,10 +72,10 @@
     <div class="example-grid">
       <div class="surface-card">
         <div class="card-header">
-          <h3 class="card-title">Chat Completions 示例</h3>
+          <h3 class="card-title">{{ t('accessGuide.chatCompletionsExample') }}</h3>
           <el-button text @click="copyText(chatExample)">
             <Copy :size="14" style="margin-right: 4px" />
-            复制
+            {{ t('common.copy') }}
           </el-button>
         </div>
         <div class="card-body">
@@ -85,10 +85,10 @@
 
       <div class="surface-card">
         <div class="card-header">
-          <h3 class="card-title">Responses 示例</h3>
+          <h3 class="card-title">{{ t('accessGuide.responsesExample') }}</h3>
           <el-button text @click="copyText(responsesExample)">
             <Copy :size="14" style="margin-right: 4px" />
-            复制
+            {{ t('common.copy') }}
           </el-button>
         </div>
         <div class="card-body">
@@ -101,14 +101,14 @@
       <div class="card-header">
         <h3 class="card-title">
           <Lightbulb :size="20" />
-          使用建议
+          {{ t('accessGuide.usageSuggestions') }}
         </h3>
       </div>
       <div class="card-body">
         <ul class="tips-list">
-          <li>到「我的 API Keys」创建专用 Key，再用于客户端调用</li>
-          <li>调用成功后到「我的用量」查看 token 消耗和扣费</li>
-          <li>余额不足时先到「充值」页发起 gopay 订单，回调后自动入账</li>
+          <li>{{ t('accessGuide.suggestion1') }}</li>
+          <li>{{ t('accessGuide.suggestion2') }}</li>
+          <li>{{ t('accessGuide.suggestion3') }}</li>
         </ul>
       </div>
     </div>
@@ -120,7 +120,9 @@ import { BookOpenText, Copy, KeyRound, Lightbulb, Send, Bot, Sparkles, Hexagon, 
 import { ElButton, ElTag } from "element-plus";
 import { publicAPIOrigin } from "@/api/client";
 import { session } from "@/store/session";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const baseURL = publicAPIOrigin();
 
 function copyText(value: string) {
@@ -131,7 +133,7 @@ const providers = [
   { name: "OpenAI", endpoint: "`/v1/chat/completions` / `/v1/responses`", icon: Bot, color: "linear-gradient(135deg, #10a37f, #1a7f64)" },
   { name: "Claude", endpoint: "`/v1/messages` / `/v1/messages/count_tokens`", icon: Sparkles, color: "linear-gradient(135deg, #d97706, #b45309)" },
   { name: "Gemini", endpoint: "`/v1beta/models/*` / `/v1/models/*`", icon: Hexagon, color: "linear-gradient(135deg, #4285f4, #2563eb)" },
-  { name: "Antigravity", endpoint: "`/v1internal:*` / 专用兼容入口", icon: Zap, color: "linear-gradient(135deg, #8b5cf6, #6d28d9)" },
+  { name: "Antigravity", endpoint: "`/v1internal:*` / " + t('accessGuide.dedicatedCompatEndpoint'), icon: Zap, color: "linear-gradient(135deg, #8b5cf6, #6d28d9)" },
 ];
 
 const endpoints = ["/v1/chat/completions", "/v1/responses", "/v1/embeddings", "/v1/messages", "/v1/messages/count_tokens", "/v1beta/models/*", "/v1/models/*"];

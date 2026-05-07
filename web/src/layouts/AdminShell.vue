@@ -8,14 +8,14 @@
           </div>
           <div>
             <h1 class="sidebar-title">sub2api</h1>
-            <p class="sidebar-subtitle">管理控制台</p>
+            <p class="sidebar-subtitle">{{ t("adminShell.adminConsole") }}</p>
           </div>
         </div>
       </div>
 
       <nav class="sidebar-nav">
         <div class="nav-section">
-          <div class="nav-section-title">管理</div>
+          <div class="nav-section-title">{{ t("adminShell.management") }}</div>
           <router-link v-for="item in adminLinks" :key="item.to" :to="item.to" class="nav-item" :class="{ active: route.path === item.to }">
             <component :is="item.icon" class="nav-item-icon" :size="18" />
             <span>{{ item.label }}</span>
@@ -44,7 +44,7 @@
         </div>
 
         <div class="header-right">
-          <el-tag type="danger" effect="dark">管理员</el-tag>
+          <el-tag type="danger" effect="dark">{{ t("common.admin") }}</el-tag>
 
           <el-dropdown @command="handleCommand">
             <div class="user-menu">
@@ -59,11 +59,11 @@
               <el-dropdown-menu>
                 <el-dropdown-item command="switch-user">
                   <User :size="16" />
-                  切换到用户
+                  {{ t("admin.switchToUser") }}
                 </el-dropdown-item>
                 <el-dropdown-item divided command="logout" style="color: var(--danger-color)">
                   <LogOut :size="16" />
-                  退出登录
+                  {{ t("auth.logout") }}
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -86,38 +86,40 @@ import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElTag } from "element-plus"
 import logoUrl from "@/assets/logo.svg";
 import { me, logout } from "@/api/auth";
 import { clearAuth, session } from "@/store/session";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
-const adminLinks = [
-  { to: "/admin/dashboard", label: "总览", icon: LayoutDashboard },
-  { to: "/admin/users", label: "用户管理", icon: Users },
-  { to: "/admin/accounts", label: "上游账户", icon: ShieldUser },
-  { to: "/admin/prices", label: "价格配置", icon: Banknote },
-  { to: "/admin/payments", label: "支付订单", icon: ReceiptText },
-  { to: "/admin/announcements", label: "公告管理", icon: Megaphone },
-  { to: "/admin/coupons", label: "兑换码", icon: Ticket },
-  { to: "/admin/errors", label: "错误日志", icon: Bug },
-  { to: "/admin/system", label: "系统指标", icon: Gauge },
-];
+const adminLinks = computed(() => [
+  { to: "/admin/dashboard", label: t("admin.overview"), icon: LayoutDashboard },
+  { to: "/admin/users", label: t("admin.users"), icon: Users },
+  { to: "/admin/accounts", label: t("admin.upstreamAccounts"), icon: ShieldUser },
+  { to: "/admin/prices", label: t("admin.priceConfig"), icon: Banknote },
+  { to: "/admin/payments", label: t("admin.paymentOrders"), icon: ReceiptText },
+  { to: "/admin/announcements", label: t("admin.announcementManagement"), icon: Megaphone },
+  { to: "/admin/coupons", label: t("admin.couponCodes"), icon: Ticket },
+  { to: "/admin/errors", label: t("admin.errorLogs"), icon: Bug },
+  { to: "/admin/system", label: t("admin.systemMetrics"), icon: Gauge },
+]);
 
 const pageTitle = computed(() => {
-  const match = adminLinks.find((item) => item.to === route.path);
+  const match = adminLinks.value.find((item) => item.to === route.path);
   return match?.label || "sub2api";
 });
 
 const pageSubtitle = computed(() => {
   const descriptions: Record<string, string> = {
-    "/admin/dashboard": "平台整体运行状态概览",
-    "/admin/users": "管理平台注册用户",
-    "/admin/accounts": "管理上游 OAuth 账户",
-    "/admin/prices": "配置模型价格策略",
-    "/admin/payments": "管理支付订单",
-    "/admin/announcements": "发布系统公告",
-    "/admin/coupons": "管理兑换码",
-    "/admin/errors": "查看错误日志",
-    "/admin/system": "系统指标监控",
+    "/admin/dashboard": t("adminShell.dashboardSubtitle"),
+    "/admin/users": t("adminShell.usersSubtitle"),
+    "/admin/accounts": t("adminShell.accountsSubtitle"),
+    "/admin/prices": t("adminShell.pricesSubtitle"),
+    "/admin/payments": t("adminShell.paymentsSubtitle"),
+    "/admin/announcements": t("adminShell.announcementsSubtitle"),
+    "/admin/coupons": t("adminShell.couponsSubtitle"),
+    "/admin/errors": t("adminShell.errorsSubtitle"),
+    "/admin/system": t("adminShell.systemSubtitle"),
   };
   return descriptions[route.path] || "";
 });

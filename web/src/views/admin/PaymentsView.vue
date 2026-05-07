@@ -7,7 +7,7 @@
             <ListOrdered :size="20" />
           </div>
           <div class="stat-mini-content">
-            <span class="stat-mini-label">订单总数</span>
+            <span class="stat-mini-label">{{ t('adminPayments.totalOrders') }}</span>
             <span class="stat-mini-value">{{ orders.length }}</span>
           </div>
         </div>
@@ -16,7 +16,7 @@
             <CheckCircle :size="20" />
           </div>
           <div class="stat-mini-content">
-            <span class="stat-mini-label">已支付</span>
+            <span class="stat-mini-label">{{ t('adminPayments.paidOrders') }}</span>
             <span class="stat-mini-value">{{ paidOrders }}</span>
           </div>
         </div>
@@ -25,7 +25,7 @@
             <Clock :size="20" />
           </div>
           <div class="stat-mini-content">
-            <span class="stat-mini-label">待处理</span>
+            <span class="stat-mini-label">{{ t('adminPayments.pendingOrders') }}</span>
             <span class="stat-mini-value">{{ pendingOrders }}</span>
           </div>
         </div>
@@ -34,8 +34,8 @@
             <CircleDollarSign :size="20" />
           </div>
           <div class="stat-mini-content">
-            <span class="stat-mini-label">总收入</span>
-            <span class="stat-mini-value">{{ formatCurrency(totalRevenue) }} 元</span>
+            <span class="stat-mini-label">{{ t('adminPayments.totalRevenue') }}</span>
+            <span class="stat-mini-value">{{ formatCurrency(totalRevenue) }} {{ t('common.currency') }}</span>
           </div>
         </div>
       </div>
@@ -44,40 +44,40 @@
         <div class="card-header">
           <h3 class="card-title">
             <ReceiptText :size="20" />
-            订单列表
+            {{ t('adminPayments.orderList') }}
           </h3>
-          <span class="order-count">{{ orders.length }} 个订单</span>
+          <span class="order-count">{{ orders.length }} {{ t('adminPayments.orderCount') }}</span>
         </div>
         <div class="card-body">
-          <el-table :data="orders" empty-text="暂无订单" class="modern-table" :stripe="true">
-            <el-table-column prop="out_trade_no" label="商户单号" min-width="180">
+          <el-table :data="orders" :empty-text="t('adminPayments.noOrders')" class="modern-table" :stripe="true">
+            <el-table-column prop="out_trade_no" :label="t('adminPayments.merchantOrderNo')" min-width="180">
               <template #default="{ row }">
                 <code class="trade-no mono">{{ row.out_trade_no }}</code>
               </template>
             </el-table-column>
-            <el-table-column prop="user_id" label="用户" width="70">
+            <el-table-column prop="user_id" :label="t('adminPayments.user')" width="70">
               <template #default="{ row }">
                 <span class="user-id">#{{ row.user_id }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="provider" label="渠道" width="90">
+            <el-table-column prop="provider" :label="t('adminPayments.channel')" width="90">
               <template #default="{ row }">
                 <el-tag size="small" type="info">{{ row.provider || "gopay" }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="金额" width="90">
+            <el-table-column :label="t('adminPayments.amount')" width="90">
               <template #default="{ row }">
                 <span class="amount-value">{{ formatCurrency(row.amount) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="状态" width="80">
+            <el-table-column :label="t('adminPayments.status')" width="80">
               <template #default="{ row }">
                 <el-tag :type="isPaidStatus(row.status) ? 'success' : 'warning'" size="small">
-                  {{ row.status === "paid" ? "已支付" : "待支付" }}
+                  {{ row.status === "paid" ? t('adminPayments.paid') : t('adminPayments.pending') }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="创建时间" width="140">
+            <el-table-column :label="t('adminPayments.createTime')" width="140">
               <template #default="{ row }">
                 <span class="time-text">{{ formatTime(row.created_at_ms) }}</span>
               </template>
@@ -96,7 +96,9 @@ import { ElTable, ElTableColumn, ElTag } from "element-plus";
 import { adminAPI } from "@/api/admin";
 import type { PaymentOrder } from "@/api/types";
 import { formatCurrency, formatTime, isPaidStatus } from "@/utils";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const orders = ref<PaymentOrder[]>([]);
 
 const paidOrders = computed(() => orders.value.filter((item) => isPaidStatus(item.status)).length);

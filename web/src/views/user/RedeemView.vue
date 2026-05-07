@@ -11,28 +11,28 @@
       <div class="card-header">
         <h3 class="card-title">
           <Gift :size="20" />
-          兑换码
+          {{ t('redeem.redeemCode') }}
         </h3>
       </div>
       <div class="card-body">
-        <p class="redeem-desc">输入兑换码即可将余额充值到您的账户</p>
+        <p class="redeem-desc">{{ t('redeem.inputRedeemCode') }}</p>
         <el-form label-position="top" class="redeem-form">
-          <el-form-item label="兑换码">
-            <el-input v-model="code" placeholder="请输入兑换码" size="large" :prefix-icon="Ticket" clearable @keyup.enter="submit" />
+          <el-form-item :label="t('redeem.redeemCode')">
+            <el-input v-model="code" :placeholder="t('redeem.redeemCodePlaceholder')" size="large" :prefix-icon="Ticket" clearable @keyup.enter="submit" />
           </el-form-item>
           <el-button type="primary" size="large" class="redeem-btn" :loading="loading" @click="submit">
             <Gift :size="18" style="margin-right: 8px" />
-            立即兑换
+            {{ t('redeem.redeemNow') }}
           </el-button>
         </el-form>
 
         <div class="help-section">
-          <div class="help-title"><Info :size="14" /> 使用说明</div>
+          <div class="help-title"><Info :size="14" /> {{ t('redeem.usageInstructions') }}</div>
           <ul class="help-list">
-            <li><CheckCircle2 :size="13" />兑换码由管理员生成并发放</li>
-            <li><CheckCircle2 :size="13" />每个兑换码仅可使用一次</li>
-            <li><CheckCircle2 :size="13" />兑换成功后余额即时到账</li>
-            <li><CheckCircle2 :size="13" />如有问题请联系管理员获取帮助</li>
+            <li><CheckCircle2 :size="13" />{{ t('redeem.instruction1') }}</li>
+            <li><CheckCircle2 :size="13" />{{ t('redeem.instruction2') }}</li>
+            <li><CheckCircle2 :size="13" />{{ t('redeem.instruction3') }}</li>
+            <li><CheckCircle2 :size="13" />{{ t('redeem.instruction4') }}</li>
           </ul>
         </div>
       </div>
@@ -45,7 +45,9 @@ import { ref } from "vue";
 import { CheckCircle2, Gift, Info, Ticket } from "lucide-vue-next";
 import { ElAlert, ElButton, ElForm, ElFormItem, ElInput } from "element-plus";
 import { userAPI } from "@/api/user";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const code = ref("");
 const message = ref("");
 const error = ref("");
@@ -58,10 +60,10 @@ async function submit() {
   loading.value = true;
   try {
     await userAPI.redeem({ code: code.value });
-    message.value = "兑换成功，余额已更新";
+    message.value = t('redeem.redeemSuccess');
     code.value = "";
   } catch (err) {
-    error.value = err instanceof Error ? err.message : "redeem failed";
+    error.value = err instanceof Error ? err.message : t('redeem.redeemFailed');
   } finally {
     loading.value = false;
   }

@@ -7,7 +7,7 @@
             <Boxes :size="20" />
           </div>
           <div class="stat-mini-content">
-            <span class="stat-mini-label">账户总数</span>
+            <span class="stat-mini-label">{{ t('adminAccounts.totalAccounts') }}</span>
             <span class="stat-mini-value">{{ accounts.length }}</span>
           </div>
         </div>
@@ -16,7 +16,7 @@
             <CheckCircle :size="20" />
           </div>
           <div class="stat-mini-content">
-            <span class="stat-mini-label">活跃账户</span>
+            <span class="stat-mini-label">{{ t('adminAccounts.activeAccounts') }}</span>
             <span class="stat-mini-value">{{ activeAccounts }}</span>
           </div>
         </div>
@@ -25,7 +25,7 @@
             <Layers :size="20" />
           </div>
           <div class="stat-mini-content">
-            <span class="stat-mini-label">Provider 数</span>
+            <span class="stat-mini-label">{{ t('adminAccounts.providerCount') }}</span>
             <span class="stat-mini-value">{{ providerCount }}</span>
           </div>
         </div>
@@ -39,13 +39,13 @@
         <div class="card-header">
           <h3 class="card-title">
             <Boxes :size="20" />
-            账户列表
+            {{ t('adminAccounts.accountList') }}
           </h3>
-          <span class="account-count">{{ accounts.length }} 个账户</span>
+          <span class="account-count">{{ accounts.length }} {{ t('adminAccounts.accountCount') }}</span>
         </div>
         <div class="card-body">
-          <el-table :data="accounts" empty-text="暂无账户" class="modern-table" :stripe="true">
-            <el-table-column prop="provider" label="Provider" width="120">
+          <el-table :data="accounts" :empty-text="t('adminAccounts.noAccounts')" class="modern-table" :stripe="true">
+            <el-table-column prop="provider" :label="t('adminAccounts.provider')" width="120">
               <template #default="{ row }">
                 <div class="provider-cell">
                   <div class="provider-badge" :class="row.provider.toLowerCase()">
@@ -55,7 +55,7 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column prop="name" label="账户名" min-width="130">
+            <el-table-column prop="name" :label="t('adminAccounts.accountName')" min-width="130">
               <template #default="{ row }">
                 <div class="name-cell">
                   <KeyRound :size="14" />
@@ -63,26 +63,26 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column prop="auth_type" label="认证方式" width="100">
+            <el-table-column prop="auth_type" :label="t('adminAccounts.authType')" width="100">
               <template #default="{ row }">
                 <el-tag :type="row.auth_type === 'oauth' ? 'primary' : 'info'" size="small">
                   {{ row.auth_type }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="状态" width="80">
+            <el-table-column :label="t('adminAccounts.status')" width="80">
               <template #default="{ row }">
                 <el-tag :type="isActiveStatus(row.status) ? 'success' : 'info'" size="small">
                   {{ row.status }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="优先级" width="70">
+            <el-table-column :label="t('adminAccounts.priority')" width="70">
               <template #default="{ row }">
                 <span class="priority-value">{{ row.priority || 0 }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="并发限制" width="80">
+            <el-table-column :label="t('adminAccounts.concurrencyLimit')" width="80">
               <template #default="{ row }">
                 <span class="limit-value">{{ row.concurrency_limit || "∞" }}</span>
               </template>
@@ -101,7 +101,9 @@ import { ElAlert, ElTable, ElTableColumn, ElTag } from "element-plus";
 import { adminAPI } from "@/api/admin";
 import type { Account } from "@/api/types";
 import { isActiveStatus } from "@/utils";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const accounts = ref<Account[]>([]);
 const error = ref("");
 
@@ -112,7 +114,7 @@ async function load() {
   try {
     accounts.value = await adminAPI.accounts();
   } catch (err) {
-    error.value = err instanceof Error ? err.message : "加载失败";
+    error.value = err instanceof Error ? err.message : t('adminAccounts.loadFailed');
   }
 }
 

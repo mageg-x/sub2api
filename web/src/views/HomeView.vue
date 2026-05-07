@@ -7,20 +7,20 @@
     <section class="hero-section">
       <div class="hero-badge">
         <span class="hero-badge-dot"></span>
-        AI 订阅账户聚合平台
+        {{ t("home.aiSubscriptionPlatform") }}
       </div>
       <div class="hero-logo">
         <img :src="logoUrl" alt="sub2api" />
       </div>
       <h1 class="hero-title">sub2api</h1>
-      <p class="hero-subtitle">把上游 AI 订阅账户变成可分发、可计费、可运营的 API 服务</p>
-      <el-button class="cta-button" @click="goToLogin"> 立即开始 </el-button>
+      <p class="hero-subtitle">{{ t("home.heroSubtitle") }}</p>
+      <el-button class="cta-button" @click="goToLogin"> {{ t("home.startNow") }} </el-button>
     </section>
 
     <!-- 特性卡片区域 -->
     <section class="features-section">
       <div class="features-grid">
-        <div v-for="feature in features" :key="feature.title" class="feature-card">
+        <div v-for="feature in features" :key="feature.title.value" class="feature-card">
           <div class="feature-header">
             <div class="feature-icon">
               <component :is="feature.icon" :size="18" :stroke-width="2" />
@@ -36,42 +36,45 @@
 
 <script setup lang="ts">
 import { useRouter } from "vue-router";
+import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { ShieldCheck, Layers, KeyRound, Zap, DollarSign, WalletCards } from "lucide-vue-next";
 import { ElButton } from "element-plus";
 import logoUrl from "@/assets/logo.svg";
 
 const router = useRouter();
+const { t } = useI18n();
 
 const features = [
   {
     icon: ShieldCheck,
-    title: "统一接口",
-    desc: "支持 OpenAI、Claude、Gemini、Antigravity 账户接入，统一管理 OAuth 与静态凭据。",
+    title: computed(() => t("home.unifiedInterface")),
+    desc: computed(() => t("home.unifiedInterfaceDesc")),
   },
   {
     icon: Layers,
-    title: "多渠道调度",
-    desc: "同一模型可挂多组上游账户，按状态、优先级和并发限制自动分配请求。",
+    title: computed(() => t("home.multiChannelScheduling")),
+    desc: computed(() => t("home.multiChannelDesc")),
   },
   {
     icon: KeyRound,
-    title: "简单易用",
-    desc: "用户创建自己的 API Key 后即可直接接入平台代理地址，无需感知背后账户细节。",
+    title: computed(() => t("home.easyToUse")),
+    desc: computed(() => t("home.easyToUseDesc")),
   },
   {
     icon: Zap,
-    title: "稳定优先",
-    desc: "高质量IP，高质量号池，可用率达 99.9%。",
+    title: computed(() => t("home.stableFirst")),
+    desc: computed(() => t("home.stableFirstDesc")),
   },
   {
     icon: DollarSign,
-    title: "计费透明",
-    desc: "按模型价格记录输入输出 token 消耗，生成用量日志并自动扣减用户余额。",
+    title: computed(() => t("home.transparentBilling")),
+    desc: computed(() => t("home.transparentBillingDesc")),
   },
   {
     icon: WalletCards,
-    title: "支付便捷",
-    desc: "支持微信和支付宝充值，并提供公告、优惠码、错误日志、账户与价格管理页面。",
+    title: computed(() => t("home.convenientPayment")),
+    desc: computed(() => t("home.convenientPaymentDesc")),
   },
 ];
 
@@ -104,13 +107,7 @@ function goToLogin() {
   height: 42vw;
   max-width: 520px;
   max-height: 520px;
-  background: radial-gradient(
-    circle at 55% 35%,
-    hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.13) 0%,
-    hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.07) 30%,
-    hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.03) 55%,
-    transparent 72%
-  );
+  background: radial-gradient(circle at 55% 35%, hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.13) 0%, hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.07) 30%, hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.03) 55%, transparent 72%);
   border-radius: 50%;
   pointer-events: none;
   z-index: 0;
@@ -127,13 +124,7 @@ function goToLogin() {
   height: 36vw;
   max-width: 420px;
   max-height: 420px;
-  background: radial-gradient(
-    circle at 40% 60%,
-    hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.11) 0%,
-    hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.06) 28%,
-    hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.02) 50%,
-    transparent 70%
-  );
+  background: radial-gradient(circle at 40% 60%, hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.11) 0%, hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.06) 28%, hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.02) 50%, transparent 70%);
   border-radius: 50%;
   pointer-events: none;
   z-index: 0;
@@ -151,12 +142,7 @@ function goToLogin() {
   height: 28vh;
   max-width: 700px;
   max-height: 240px;
-  background: radial-gradient(
-    ellipse at center,
-    hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.07) 0%,
-    hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.04) 35%,
-    transparent 68%
-  );
+  background: radial-gradient(ellipse at center, hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.07) 0%, hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.04) 35%, transparent 68%);
   border-radius: 50%;
   pointer-events: none;
   z-index: 0;
@@ -372,14 +358,7 @@ function goToLogin() {
   left: 12px;
   right: 12px;
   height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.18) 25%,
-    hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.22) 50%,
-    hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.18) 75%,
-    transparent 100%
-  );
+  background: linear-gradient(90deg, transparent 0%, hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.18) 25%, hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.22) 50%, hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.18) 75%, transparent 100%);
   opacity: 0;
   transition: opacity var(--transition-smooth);
   pointer-events: none;

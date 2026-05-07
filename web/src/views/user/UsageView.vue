@@ -2,15 +2,15 @@
   <div class="usage-page">
     <div class="surface-card filter-bar">
       <div class="filter-left">
-        <div class="filter-label">时间范围</div>
-        <el-date-picker v-model="dateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" size="large" :shortcuts="dateShortcuts" value-format="x" />
-        <el-input v-model="modelFilter" placeholder="模型 / codex" clearable size="large" class="model-filter" />
+        <div class="filter-label">{{ t('usage.timeRange') }}</div>
+        <el-date-picker v-model="dateRange" type="daterange" :range-separator="t('usage.to')" :start-placeholder="t('usage.startDate')" :end-placeholder="t('usage.endDate')" size="large" :shortcuts="dateShortcuts" value-format="x" />
+        <el-input v-model="modelFilter" :placeholder="t('usage.modelFilterPlaceholder')" clearable size="large" class="model-filter" />
       </div>
       <div class="filter-right">
         <el-button-group>
-          <el-button :type="rangeMode === 'today' ? 'primary' : ''" @click="setRange('today')">今天</el-button>
-          <el-button :type="rangeMode === 'week' ? 'primary' : ''" @click="setRange('week')">7天</el-button>
-          <el-button :type="rangeMode === 'month' ? 'primary' : ''" @click="setRange('month')">30天</el-button>
+          <el-button :type="rangeMode === 'today' ? 'primary' : ''" @click="setRange('today')">{{ t('usage.today') }}</el-button>
+          <el-button :type="rangeMode === 'week' ? 'primary' : ''" @click="setRange('week')">{{ t('usage.last7Days') }}</el-button>
+          <el-button :type="rangeMode === 'month' ? 'primary' : ''" @click="setRange('month')">{{ t('usage.last30Days') }}</el-button>
         </el-button-group>
       </div>
     </div>
@@ -21,7 +21,7 @@
           <Bolt :size="20" />
         </div>
         <div class="stat-mini-content">
-          <span class="stat-mini-label">总调用</span>
+          <span class="stat-mini-label">{{ t('usage.totalCalls') }}</span>
           <span class="stat-mini-value">{{ filteredUsage.length }}</span>
         </div>
       </div>
@@ -30,7 +30,7 @@
           <ArrowDownToLine :size="20" />
         </div>
         <div class="stat-mini-content">
-          <span class="stat-mini-label">输入 TOKEN</span>
+          <span class="stat-mini-label">{{ t('usage.inputToken') }}</span>
           <span class="stat-mini-value">{{ formatNumber(summary.input) }}</span>
         </div>
       </div>
@@ -39,7 +39,7 @@
           <ArrowUpFromLine :size="20" />
         </div>
         <div class="stat-mini-content">
-          <span class="stat-mini-label">输出 TOKEN</span>
+          <span class="stat-mini-label">{{ t('usage.outputToken') }}</span>
           <span class="stat-mini-value">{{ formatNumber(summary.output) }}</span>
         </div>
       </div>
@@ -48,7 +48,7 @@
           <ReceiptText :size="20" />
         </div>
         <div class="stat-mini-content">
-          <span class="stat-mini-label">累计花费</span>
+          <span class="stat-mini-label">{{ t('usage.totalCost') }}</span>
           <span class="stat-mini-value cost-value">{{ formatCurrency(summary.cost) }}</span>
         </div>
       </div>
@@ -59,11 +59,11 @@
         <div class="card-header">
           <h3 class="card-title">
             <Gauge :size="20" />
-            用量限额
+            {{ t('usage.usageLimit') }}
           </h3>
         </div>
         <div class="card-body">
-          <div v-if="!modelStats.length" class="empty-hint">暂无数据</div>
+          <div v-if="!modelStats.length" class="empty-hint">{{ t('usage.noData') }}</div>
           <div v-else class="quota-list">
             <div v-for="item in topModels" :key="item.model" class="quota-item">
               <div class="quota-info">
@@ -72,14 +72,14 @@
               </div>
               <div class="quota-bars">
                 <div class="quota-bar-wrap">
-                  <span class="bar-label">输入</span>
+                  <span class="bar-label">{{ t('common.input') }}</span>
                   <div class="bar-track">
                     <div class="bar-fill bar-input" :style="{ width: barWidth(item.inputPct) }"></div>
                   </div>
                   <span class="bar-value">{{ item.input.toLocaleString() }} / {{ item.inputMax }}</span>
                 </div>
                 <div class="quota-bar-wrap">
-                  <span class="bar-label">输出</span>
+                  <span class="bar-label">{{ t('common.output') }}</span>
                   <div class="bar-track">
                     <div class="bar-fill bar-output" :style="{ width: barWidth(item.outputPct) }"></div>
                   </div>
@@ -95,11 +95,11 @@
         <div class="card-header">
           <h3 class="card-title">
             <PieChart :size="20" />
-            Token 使用分布
+            {{ t('usage.tokenUsageDistribution') }}
           </h3>
         </div>
         <div class="card-body">
-          <div v-if="!providerStats.length" class="empty-hint">暂无数据</div>
+          <div v-if="!providerStats.length" class="empty-hint">{{ t('usage.noData') }}</div>
           <div v-else class="dist-list">
             <div v-for="item in providerStats" :key="item.name" class="dist-item">
               <div class="dist-header">
@@ -110,8 +110,8 @@
                 <div class="dist-bar-fill" :style="{ width: item.pct + '%' }" :class="`dist-color-${item.idx % 5}`"></div>
               </div>
               <div class="dist-detail">
-                <span>调用 {{ item.count }} 次</span>
-                <span>Token {{ formatNumber(item.tokens) }}</span>
+                <span>{{ t('usage.calls') }} {{ item.count }} {{ t('usage.callsCount') }}</span>
+                <span>{{ t('usage.token') }} {{ formatNumber(item.tokens) }}</span>
                 <span class="dist-cost">{{ formatCurrency(item.cost) }}</span>
               </div>
             </div>
@@ -125,34 +125,34 @@
         <div class="card-header">
           <h3 class="card-title">
             <ListOrdered :size="20" />
-            详细统计数据
+            {{ t('usage.detailedStatistics') }}
           </h3>
         </div>
         <div class="card-body">
-          <div v-if="!filteredUsage.length" class="empty-hint">暂无数据</div>
-          <el-table v-else :data="filteredUsage.slice(0, 10)" empty-text="暂无记录" class="modern-table" :stripe="true">
-            <el-table-column prop="model" label="模型" min-width="160" />
-            <el-table-column prop="provider" label="渠道" width="100">
+          <div v-if="!filteredUsage.length" class="empty-hint">{{ t('usage.noData') }}</div>
+          <el-table v-else :data="filteredUsage.slice(0, 10)" :empty-text="t('usage.noRecords')" class="modern-table" :stripe="true">
+            <el-table-column prop="model" :label="t('usage.model')" min-width="160" />
+            <el-table-column prop="provider" :label="t('usage.channel')" width="100">
               <template #default="{ row }">
                 <el-tag size="small">{{ row.provider }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="输入 Token" width="110" align="right">
+            <el-table-column :label="t('usage.inputToken')" width="110" align="right">
               <template #default="{ row }">
                 <span class="token-num">{{ row.input_tokens.toLocaleString() }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="输出 Token" width="110" align="right">
+            <el-table-column :label="t('usage.outputToken')" width="110" align="right">
               <template #default="{ row }">
                 <span class="token-num">{{ row.output_tokens.toLocaleString() }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="费用" width="100" align="right">
+            <el-table-column :label="t('usage.fee')" width="100" align="right">
               <template #default="{ row }">
                 <span class="cost-text">{{ formatCurrency(row.cost) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="时间" min-width="170">
+            <el-table-column :label="t('usage.time')" min-width="170">
               <template #default="{ row }">
                 <span class="time-text">{{ formatTime(row.created_at_ms) }}</span>
               </template>
@@ -165,14 +165,14 @@
         <div class="card-header">
           <h3 class="card-title">
             <TrendingUp :size="20" />
-            调用趋势
+            {{ t('usage.callTrend') }}
           </h3>
         </div>
         <div class="card-body">
-          <div v-if="!dailyData.length" class="empty-hint">暂无数据</div>
+          <div v-if="!dailyData.length" class="empty-hint">{{ t('usage.noData') }}</div>
           <div v-else class="trend-chart">
             <div class="chart-bars">
-              <div v-for="(day, i) in dailyData" :key="day.date" class="chart-col" :title="`${day.date}: ${day.count} 次调用`">
+              <div v-for="(day, i) in dailyData" :key="day.date" class="chart-col" :title="`${day.date}: ${day.count} ${t('usage.callsCount')}`">
                 <div class="bar-container">
                   <div class="bar-fill-trend" :style="{ height: trendBarHeight(day.count) }"></div>
                 </div>
@@ -193,15 +193,17 @@ import { ElButton, ElButtonGroup, ElDatePicker, ElInput, ElTable, ElTableColumn,
 import { userAPI } from "@/api/user";
 import type { UsageLog } from "@/api/types";
 import { formatCurrency, formatTime } from "@/utils";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const usage = ref<UsageLog[]>([]);
 const dateRange = ref<number[] | null>(null);
 const modelFilter = ref("");
 const rangeMode = ref("today");
 
-const dateShortcuts = [
+const dateShortcuts = computed(() => [
   {
-    text: "最近一周",
+    text: t('usage.recentWeek'),
     value: () => {
       const e = new Date();
       const s = new Date();
@@ -210,7 +212,7 @@ const dateShortcuts = [
     },
   },
   {
-    text: "最近一月",
+    text: t('usage.recentMonth'),
     value: () => {
       const e = new Date();
       const s = new Date();
@@ -219,7 +221,7 @@ const dateShortcuts = [
     },
   },
   {
-    text: "最近三月",
+    text: t('usage.recentThreeMonths'),
     value: () => {
       const e = new Date();
       const s = new Date();
@@ -227,7 +229,7 @@ const dateShortcuts = [
       return [s, e];
     },
   },
-];
+]);
 
 function setRange(mode: string) {
   rangeMode.value = mode;

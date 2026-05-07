@@ -4,9 +4,9 @@
       <div class="card-header">
         <h3 class="card-title">
           <Activity :size="20" />
-          系统指标
+          {{ t('adminSystem.systemMetrics') }}
         </h3>
-        <span class="stat-count">{{ statCount }} 项</span>
+        <span class="stat-count">{{ statCount }} {{ t('adminSystem.items') }}</span>
       </div>
       <div class="card-body">
         <div class="stats-grid">
@@ -25,7 +25,9 @@ import { computed, onMounted, ref } from "vue";
 import { Activity } from "lucide-vue-next";
 import { adminAPI } from "@/api/admin";
 import { formatTime } from "@/utils";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const stats = ref<Record<string, unknown>>({});
 
 const statCount = computed(() => Object.keys(stats.value).length);

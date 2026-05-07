@@ -2,7 +2,7 @@
   <div class="order-detail-page">
     <div v-if="loading" class="loading-state">
       <div class="loading-spinner"></div>
-      <span>加载中...</span>
+      <span>{{ t('common.loading') }}</span>
     </div>
     <div v-else-if="error" class="surface-card error-section">
       <el-alert :title="error" type="error" :closable="false" show-icon />
@@ -12,16 +12,16 @@
         <div class="card-header">
           <h3 class="card-title">
             <ReceiptText :size="20" />
-            订单详情
+            {{ t('orderDetail.orderDetails') }}
           </h3>
           <el-tag :type="order.status === 'paid' ? 'success' : 'warning'" size="small">
-            {{ order.status }}
+            {{ order.status === 'paid' ? t('dashboard.paid') : t('dashboard.pending') }}
           </el-tag>
         </div>
         <div class="card-body">
           <div class="detail-grid">
             <div class="detail-item">
-              <span class="detail-label">商户单号</span>
+              <span class="detail-label">{{ t('orderDetail.merchantOrderNo') }}</span>
               <div class="detail-value-row">
                 <code class="detail-value mono">{{ order.out_trade_no }}</code>
                 <el-button text size="small" @click="copyText(order.out_trade_no)">
@@ -30,19 +30,19 @@
               </div>
             </div>
             <div class="detail-item">
-              <span class="detail-label">充值金额</span>
-              <span class="detail-value amount">{{ formatCurrency(order.amount) }} 元</span>
+              <span class="detail-label">{{ t('orderDetail.rechargeAmount') }}</span>
+              <span class="detail-value amount">{{ formatCurrency(order.amount) }} {{ t('common.currency') }}</span>
             </div>
             <div class="detail-item">
-              <span class="detail-label">入账金额</span>
-              <span class="detail-value">{{ formatCurrency(order.credited_amount) }} 元</span>
+              <span class="detail-label">{{ t('orderDetail.creditedAmount') }}</span>
+              <span class="detail-value">{{ formatCurrency(order.credited_amount) }} {{ t('common.currency') }}</span>
             </div>
             <div class="detail-item">
-              <span class="detail-label">支付渠道</span>
+              <span class="detail-label">{{ t('orderDetail.paymentChannel') }}</span>
               <el-tag size="small">{{ order.provider }}</el-tag>
             </div>
             <div class="detail-item">
-              <span class="detail-label">创建时间</span>
+              <span class="detail-label">{{ t('orderDetail.createTime') }}</span>
               <span class="detail-value">{{ formatTime(order.created_at_ms) }}</span>
             </div>
           </div>
@@ -53,14 +53,14 @@
         <div class="card-header">
           <h3 class="card-title">
             <Lightbulb :size="20" />
-            常见问题
+            {{ t('orderDetail.faq') }}
           </h3>
         </div>
         <div class="card-body">
           <ul class="tips-list">
-            <li>支付完成后页面将自动更新状态，请稍候刷新</li>
-            <li>如支付失败，金额将在 24 小时内退回原支付渠道</li>
-            <li>如有其他问题请联系管理员处理</li>
+            <li>{{ t('orderDetail.faq1') }}</li>
+            <li>{{ t('orderDetail.faq2') }}</li>
+            <li>{{ t('orderDetail.faq3') }}</li>
           </ul>
         </div>
       </div>
@@ -76,7 +76,9 @@ import { ElAlert, ElButton, ElTag } from "element-plus";
 import { userAPI } from "@/api/user";
 import type { PaymentOrder } from "@/api/types";
 import { formatCurrency, formatTime } from "@/utils";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const route = useRoute();
 const order = ref<PaymentOrder | null>(null);
 const loading = ref(true);
@@ -92,7 +94,7 @@ async function load() {
   try {
     order.value = await userAPI.orderByID(Number(route.params.id));
   } catch (err) {
-    error.value = err instanceof Error ? err.message : "加载失败";
+    error.value = err instanceof Error ? err.message : t('common.loadingFailed');
   } finally {
     loading.value = false;
   }

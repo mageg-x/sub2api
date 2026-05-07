@@ -3,8 +3,8 @@
     <div class="surface-card announcements-section">
       <div class="card-body empty-state">
         <Bell :size="42" />
-        <h3 class="empty-title">公告已移至顶部</h3>
-        <p class="empty-description">请点击右上角“公告”查看最新通知。</p>
+        <h3 class="empty-title">{{ t('announcements.announcementMoved') }}</h3>
+        <p class="empty-description">{{ t('announcements.clickToViewAnnouncement') }}</p>
       </div>
     </div>
   </div>
@@ -12,6 +12,9 @@
 
 <script setup lang="ts">
 import { Bell } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
+
+const { t } = useI18n();
 </script>
 
 <style scoped>

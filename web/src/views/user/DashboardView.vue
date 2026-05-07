@@ -1,21 +1,16 @@
 <template>
   <div>
-    <!-- 账户数据 -->
-    <div class="section-title">
-      <WalletCards :size="18" />
-      <span>账户数据</span>
-    </div>
-    <div class="card-grid">
+    <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-icon-col blue">
           <WalletCards :size="28" />
         </div>
         <div class="stat-text-col">
-          <span class="stat-label">当前余额</span>
+          <span class="stat-label">{{ t("dashboard.currentBalance") }}</span>
           <span class="stat-value">{{ formatCurrency(balance) }}</span>
         </div>
         <el-button type="primary" size="small" class="stat-action" @click="router.push('/user/payment')">
-          充值
+          {{ t("dashboard.recharge") }}
         </el-button>
       </div>
 
@@ -24,44 +19,17 @@
           <TrendingDown :size="28" />
         </div>
         <div class="stat-text-col">
-          <span class="stat-label">历史消耗</span>
+          <span class="stat-label">{{ t("dashboard.historicalConsumption") }}</span>
           <span class="stat-value">{{ formatCurrency(totalCost) }}</span>
         </div>
       </div>
 
       <div class="stat-card">
-        <div class="stat-icon-col green">
-          <CircleDollarSign :size="28" />
-        </div>
-        <div class="stat-text-col">
-          <span class="stat-label">累计充值</span>
-          <span class="stat-value">{{ formatCurrency(totalRecharge) }}</span>
-        </div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-icon-col orange">
-          <Percent :size="28" />
-        </div>
-        <div class="stat-text-col">
-          <span class="stat-label">费率折扣</span>
-          <span class="stat-value">{{ ratePercent }}%</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- 使用统计 -->
-    <div class="section-title">
-      <Activity :size="18" />
-      <span>使用统计</span>
-    </div>
-    <div class="card-grid">
-      <div class="stat-card">
         <div class="stat-icon-col teal">
           <Send :size="28" />
         </div>
         <div class="stat-text-col">
-          <span class="stat-label">请求次数</span>
+          <span class="stat-label">{{ t("dashboard.requestCount") }}</span>
           <span class="stat-value">{{ requestCount }}</span>
         </div>
         <div class="stat-chart">
@@ -76,7 +44,7 @@
           <BarChart3 :size="28" />
         </div>
         <div class="stat-text-col">
-          <span class="stat-label">统计次数(7天)</span>
+          <span class="stat-label">{{ t("dashboard.requestsLast7Days") }}</span>
           <span class="stat-value">{{ recentUsageCount }}</span>
         </div>
         <div class="stat-chart">
@@ -87,38 +55,11 @@
       </div>
 
       <div class="stat-card">
-        <div class="stat-icon-col pink">
-          <KeyRound :size="28" />
-        </div>
-        <div class="stat-text-col">
-          <span class="stat-label">API Keys</span>
-          <span class="stat-value">{{ keyCount }}</span>
-        </div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-icon-col indigo">
-          <Clock :size="28" />
-        </div>
-        <div class="stat-text-col">
-          <span class="stat-label">最近调用</span>
-          <span class="stat-value">{{ lastUsageTime }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- 资源消耗 -->
-    <div class="section-title">
-      <Zap :size="18" />
-      <span>资源消耗</span>
-    </div>
-    <div class="card-grid">
-      <div class="stat-card">
         <div class="stat-icon-col yellow">
           <Coins :size="28" />
         </div>
         <div class="stat-text-col">
-          <span class="stat-label">统计额度</span>
+          <span class="stat-label">{{ t("dashboard.statsQuota") }}</span>
           <span class="stat-value">{{ formatCurrency(totalCost) }}</span>
         </div>
         <div class="stat-chart">
@@ -133,7 +74,7 @@
           <Type :size="28" />
         </div>
         <div class="stat-text-col">
-          <span class="stat-label">统计 Tokens</span>
+          <span class="stat-label">{{ t("dashboard.totalTokens") }}</span>
           <span class="stat-value">{{ formatNumber(totalTokens) }}</span>
         </div>
         <div class="stat-chart">
@@ -144,38 +85,11 @@
       </div>
 
       <div class="stat-card">
-        <div class="stat-icon-col emerald">
-          <ArrowDownToLine :size="28" />
-        </div>
-        <div class="stat-text-col">
-          <span class="stat-label">输入 Tokens</span>
-          <span class="stat-value">{{ formatNumber(totalInputTokens) }}</span>
-        </div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-icon-col sky">
-          <ArrowUpFromLine :size="28" />
-        </div>
-        <div class="stat-text-col">
-          <span class="stat-label">输出 Tokens</span>
-          <span class="stat-value">{{ formatNumber(totalOutputTokens) }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- 性能指标 -->
-    <div class="section-title">
-      <Gauge :size="18" />
-      <span>性能指标</span>
-    </div>
-    <div class="card-grid">
-      <div class="stat-card">
         <div class="stat-icon-col violet">
           <Timer :size="28" />
         </div>
         <div class="stat-text-col">
-          <span class="stat-label">平均 RPM</span>
+          <span class="stat-label">{{ t("dashboard.avgRPM") }}</span>
           <span class="stat-value">{{ avgRPM }}</span>
         </div>
         <div class="stat-chart">
@@ -190,7 +104,7 @@
           <Flame :size="28" />
         </div>
         <div class="stat-text-col">
-          <span class="stat-label">平均 TPM</span>
+          <span class="stat-label">{{ t("dashboard.avgTPM") }}</span>
           <span class="stat-value">{{ avgTPM }}</span>
         </div>
         <div class="stat-chart">
@@ -200,25 +114,6 @@
         </div>
       </div>
 
-      <div class="stat-card">
-        <div class="stat-icon-col lime">
-          <Layers :size="28" />
-        </div>
-        <div class="stat-text-col">
-          <span class="stat-label">常用模型</span>
-          <span class="stat-value">{{ topModel }}</span>
-        </div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-icon-col slate">
-          <Globe :size="28" />
-        </div>
-        <div class="stat-text-col">
-          <span class="stat-label">常用渠道</span>
-          <span class="stat-value">{{ topProvider }}</span>
-        </div>
-      </div>
     </div>
 
     <div class="dashboard-grid">
@@ -226,17 +121,17 @@
         <div class="card-header">
           <h3 class="card-title">
             <ReceiptText :size="20" />
-            最近调用
+            {{ t("dashboard.recentUsage") }}
           </h3>
-          <el-button type="primary" link @click="router.push('/user/usage')"> 查看全部 </el-button>
+          <el-button type="primary" link @click="router.push('/user/usage')"> {{ t("dashboard.viewAll") }} </el-button>
         </div>
         <div class="card-body">
           <div v-if="recentUsageLogs.length === 0" class="empty-state">
             <div class="empty-icon">
               <ReceiptText :size="32" />
             </div>
-            <h4 class="empty-title">暂无调用记录</h4>
-            <p class="empty-description">您的 API 调用记录将显示在这里</p>
+            <h4 class="empty-title">{{ t("dashboard.noUsageRecords") }}</h4>
+            <p class="empty-description">{{ t("dashboard.noUsageRecordsDesc") }}</p>
           </div>
           <div v-else class="usage-list">
             <div v-for="item in recentUsageLogs.slice(0, 5)" :key="item.id" class="usage-item">
@@ -246,9 +141,9 @@
               </div>
               <p class="usage-endpoint mono">{{ item.endpoint }}</p>
               <div class="usage-stats">
-                <span>输入 {{ item.input_tokens }}</span>
-                <span>输出 {{ item.output_tokens }}</span>
-                <span class="usage-cost">花费 {{ formatCurrency(item.cost) }} 元</span>
+                <span>{{ t("common.input") }} {{ item.input_tokens }}</span>
+                <span>{{ t("common.output") }} {{ item.output_tokens }}</span>
+                <span class="usage-cost">{{ t("dashboard.costWithCurrency", { amount: formatCurrency(item.cost) }) }}</span>
               </div>
             </div>
           </div>
@@ -260,35 +155,35 @@
           <div class="card-header">
             <h3 class="card-title">
               <WalletCards :size="20" />
-              最新订单
+              {{ t("dashboard.latestOrders") }}
             </h3>
-            <el-button type="primary" link @click="router.push('/user/payment')"> 充值 </el-button>
+            <el-button type="primary" link @click="router.push('/user/payment')"> {{ t("dashboard.recharge") }} </el-button>
           </div>
           <div class="card-body">
             <div v-if="!latestOrder" class="empty-state">
               <div class="empty-icon">
                 <WalletCards :size="32" />
               </div>
-              <h4 class="empty-title">暂无订单</h4>
-              <p class="empty-description">您的充值订单将显示在这里</p>
+              <h4 class="empty-title">{{ t("dashboard.noOrders") }}</h4>
+              <p class="empty-description">{{ t("dashboard.noOrdersDesc") }}</p>
             </div>
             <div v-else class="order-info">
               <div class="order-detail">
-                <span class="order-label">商户单号</span>
+                <span class="order-label">{{ t("dashboard.merchantOrderNo") }}</span>
                 <span class="order-value mono">{{ latestOrder.out_trade_no }}</span>
               </div>
               <div class="order-detail">
-                <span class="order-label">金额</span>
-                <span class="order-value">{{ formatCurrency(latestOrder.amount) }} 元</span>
+                <span class="order-label">{{ t("dashboard.amount") }}</span>
+                <span class="order-value">{{ formatCurrency(latestOrder.amount) }} {{ t("common.currency") }}</span>
               </div>
               <div class="order-detail">
-                <span class="order-label">状态</span>
+                <span class="order-label">{{ t("dashboard.orderStatus") }}</span>
                 <el-tag :type="latestOrder.status === 'paid' ? 'success' : 'warning'" size="small">
-                  {{ latestOrder.status }}
+                  {{ latestOrder.status === "paid" ? t("dashboard.paid") : t("dashboard.pending") }}
                 </el-tag>
               </div>
               <div class="order-detail">
-                <span class="order-label">创建时间</span>
+                <span class="order-label">{{ t("dashboard.createTime") }}</span>
                 <span class="order-value">{{ formatTime(latestOrder.created_at_ms) }}</span>
               </div>
             </div>
@@ -299,22 +194,22 @@
           <div class="card-header">
             <h3 class="card-title">
               <Bolt :size="20" />
-              快速操作
+              {{ t("dashboard.quickActions") }}
             </h3>
           </div>
           <div class="card-body">
             <div class="quick-actions">
               <el-button type="primary" size="large" @click="router.push('/user/keys')">
                 <KeyRound :size="18" />
-                创建 API Key
+                {{ t('dashboard.createApiKey') }}
               </el-button>
               <el-button type="warning" size="large" @click="router.push('/user/payment')">
                 <WalletCards :size="18" />
-                立即充值
+                {{ t('dashboard.rechargeNow') }}
               </el-button>
               <el-button type="info" size="large" @click="router.push('/user/access-guide')">
                 <BookOpenText :size="18" />
-                接入指南
+                {{ t('dashboard.accessGuide') }}
               </el-button>
             </div>
           </div>
@@ -327,60 +222,27 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import {
-  Activity,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  BarChart3,
-  Bolt,
-  BookOpenText,
-  CircleDollarSign,
-  Clock,
-  Coins,
-  Flame,
-  Gauge,
-  Globe,
-  KeyRound,
-  Layers,
-  Percent,
-  ReceiptText,
-  Send,
-  Timer,
-  TrendingDown,
-  Type,
-  WalletCards,
-  Zap,
-} from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
+import { BarChart3, Bolt, BookOpenText, KeyRound, ReceiptText, Send, Timer, TrendingDown, Type, WalletCards, Coins, Flame } from "lucide-vue-next";
 import { ElButton, ElTag } from "element-plus";
 import { userAPI } from "@/api/user";
 import type { PaymentOrder, UsageLog, UserDashboardResponse } from "@/api/types";
 import { formatCurrency, formatTime } from "@/utils";
 
+const { t } = useI18n();
 const router = useRouter();
-
 const dashboard = ref<UserDashboardResponse | null>(null);
 
 const balance = computed(() => dashboard.value?.balance || 0);
-const ratePercent = computed(() => dashboard.value?.rate_percent || 100);
 const totalCost = computed(() => dashboard.value?.total_cost || 0);
-const totalRecharge = computed(() => dashboard.value?.total_recharge || 0);
 const requestCount = computed(() => dashboard.value?.request_count || 0);
 const recentUsageCount = computed(() => dashboard.value?.recent_usage_count || 0);
-const totalInputTokens = computed(() => dashboard.value?.total_input_tokens || 0);
-const totalOutputTokens = computed(() => dashboard.value?.total_output_tokens || 0);
 const totalTokens = computed(() => dashboard.value?.total_tokens || 0);
 const avgRPM = computed(() => dashboard.value?.avg_rpm || "0");
 const avgTPM = computed(() => dashboard.value?.avg_tpm || "0");
-const topModel = computed(() => dashboard.value?.top_model || "-");
-const topProvider = computed(() => dashboard.value?.top_provider || "-");
-const keyCount = computed(() => dashboard.value?.key_count || 0);
 const recentUsageLogs = computed<UsageLog[]>(() => dashboard.value?.recent_usage_logs || []);
 const recentPaymentOrders = computed<PaymentOrder[]>(() => dashboard.value?.recent_payment_orders || []);
 const latestOrder = computed(() => recentPaymentOrders.value[0] || null);
-const lastUsageTime = computed(() => {
-  const ts = dashboard.value?.last_usage_time_ms || 0;
-  return ts ? formatTime(ts) : "-";
-});
 
 // Sparkline 生成函数
 function generateSparkline(data: number[]): string {
@@ -410,8 +272,8 @@ const rpmSparkline = computed(() => generateSparkline(requestTimeline.value.map(
 const tpmSparkline = computed(() => generateSparkline(tokenTimeline.value.map((count) => count / 1440)));
 
 function formatNumber(value: number): string {
-  if (value >= 1e8) return (value / 1e8).toFixed(2) + "亿";
-  if (value >= 1e4) return (value / 1e4).toFixed(2) + "万";
+  if (value >= 1e8) return (value / 1e8).toFixed(2) + t('common.hundredMillion');
+  if (value >= 1e4) return (value / 1e4).toFixed(2) + t('common.tenThousand');
   return value.toLocaleString();
 }
 
@@ -425,26 +287,11 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 24px 0 12px;
-  padding-left: 4px;
-}
-
-.section-title:first-child {
-  margin-top: 0;
-}
-
-.card-grid {
+.stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
-  margin-bottom: 0;
+  margin-bottom: 24px;
 }
 
 .stat-card {
@@ -463,7 +310,7 @@ onMounted(() => {
 }
 
 .stat-card::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -495,22 +342,54 @@ onMounted(() => {
   color: white;
 }
 
-.stat-icon-col.blue { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
-.stat-icon-col.purple { background: linear-gradient(135deg, #8b5cf6, #a78bfa); }
-.stat-icon-col.green { background: linear-gradient(135deg, #10b981, #34d399); }
-.stat-icon-col.orange { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
-.stat-icon-col.teal { background: linear-gradient(135deg, #14b8a6, #2dd4bf); }
-.stat-icon-col.cyan { background: linear-gradient(135deg, #06b6d4, #22d3ee); }
-.stat-icon-col.pink { background: linear-gradient(135deg, #ec4899, #f472b6); }
-.stat-icon-col.indigo { background: linear-gradient(135deg, #6366f1, #818cf8); }
-.stat-icon-col.yellow { background: linear-gradient(135deg, #eab308, #facc15); }
-.stat-icon-col.rose { background: linear-gradient(135deg, #f43f5e, #fb7185); }
-.stat-icon-col.emerald { background: linear-gradient(135deg, #059669, #10b981); }
-.stat-icon-col.sky { background: linear-gradient(135deg, #0ea5e9, #38bdf8); }
-.stat-icon-col.violet { background: linear-gradient(135deg, #7c3aed, #a78bfa); }
-.stat-icon-col.amber { background: linear-gradient(135deg, #d97706, #fbbf24); }
-.stat-icon-col.lime { background: linear-gradient(135deg, #65a30d, #a3e635); }
-.stat-icon-col.slate { background: linear-gradient(135deg, #475569, #94a3b8); }
+.stat-icon-col.blue {
+  background: linear-gradient(135deg, #3b82f6, #60a5fa);
+}
+.stat-icon-col.purple {
+  background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+}
+.stat-icon-col.green {
+  background: linear-gradient(135deg, #10b981, #34d399);
+}
+.stat-icon-col.orange {
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+}
+.stat-icon-col.teal {
+  background: linear-gradient(135deg, #14b8a6, #2dd4bf);
+}
+.stat-icon-col.cyan {
+  background: linear-gradient(135deg, #06b6d4, #22d3ee);
+}
+.stat-icon-col.pink {
+  background: linear-gradient(135deg, #ec4899, #f472b6);
+}
+.stat-icon-col.indigo {
+  background: linear-gradient(135deg, #6366f1, #818cf8);
+}
+.stat-icon-col.yellow {
+  background: linear-gradient(135deg, #eab308, #facc15);
+}
+.stat-icon-col.rose {
+  background: linear-gradient(135deg, #f43f5e, #fb7185);
+}
+.stat-icon-col.emerald {
+  background: linear-gradient(135deg, #059669, #10b981);
+}
+.stat-icon-col.sky {
+  background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+}
+.stat-icon-col.violet {
+  background: linear-gradient(135deg, #7c3aed, #a78bfa);
+}
+.stat-icon-col.amber {
+  background: linear-gradient(135deg, #d97706, #fbbf24);
+}
+.stat-icon-col.lime {
+  background: linear-gradient(135deg, #65a30d, #a3e635);
+}
+.stat-icon-col.slate {
+  background: linear-gradient(135deg, #475569, #94a3b8);
+}
 
 .stat-text-col {
   display: flex;
@@ -658,7 +537,7 @@ onMounted(() => {
 }
 
 @media (max-width: 1024px) {
-  .card-grid {
+  .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
   .dashboard-grid {
@@ -667,7 +546,7 @@ onMounted(() => {
 }
 
 @media (max-width: 640px) {
-  .card-grid {
+  .stats-grid {
     grid-template-columns: 1fr;
   }
 }

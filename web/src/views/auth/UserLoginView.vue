@@ -4,7 +4,7 @@
       <div class="back-home">
         <el-link type="info" @click="goHome">
           <Home :size="14" />
-          <span>返回首页</span>
+          <span>{{ t("auth.returnHome") }}</span>
         </el-link>
       </div>
 
@@ -13,45 +13,45 @@
           <img :src="logoUrl" alt="sub2api" />
         </div>
         <h1 class="brand-name">sub2api</h1>
-        <p class="brand-tagline">API 访问平台</p>
+        <p class="brand-tagline">{{ t("userLogin.apiPlatform") }}</p>
       </div>
 
       <div class="login-card">
         <div class="card-tabs">
-          <button :class="['tab-button', { active: mode === 'login' }]" @click="mode = 'login'">登录</button>
-          <button :class="['tab-button', { active: mode === 'register' }]" @click="mode = 'register'">注册</button>
+          <button :class="['tab-button', { active: mode === 'login' }]" @click="mode = 'login'">{{ t("auth.login") }}</button>
+          <button :class="['tab-button', { active: mode === 'register' }]" @click="mode = 'register'">{{ t("auth.register") }}</button>
         </div>
 
         <el-form v-if="mode === 'register'" ref="formRef" :model="formData" :rules="registerRules" @submit.prevent="handleSubmit">
           <el-form-item prop="name">
-            <el-input v-model="formData.name" placeholder="用户名" size="large" :prefix-icon="User" />
+            <el-input v-model="formData.name" :placeholder="t('auth.username')" size="large" :prefix-icon="User" />
           </el-form-item>
 
           <el-form-item prop="email">
-            <el-input v-model="formData.email" type="email" placeholder="邮箱" size="large" :prefix-icon="Mail" />
+            <el-input v-model="formData.email" type="email" :placeholder="t('auth.email')" size="large" :prefix-icon="Mail" />
           </el-form-item>
 
           <el-form-item prop="password">
-            <el-input v-model="formData.password" type="password" placeholder="密码（至少 6 位）" size="large" show-password :prefix-icon="Lock" />
+            <el-input v-model="formData.password" type="password" :placeholder="t('userLogin.passwordMinLengthPlaceholder')" size="large" show-password :prefix-icon="Lock" />
           </el-form-item>
 
           <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon class="error-alert" />
 
-          <el-button type="primary" native-type="submit" size="large" :loading="loading" class="login-button"> 创建账户 </el-button>
+          <el-button type="primary" native-type="submit" size="large" :loading="loading" class="login-button"> {{ t("auth.createAccount") }} </el-button>
         </el-form>
 
         <el-form v-else ref="loginFormRef" :model="loginData" :rules="loginRules" @submit.prevent="handleLogin">
           <el-form-item prop="email">
-            <el-input v-model="loginData.email" type="email" placeholder="邮箱" size="large" :prefix-icon="Mail" />
+            <el-input v-model="loginData.email" type="email" :placeholder="t('auth.email')" size="large" :prefix-icon="Mail" />
           </el-form-item>
 
           <el-form-item prop="password">
-            <el-input v-model="loginData.password" type="password" placeholder="密码" size="large" show-password :prefix-icon="Lock" />
+            <el-input v-model="loginData.password" type="password" :placeholder="t('auth.password')" size="large" show-password :prefix-icon="Lock" />
           </el-form-item>
 
           <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon class="error-alert" />
 
-          <el-button type="primary" native-type="submit" size="large" :loading="loading" class="login-button"> 登录 </el-button>
+          <el-button type="primary" native-type="submit" size="large" :loading="loading" class="login-button"> {{ t("auth.login") }} </el-button>
         </el-form>
 
         <div class="card-footer"></div>
@@ -61,32 +61,32 @@
     <div class="login-right">
       <div class="showcase-section">
         <div class="showcase-header">
-          <h2>快速开始</h2>
-          <p>三步轻松接入 AI 能力</p>
+          <h2>{{ t("userLogin.quickStart") }}</h2>
+          <p>{{ t("userLogin.quickStartDesc") }}</p>
         </div>
 
         <div class="steps">
           <div class="step">
             <div class="step-number">1</div>
             <div class="step-content">
-              <h3>注册账户</h3>
-              <p>创建账户并完成充值</p>
+              <h3>{{ t("userLogin.step1Title") }}</h3>
+              <p>{{ t("userLogin.step1Desc") }}</p>
             </div>
           </div>
 
           <div class="step">
             <div class="step-number">2</div>
             <div class="step-content">
-              <h3>获取 API Key</h3>
-              <p>在控制台创建您的专属密钥</p>
+              <h3>{{ t("userLogin.step2Title") }}</h3>
+              <p>{{ t("userLogin.step2Desc") }}</p>
             </div>
           </div>
 
           <div class="step">
             <div class="step-number">3</div>
             <div class="step-content">
-              <h3>开始调用</h3>
-              <p>通过 API 调用各种 AI 模型</p>
+              <h3>{{ t("userLogin.step3Title") }}</h3>
+              <p>{{ t("userLogin.step3Desc") }}</p>
             </div>
           </div>
         </div>
@@ -96,7 +96,7 @@
             <span class="dot red"></span>
             <span class="dot yellow"></span>
             <span class="dot green"></span>
-            <span class="preview-title">API 调用示例</span>
+            <span class="preview-title">{{ t("userLogin.apiExampleTitle") }}</span>
           </div>
           <pre class="preview-code"><code><span class="keyword">curl</span> -X POST https://api.sub2api.com/v1/chat/completions \
   -H <span class="string">"Authorization: Bearer YOUR_API_KEY"</span> \
@@ -114,8 +114,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from "vue";
+import { ref, reactive, watch, computed } from "vue";
 import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { Mail, Lock, User, Home } from "lucide-vue-next";
 import { ElAlert, ElButton, ElForm, ElFormItem, ElInput, ElLink } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
@@ -124,6 +125,7 @@ import { login, register } from "@/api/auth";
 import { saveAuth, saveAdminToken } from "@/store/session";
 
 const router = useRouter();
+const { t } = useI18n();
 const mode = ref<"login" | "register">("login");
 const loading = ref(false);
 const error = ref("");
@@ -141,25 +143,25 @@ const loginData = reactive({
   password: "",
 });
 
-const registerRules: FormRules = {
-  name: [{ required: true, message: "请输入用户名", trigger: "blur" }],
+const registerRules = computed<FormRules>(() => ({
+  name: [{ required: true, message: t("auth.pleaseInputUsername"), trigger: "blur" }],
   email: [
-    { required: true, message: "请输入邮箱", trigger: "blur" },
-    { type: "email", message: "请输入有效的邮箱地址", trigger: "blur" },
+    { required: true, message: t("auth.pleaseInputEmail"), trigger: "blur" },
+    { type: "email", message: t("auth.invalidEmail"), trigger: "blur" },
   ],
   password: [
-    { required: true, message: "请输入密码", trigger: "blur" },
-    { min: 6, message: "密码至少 6 位", trigger: "blur" },
+    { required: true, message: t("auth.pleaseInputPassword"), trigger: "blur" },
+    { min: 6, message: t("auth.passwordMinLength"), trigger: "blur" },
   ],
-};
+}));
 
-const loginRules: FormRules = {
+const loginRules = computed<FormRules>(() => ({
   email: [
-    { required: true, message: "请输入邮箱", trigger: "blur" },
-    { type: "email", message: "请输入有效的邮箱地址", trigger: "blur" },
+    { required: true, message: t("auth.pleaseInputEmail"), trigger: "blur" },
+    { type: "email", message: t("auth.invalidEmail"), trigger: "blur" },
   ],
-  password: [{ required: true, message: "请输入密码", trigger: "blur" }],
-};
+  password: [{ required: true, message: t("auth.pleaseInputPassword"), trigger: "blur" }],
+}));
 
 watch(mode, () => {
   error.value = "";
@@ -183,7 +185,7 @@ async function handleSubmit() {
       saveAuth(result.access_token, result.refresh_token, result.user);
       await router.replace("/user/dashboard");
     } catch (err) {
-      error.value = err instanceof Error ? err.message : "注册失败";
+      error.value = err instanceof Error ? err.message : t("auth.registerFailed");
     } finally {
       loading.value = false;
     }
@@ -204,7 +206,7 @@ async function handleLogin() {
       saveAuth(result.access_token, result.refresh_token, result.user);
       await router.replace("/user/dashboard");
     } catch (err) {
-      error.value = err instanceof Error ? err.message : "登录失败";
+      error.value = err instanceof Error ? err.message : t("auth.loginFailed");
     } finally {
       loading.value = false;
     }

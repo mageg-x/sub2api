@@ -7,7 +7,7 @@
             <Users :size="20" />
           </div>
           <div class="stat-mini-content">
-            <span class="stat-mini-label">总用户数</span>
+            <span class="stat-mini-label">{{ t('adminUsers.totalUsers') }}</span>
             <span class="stat-mini-value">{{ users.length }}</span>
           </div>
         </div>
@@ -16,7 +16,7 @@
             <UserCheck :size="20" />
           </div>
           <div class="stat-mini-content">
-            <span class="stat-mini-label">活跃用户</span>
+            <span class="stat-mini-label">{{ t('adminUsers.activeUsers') }}</span>
             <span class="stat-mini-value">{{ activeUsers }}</span>
           </div>
         </div>
@@ -25,8 +25,8 @@
             <CircleDollarSign :size="20" />
           </div>
           <div class="stat-mini-content">
-            <span class="stat-mini-label">余额总览</span>
-            <span class="stat-mini-value">{{ formatCurrency(users.reduce((sum, item) => sum + item.balance, 0)) }} 元</span>
+            <span class="stat-mini-label">{{ t('adminUsers.balanceOverview') }}</span>
+            <span class="stat-mini-value">{{ formatCurrency(users.reduce((sum, item) => sum + item.balance, 0)) }} {{ t('common.currency') }}</span>
           </div>
         </div>
       </div>
@@ -39,14 +39,14 @@
         <div class="card-header">
           <h3 class="card-title">
             <ShieldUser :size="20" />
-            用户列表
+            {{ t('adminUsers.userList') }}
           </h3>
-          <span class="user-count">{{ users.length }} 个用户</span>
+          <span class="user-count">{{ users.length }} {{ t('adminUsers.userCount') }}</span>
         </div>
         <div class="card-body">
-          <el-table :data="users" empty-text="暂无用户" class="modern-table" :stripe="true">
+          <el-table :data="users" :empty-text="t('adminUsers.noUsers')" class="modern-table" :stripe="true">
             <el-table-column prop="id" label="ID" width="60" />
-            <el-table-column prop="email" label="邮箱" min-width="160">
+            <el-table-column prop="email" :label="t('adminUsers.email')" min-width="160">
               <template #default="{ row }">
                 <div class="email-cell">
                   <Mail :size="14" />
@@ -54,7 +54,7 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column prop="name" label="名称" width="100">
+            <el-table-column prop="name" :label="t('adminUsers.name')" width="100">
               <template #default="{ row }">
                 <div class="name-cell">
                   <User :size="14" />
@@ -62,43 +62,43 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column prop="role" label="角色" width="80">
+            <el-table-column prop="role" :label="t('adminUsers.role')" width="80">
               <template #default="{ row }">
                 <el-tag :type="row.role === 'admin' ? 'danger' : 'info'" size="small">
                   {{ row.role }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="状态" width="80">
+            <el-table-column :label="t('adminUsers.status')" width="80">
               <template #default="{ row }">
                 <el-tag :type="isActiveStatus(row.status) ? 'success' : 'info'" size="small">
                   {{ row.status }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="余额" width="90">
+            <el-table-column :label="t('adminUsers.balance')" width="90">
               <template #default="{ row }">
                 <span class="balance-value">{{ formatCurrency(row.balance) }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="allowed_models_json" label="允许模型" min-width="120">
+            <el-table-column prop="allowed_models_json" :label="t('adminUsers.allowedModels')" min-width="120">
               <template #default="{ row }">
                 <div v-if="parseAllowedModels(row.allowed_models_json).length" class="models-list">
                   <el-tag v-for="model in parseAllowedModels(row.allowed_models_json)" :key="model" size="small" type="info" effect="plain">
                     {{ model }}
                   </el-tag>
                 </div>
-                <span v-else class="models-text">全部</span>
+                <span v-else class="models-text">{{ t('common.all') }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="最近登录" width="140">
+            <el-table-column :label="t('adminUsers.recentLogin')" width="140">
               <template #default="{ row }">
                 <span class="time-text">{{ formatTime(row.last_login_at_ms) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="70">
+            <el-table-column :label="t('adminUsers.actions')" width="70">
               <template #default="{ row }">
-                <el-button text type="primary" @click="selectUser(row)">编辑</el-button>
+                <el-button text type="primary" @click="selectUser(row)">{{ t('adminUsers.edit') }}</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -106,38 +106,38 @@
       </div>
     </div>
 
-    <ElDialog v-model="dialogVisible" title="编辑用户" width="720px" destroy-on-close>
+    <ElDialog v-model="dialogVisible" :title="t('adminUsers.editUser')" width="720px" destroy-on-close>
       <ElForm label-position="top" class="create-form">
         <div class="form-row">
-          <ElFormItem label="用户名" class="form-item">
+          <ElFormItem :label="t('adminUsers.username')" class="form-item">
             <ElInput v-model="editForm.name" size="large" />
           </ElFormItem>
-          <ElFormItem label="状态" class="form-item">
+          <ElFormItem :label="t('adminUsers.status')" class="form-item">
             <ElSelect v-model="editForm.status" size="large">
               <ElOption label="active" value="active" />
               <ElOption label="disabled" value="disabled" />
             </ElSelect>
           </ElFormItem>
-          <ElFormItem label="角色" class="form-item">
+          <ElFormItem :label="t('adminUsers.role')" class="form-item">
             <ElSelect v-model="editForm.role" size="large">
               <ElOption label="user" value="user" />
               <ElOption label="admin" value="admin" />
             </ElSelect>
           </ElFormItem>
-          <ElFormItem label="余额" class="form-item">
+          <ElFormItem :label="t('adminUsers.balance')" class="form-item">
             <ElInputNumber v-model="editForm.balance" :min="0" :step="10000" size="large" style="width: 100%" />
           </ElFormItem>
         </div>
         <div class="form-row">
-          <ElFormItem label="费率百分比" class="form-item">
+          <ElFormItem :label="t('adminUsers.ratePercent')" class="form-item">
             <ElInputNumber v-model="editForm.rate_percent" :min="0" :max="1000" :step="1" size="large" style="width: 100%" />
           </ElFormItem>
-          <ElFormItem label="重置密码" class="form-item">
-            <ElInput v-model="editForm.password" type="password" show-password size="large" placeholder="留空表示不修改" />
+          <ElFormItem :label="t('adminUsers.resetPassword')" class="form-item">
+            <ElInput v-model="editForm.password" type="password" show-password size="large" :placeholder="t('adminUsers.leaveBlankNoChange')" />
           </ElFormItem>
         </div>
-        <ElFormItem label="允许模型" class="form-item-wide">
-          <ElSelect v-model="editForm.models" multiple filterable clearable size="large" style="width: 100%" placeholder="选择允许的模型；清空表示不限制">
+        <ElFormItem :label="t('adminUsers.allowedModels')" class="form-item-wide">
+          <ElSelect v-model="editForm.models" multiple filterable clearable size="large" style="width: 100%" :placeholder="t('adminUsers.selectAllowedModels')">
             <ElOption v-for="model in modelOptions" :key="model.value" :label="model.label" :value="model.value" />
           </ElSelect>
         </ElFormItem>
@@ -145,8 +145,8 @@
 
       <template #footer>
         <div class="actions-row">
-          <ElButton @click="closeDialog">取消</ElButton>
-          <ElButton type="primary" :loading="saving" @click="saveUser">保存修改</ElButton>
+          <ElButton @click="closeDialog">{{ t('common.cancel') }}</ElButton>
+          <ElButton type="primary" :loading="saving" @click="saveUser">{{ t('adminUsers.saveChanges') }}</ElButton>
         </div>
       </template>
     </ElDialog>
@@ -161,7 +161,9 @@ import { adminAPI } from "@/api/admin";
 import { userAPI } from "@/api/user";
 import type { ModelCatalogChannel, User as UserType } from "@/api/types";
 import { formatCurrency, formatTime, isActiveStatus } from "@/utils";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const users = ref<UserType[]>([]);
 const catalog = ref<ModelCatalogChannel[]>([]);
 const saving = ref(false);
@@ -260,7 +262,7 @@ async function saveUser() {
     closeDialog();
     await load();
   } catch (err) {
-    error.value = err instanceof Error ? err.message : "保存失败";
+    error.value = err instanceof Error ? err.message : t('adminUsers.saveFailed');
   } finally {
     saving.value = false;
   }

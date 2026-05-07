@@ -1,60 +1,60 @@
 <template>
   <div>
-    <div class="card-grid" style="grid-template-columns: 1fr 1fr; gap: 16px;">
-    <div class="stat-card">
-      <div class="stat-header">
-        <div class="stat-icon error">
-          <Bug :size="22" />
+    <div class="card-grid" style="grid-template-columns: 1fr 1fr; gap: 16px">
+      <div class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon error">
+            <Bug :size="22" />
+          </div>
         </div>
+        <p class="stat-label">{{ t('adminErrors.totalErrors') }}</p>
+        <p class="stat-value">{{ items.length }}</p>
+        <p class="stat-helper">{{ t('adminErrors.errorRecords') }}</p>
       </div>
-      <p class="stat-label">错误总数</p>
-      <p class="stat-value">{{ items.length }}</p>
-      <p class="stat-helper">记录的错误条目</p>
-    </div>
 
-    <div class="stat-card">
-      <div class="stat-header">
-        <div class="stat-icon alert">
-          <AlertTriangle :size="22" />
+      <div class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon alert">
+            <AlertTriangle :size="22" />
+          </div>
         </div>
+        <p class="stat-label">{{ t('adminErrors.last24h') }}</p>
+        <p class="stat-value">{{ recentItems.length }}</p>
+        <p class="stat-helper">{{ t('adminErrors.recentErrors') }}</p>
       </div>
-      <p class="stat-label">最近 24h</p>
-      <p class="stat-value">{{ recentItems.length }}</p>
-      <p class="stat-helper">近期错误</p>
     </div>
-  </div>
 
     <div class="surface-card">
       <div class="card-header">
         <h3 class="card-title">
           <Bug :size="20" />
-          错误日志
+          {{ t('adminErrors.errorLog') }}
         </h3>
-        <span class="error-count">{{ items.length }} 条</span>
+        <span class="error-count">{{ items.length }} {{ t('adminErrors.errorCountLabel') }}</span>
       </div>
       <div class="card-body">
-        <el-table :data="items" empty-text="暂无错误记录" class="modern-table" :stripe="true">
-          <el-table-column prop="scope" label="范围" width="100">
+        <el-table :data="items" :empty-text="t('adminErrors.noErrors')" class="modern-table" :stripe="true">
+          <el-table-column prop="scope" :label="t('adminErrors.scope')" width="100">
             <template #default="{ row }">
               <el-tag type="warning" size="small">{{ row.scope }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="message" label="错误消息" min-width="200">
+          <el-table-column prop="message" :label="t('adminErrors.errorMessage')" min-width="200">
             <template #default="{ row }">
               <span class="error-message">{{ row.message }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="detail" label="详情" min-width="220">
+          <el-table-column prop="detail" :label="t('adminErrors.detail')" min-width="220">
             <template #default="{ row }">
               <span class="error-detail">{{ row.detail || "-" }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="次数" width="70" align="center">
+          <el-table-column :label="t('adminErrors.count')" width="70" align="center">
             <template #default="{ row }">
               <span class="count-badge">{{ row.count }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="最近出现" width="150">
+          <el-table-column :label="t('adminErrors.lastSeen')" width="150">
             <template #default="{ row }">
               <span class="time-text">{{ formatTime(Number(row.last_seen_at_ms || 0)) }}</span>
             </template>
@@ -71,7 +71,9 @@ import { AlertTriangle, Bug } from "lucide-vue-next";
 import { ElTable, ElTableColumn, ElTag } from "element-plus";
 import { adminAPI } from "@/api/admin";
 import { formatTime } from "@/utils";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const items = ref<Array<Record<string, unknown>>>([]);
 
 const recentItems = computed(() => {

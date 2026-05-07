@@ -8,14 +8,13 @@
           </div>
           <div>
             <h1 class="sidebar-title">sub2api</h1>
-            <p class="sidebar-subtitle">用户面板</p>
+            <p class="sidebar-subtitle">{{ t("userShell.userPanel") }}</p>
           </div>
         </div>
       </div>
 
       <nav class="sidebar-nav">
         <div class="nav-section">
-          <div class="nav-section-title">我的</div>
           <router-link v-for="item in userLinks" :key="item.to" :to="item.to" class="nav-item" :class="{ active: route.path === item.to }">
             <component :is="item.icon" class="nav-item-icon" :size="18" />
             <span>{{ item.label }}</span>
@@ -46,10 +45,10 @@
         <div class="header-right">
           <el-button class="header-ghost-button" link @click="announcementDialogVisible = true">
             <Bell :size="16" />
-            公告
+            {{ t("user.announcement") }}
           </el-button>
-          <el-tag type="success" effect="dark" size="large">用户</el-tag>
-          <el-tag type="warning" effect="dark" size="large">余额 {{ formatCurrency(session.user?.balance || 0) }} 元</el-tag>
+          <el-tag type="success" effect="dark" size="large">{{ t("common.user") }}</el-tag>
+          <el-tag type="warning" effect="dark" size="large">{{ t("userShell.balanceLabel") }} {{ formatCurrency(session.user?.balance || 0) }} {{ t("common.currency") }}</el-tag>
           <el-dropdown @command="handleCommand">
             <div class="user-menu">
               <div class="user-avatar">{{ userInitials }}</div>
@@ -63,15 +62,15 @@
               <el-dropdown-menu>
                 <el-dropdown-item command="profile">
                   <User :size="16" />
-                  个人资料
+                  {{ t("user.personalProfile") }}
                 </el-dropdown-item>
                 <el-dropdown-item command="switch-admin">
                   <ShieldCheck :size="16" />
-                  切换到管理员
+                  {{ t("user.switchToAdmin") }}
                 </el-dropdown-item>
                 <el-dropdown-item divided command="logout" style="color: var(--danger-color)">
                   <LogOut :size="16" />
-                  退出登录
+                  {{ t("auth.logout") }}
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -85,19 +84,19 @@
     </main>
   </div>
 
-  <el-dialog v-model="announcementDialogVisible" title="公告" width="760px" class="announcement-dialog">
+  <el-dialog v-model="announcementDialogVisible" :title="t('user.announcement')" width="760px" class="announcement-dialog">
     <div class="dialog-meta">
-      <span class="dialog-count">{{ announcements.length }} 条公告</span>
+      <span class="dialog-count">{{ announcements.length }} {{ t("announcements.announcementsCount") }}</span>
     </div>
-    <el-empty v-if="announcementLoading" description="加载中" />
-    <el-empty v-else-if="announcements.length === 0" description="暂无公告" />
+    <el-empty v-if="announcementLoading" :description="t('common.loading')" />
+    <el-empty v-else-if="announcements.length === 0" :description="t('common.noAnnouncements')" />
     <el-timeline v-else class="announcement-timeline">
       <el-timeline-item v-for="item in announcements" :key="item.id" :timestamp="formatTime(item.published_at_ms)" placement="top">
         <div class="announcement-card">
           <div class="announcement-header">
             <h4 class="announcement-title">{{ item.title }}</h4>
             <el-tag :type="item.status === 'active' ? 'success' : 'info'" size="small">
-              {{ item.status === "active" ? "进行中" : "已结束" }}
+              {{ item.status === "active" ? t("common.active") : t("common.ended") }}
             </el-tag>
           </div>
           <p class="announcement-content">{{ item.content }}</p>
@@ -110,6 +109,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { RouterView, useRoute, useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { Bell, BookOpenText, ChevronDown, Gift, KeyRound, LayoutDashboard, LogOut, ShieldCheck, Sparkles, User, UserCog, WalletCards, Bolt } from "lucide-vue-next";
 import { ElDialog, ElDropdown, ElDropdownItem, ElDropdownMenu, ElEmpty, ElTag, ElTimeline, ElTimelineItem } from "element-plus";
 import logoUrl from "@/assets/logo.svg";
@@ -121,36 +121,60 @@ import { formatCurrency, formatTime } from "@/utils";
 
 const route = useRoute();
 const router = useRouter();
+const { t } = useI18n();
 
-const userLinks = [
-  { to: "/user/dashboard", label: "首页", icon: LayoutDashboard },
-  { to: "/user/models", label: "模型广场", icon: Sparkles },
-  { to: "/user/keys", label: "令牌管理", icon: KeyRound },
-  { to: "/user/usage", label: "数据看板", icon: Bolt },
-  { to: "/user/payment", label: "充值", icon: WalletCards },
-  { to: "/user/redeem", label: "兑换码", icon: Gift },
-  { to: "/user/access-guide", label: "接入指南", icon: BookOpenText },
-  { to: "/user/profile", label: "个人资料", icon: UserCog },
-];
+const userLinks = computed(() => [
+  { to: "/user/dashboard", label: t("userShell.home"), icon: LayoutDashboard },
+  { to: "/user/models", label: t("user.modelSquare"), icon: Sparkles },
+  { to: "/user/keys", label: t("user.tokenManagement"), icon: KeyRound },
+  { to: "/user/usage", label: t("user.dataDashboard"), icon: Bolt },
+  { to: "/user/payment", label: t("user.payment"), icon: WalletCards },
+  { to: "/user/redeem", label: t("user.redeem"), icon: Gift },
+  { to: "/user/access-guide", label: t("user.accessGuide"), icon: BookOpenText },
+  { to: "/user/profile", label: t("user.personalProfile"), icon: UserCog },
+]);
 
-const routeMeta: Record<string, { title: string; subtitle: string }> = {
-  "/user/dashboard": { title: "首页", subtitle: "您的账户概览" },
-  "/user/keys": { title: "令牌管理", subtitle: "管理您的 API Keys" },
-  "/user/usage": { title: "数据看板", subtitle: "查看使用记录" },
-  "/user/payment": { title: "充值", subtitle: "充值余额" },
-  "/user/models": { title: "模型广场", subtitle: "查看可用模型和价格" },
-  "/user/profile": { title: "个人资料", subtitle: "个人资料设置" },
-  "/user/redeem": { title: "兑换码", subtitle: "兑换码兑换" },
-  "/user/access-guide": { title: "接入指南", subtitle: "API 接入指南" },
-  "/user/announcements": { title: "公告", subtitle: "查看公告" },
+type RouteMetaItem = {
+  title: string;
+  subtitle: string;
 };
 
+type UserRoutePath =
+  | "/user/dashboard"
+  | "/user/keys"
+  | "/user/usage"
+  | "/user/payment"
+  | "/user/models"
+  | "/user/profile"
+  | "/user/redeem"
+  | "/user/access-guide"
+  | "/user/announcements";
+
+const routeMeta = computed<Record<UserRoutePath, RouteMetaItem>>(() => ({
+  "/user/dashboard": { title: t("userShell.home"), subtitle: t("userShell.homeSubtitle") },
+  "/user/keys": { title: t("user.tokenManagement"), subtitle: t("userShell.keysSubtitle") },
+  "/user/usage": { title: t("user.dataDashboard"), subtitle: t("userShell.usageSubtitle") },
+  "/user/payment": { title: t("user.payment"), subtitle: t("userShell.paymentSubtitle") },
+  "/user/models": { title: t("user.modelSquare"), subtitle: t("userShell.modelsSubtitle") },
+  "/user/profile": { title: t("user.personalProfile"), subtitle: t("userShell.profileSubtitle") },
+  "/user/redeem": { title: t("user.redeem"), subtitle: t("userShell.redeemSubtitle") },
+  "/user/access-guide": { title: t("user.accessGuide"), subtitle: t("userShell.accessGuideSubtitle") },
+  "/user/announcements": { title: t("user.announcement"), subtitle: t("userShell.announcementsSubtitle") },
+}));
+
+function getRouteMeta(path: string): RouteMetaItem | undefined {
+  if (path in routeMeta.value) {
+    return routeMeta.value[path as UserRoutePath];
+  }
+  return undefined;
+}
+
 const pageTitle = computed(() => {
-  return routeMeta[route.path]?.title || "sub2api";
+  return getRouteMeta(route.path)?.title || "sub2api";
 });
 
 const pageSubtitle = computed(() => {
-  return routeMeta[route.path]?.subtitle || "";
+  return getRouteMeta(route.path)?.subtitle || "";
 });
 
 const userInitials = computed(() => {

@@ -1691,15 +1691,27 @@ func (c *Core) snapshotMetricsLoop(ctx context.Context) {
 			if err != nil {
 				continue
 			}
-			// 记录每个指标
-			for k, v := range stats {
-				_ = c.db.Create(&model.SystemMetric{
-					MetricKey:    k,
-					MetricValue:  fmt.Sprintf("%v", v),
-					SnapshotAtMS: time.Now().UnixMilli(),
-					MetadataJSON: "{}",
-				}).Error
-			}
+			// 单事务批量写入快照，避免每条记录都触发一次 MAX(id) 查询。
+			_ = c.db.Transaction(func(tx *gorm.DB) error {
+				var maxID uint64
+				if err := tx.Model(&model.SystemMetric{}).Select("COALESCE(MAX(id), 9999)").Scan(&maxID).Error; err != nil {
+					return err
+				}
+				now := time.Now().UnixMilli()
+				items := make([]model.SystemMetric, 0, len(stats))
+				nextID := maxID + 1
+				for k, v := range stats {
+					items = append(items, model.SystemMetric{
+						ID:           nextID,
+						MetricKey:    k,
+						MetricValue:  fmt.Sprintf("%v", v),
+						SnapshotAtMS: now,
+						MetadataJSON: "{}",
+					})
+					nextID++
+				}
+				return tx.Create(&items).Error
+			})
 		}
 	}
 }

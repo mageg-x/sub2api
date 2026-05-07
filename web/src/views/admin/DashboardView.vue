@@ -23,7 +23,7 @@
         <div class="card-header">
           <h3 class="card-title">
             <CircleDollarSign :size="20" />
-            系统指标
+            {{ t('adminDashboard.systemMetrics') }}
           </h3>
         </div>
         <div class="card-body">
@@ -31,8 +31,8 @@
             <div class="empty-icon">
               <Gauge :size="32" />
             </div>
-            <h4 class="empty-title">暂无指标</h4>
-            <p class="empty-description">系统指标将在这里显示</p>
+            <h4 class="empty-title">{{ t('adminDashboard.noMetrics') }}</h4>
+            <p class="empty-description">{{ t('adminDashboard.metricsWillShowHere') }}</p>
           </div>
           <div v-else class="stats-grid">
             <div v-for="entry in statEntries" :key="entry[0]" class="stat-item">
@@ -47,17 +47,17 @@
         <div class="card-header">
           <h3 class="card-title">
             <Bell :size="20" />
-            最新公告
+            {{ t('adminDashboard.latestAnnouncements') }}
           </h3>
-          <el-button type="primary" link @click="router.push('/admin/announcements')"> 查看全部 </el-button>
+          <el-button type="primary" link @click="router.push('/admin/announcements')"> {{ t('common.viewAll') }} </el-button>
         </div>
         <div class="card-body">
           <div v-if="!data?.announcements?.length" class="empty-state">
             <div class="empty-icon">
               <Bell :size="32" />
             </div>
-            <h4 class="empty-title">暂无公告</h4>
-            <p class="empty-description">发布一条公告吧</p>
+            <h4 class="empty-title">{{ t('adminDashboard.noAnnouncements') }}</h4>
+            <p class="empty-description">{{ t('adminDashboard.publishAnnouncement') }}</p>
           </div>
           <div v-else class="announcement-list">
             <div v-for="item in data.announcements.slice(0, 4)" :key="item.id" class="announcement-item">
@@ -79,16 +79,16 @@
       <div class="card-header">
         <h3 class="card-title">
           <Boxes :size="20" />
-          上游账户池
-        </h3>
-        <el-button type="primary" link @click="router.push('/admin/accounts')"> 管理账户 </el-button>
+          {{ t('adminDashboard.upstreamAccountPool') }}
+          </h3>
+          <el-button type="primary" link @click="router.push('/admin/accounts')"> {{ t('adminDashboard.manageAccounts') }} </el-button>
       </div>
       <div class="card-body">
-        <el-table :data="data?.accounts?.slice(0, 8) || []" empty-text="暂无账户" class="data-table">
+        <el-table :data="data?.accounts?.slice(0, 8) || []" :empty-text="t('adminDashboard.noAccounts')" class="data-table">
           <el-table-column prop="provider" label="Provider" width="120" />
-          <el-table-column prop="name" label="账户名" min-width="140" />
-          <el-table-column prop="auth_type" label="认证方式" width="100" />
-          <el-table-column label="状态" width="80">
+          <el-table-column prop="name" :label="t('adminDashboard.accountName')" min-width="140" />
+          <el-table-column prop="auth_type" :label="t('adminDashboard.authType')" width="100" />
+          <el-table-column :label="t('adminDashboard.status')" width="80">
             <template #default="{ row }">
               <el-tag :type="isActiveStatus(row.status) ? 'success' : 'info'" size="small">
                 {{ row.status }}
@@ -103,32 +103,32 @@
       <div class="card-header">
         <h3 class="card-title">
           <ListOrdered :size="20" />
-          最新订单
-        </h3>
-        <el-button type="primary" link @click="router.push('/admin/payments')"> 查看全部 </el-button>
+          {{ t('adminDashboard.latestOrders') }}
+          </h3>
+          <el-button type="primary" link @click="router.push('/admin/payments')"> {{ t('adminDashboard.viewAllPayments') }} </el-button>
       </div>
       <div class="card-body">
-        <el-table :data="data?.orders?.slice(0, 8) || []" empty-text="暂无订单" class="data-table">
-          <el-table-column prop="out_trade_no" label="商户单号" min-width="160">
+        <el-table :data="data?.orders?.slice(0, 8) || []" :empty-text="t('adminDashboard.noOrders')" class="data-table">
+          <el-table-column prop="out_trade_no" :label="t('adminDashboard.merchantOrderNo')" min-width="160">
             <template #default="{ row }">
               <span class="mono">{{ row.out_trade_no }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="user_id" label="用户" width="60" />
-          <el-table-column prop="provider" label="渠道" width="80" />
-          <el-table-column label="金额" width="80">
+          <el-table-column prop="user_id" :label="t('adminDashboard.user')" width="60" />
+          <el-table-column prop="provider" :label="t('adminDashboard.channel')" width="80" />
+          <el-table-column :label="t('adminDashboard.amount')" width="80">
             <template #default="{ row }">
               <span class="mono">{{ formatCurrency(row.amount) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="状态" width="70">
+          <el-table-column :label="t('adminDashboard.orderStatus')" width="70">
             <template #default="{ row }">
               <el-tag :type="isPaidStatus(row.status) ? 'success' : 'warning'" size="small">
                 {{ row.status }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="创建时间" width="130">
+          <el-table-column :label="t('adminDashboard.createTime')" width="130">
             <template #default="{ row }">
               <span class="mono">{{ formatTime(row.created_at_ms) }}</span>
             </template>
@@ -147,7 +147,9 @@ import { ElAlert, ElButton, ElTable, ElTableColumn, ElTag } from "element-plus";
 import { adminAPI } from "@/api/admin";
 import type { DashboardResponse } from "@/api/types";
 import { formatCurrency, formatTime, isActiveStatus, isPaidStatus } from "@/utils";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const router = useRouter();
 
 const data = ref<DashboardResponse | null>(null);
@@ -165,31 +167,31 @@ interface MetricCard {
 const metricCards = computed<MetricCard[]>(() => {
   if (!data.value) {
     return [
-      { label: "用户数", value: "-", helper: "平台注册用户", icon: Users, trend: null },
-      { label: "上游账户", value: "-", helper: "OAuth / 静态密钥", icon: Boxes, trend: null },
-      { label: "支付订单", value: "-", helper: "一期仅 gopay", icon: ListOrdered, trend: null },
+      { label: t('adminDashboard.userCount'), value: "-", helper: t('adminDashboard.platformUsers'), icon: Users, trend: null },
+      { label: t('adminDashboard.upstreamAccountPool'), value: "-", helper: t('adminDashboard.oauthStaticKey'), icon: Boxes, trend: null },
+      { label: t('adminDashboard.latestPayments'), value: "-", helper: t('adminDashboard.gopayOnly'), icon: ListOrdered, trend: null },
     ];
   }
 
   return [
     {
-      label: "用户数",
+      label: t('adminDashboard.userCount'),
       value: data.value.users.length,
-      helper: "平台注册用户",
+      helper: t('adminDashboard.platformUsers'),
       icon: Users,
       trend: null,
     },
     {
-      label: "上游账户",
+      label: t('adminDashboard.upstreamAccountPool'),
       value: data.value.accounts.length,
-      helper: "OAuth / 静态密钥",
+      helper: t('adminDashboard.oauthStaticKey'),
       icon: Boxes,
       trend: null,
     },
     {
-      label: "支付订单",
+      label: t('adminDashboard.latestPayments'),
       value: data.value.orders.length,
-      helper: "一期仅 gopay",
+      helper: t('adminDashboard.gopayOnly'),
       icon: ListOrdered,
       trend: null,
     },
@@ -214,7 +216,7 @@ async function load() {
   try {
     data.value = await adminAPI.dashboard();
   } catch (err) {
-    error.value = err instanceof Error ? err.message : "加载失败";
+    error.value = err instanceof Error ? err.message : t('common.loadingFailed');
   } finally {
     loading.value = false;
   }

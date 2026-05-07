@@ -7,9 +7,9 @@
             <CircleDollarSign :size="24" />
           </div>
         </div>
-        <p class="stat-label">价格记录</p>
+        <p class="stat-label">{{ t('adminPrices.priceRecords') }}</p>
         <p class="stat-value">{{ prices.length }}</p>
-        <p class="stat-helper">已配置价格</p>
+        <p class="stat-helper">{{ t('adminPrices.priceCount') }}</p>
       </div>
 
       <div class="stat-card">
@@ -18,9 +18,9 @@
             <Layers :size="24" />
           </div>
         </div>
-        <p class="stat-label">Provider 数</p>
+        <p class="stat-label">{{ t('adminPrices.providerCount') }}</p>
         <p class="stat-value">{{ providerCount }}</p>
-        <p class="stat-helper">已接入平台</p>
+        <p class="stat-helper">{{ t('adminPrices.providersConnected') }}</p>
       </div>
 
       <div class="stat-card">
@@ -29,9 +29,9 @@
             <Coins :size="24" />
           </div>
         </div>
-        <p class="stat-label">启用币种</p>
+        <p class="stat-label">{{ t('adminPrices.enabledCurrencies') }}</p>
         <p class="stat-value">{{ new Set(prices.map((item) => item.currency)).size }}</p>
-        <p class="stat-helper">支持货币</p>
+        <p class="stat-helper">{{ t('adminPrices.supportedCurrencies') }}</p>
       </div>
     </div>
 
@@ -39,46 +39,46 @@
       <div class="card-header">
         <h3 class="card-title">
           <CircleDollarSign :size="20" />
-          添加模型价格
+          {{ t('adminPrices.addModelPrice') }}
         </h3>
       </div>
       <div class="card-body">
         <el-form label-position="top" class="modern-form">
           <div class="form-grid">
             <el-form-item label="Provider">
-              <el-input v-model="form.provider" placeholder="openai / claude / gemini / antigravity">
+              <el-input v-model="form.provider" :placeholder="t('adminPrices.providerPlaceholder')">
                 <template #prefix><Server :size="16" /></template>
               </el-input>
             </el-form-item>
-            <el-form-item label="模型名">
-              <el-input v-model="form.model" placeholder="如 gpt-4o-mini">
+            <el-form-item :label="t('adminPrices.modelName')">
+              <el-input v-model="form.model" :placeholder="t('adminPrices.modelPlaceholder')">
                 <template #prefix><Bot :size="16" /></template>
               </el-input>
             </el-form-item>
-            <el-form-item label="输入单价 / 1k">
-              <el-input v-model.number="form.input_price" type="number" placeholder="0.15">
+            <el-form-item :label="t('adminPrices.inputPrice')">
+              <el-input v-model.number="form.input_price" type="number" :placeholder="t('adminPrices.inputPricePlaceholder')">
                 <template #prefix><ArrowDownToLine :size="16" /></template>
               </el-input>
             </el-form-item>
-            <el-form-item label="输出单价 / 1k">
-              <el-input v-model.number="form.output_price" type="number" placeholder="0.60">
+            <el-form-item :label="t('adminPrices.outputPrice')">
+              <el-input v-model.number="form.output_price" type="number" :placeholder="t('adminPrices.outputPricePlaceholder')">
                 <template #prefix><ArrowUpFromLine :size="16" /></template>
               </el-input>
             </el-form-item>
-            <el-form-item label="缓存创建价 / 1k">
-              <el-input v-model.number="form.cache_create_price" type="number" placeholder="0.38">
+            <el-form-item :label="t('adminPrices.cacheCreatePrice')">
+              <el-input v-model.number="form.cache_create_price" type="number" :placeholder="t('adminPrices.cacheCreatePricePlaceholder')">
                 <template #prefix><Database :size="16" /></template>
               </el-input>
             </el-form-item>
-            <el-form-item label="缓存读取价 / 1k">
-              <el-input v-model.number="form.cache_read_price" type="number" placeholder="0.03">
+            <el-form-item :label="t('adminPrices.cacheReadPrice')">
+              <el-input v-model.number="form.cache_read_price" type="number" :placeholder="t('adminPrices.cacheReadPricePlaceholder')">
                 <template #prefix><DatabaseZap :size="16" /></template>
               </el-input>
             </el-form-item>
           </div>
           <el-button type="primary" @click="create">
             <Plus :size="16" style="margin-right: 6px" />
-            创建价格
+            {{ t('adminPrices.createPrice') }}
           </el-button>
         </el-form>
       </div>
@@ -88,13 +88,13 @@
       <div class="card-header">
         <h3 class="card-title">
           <Coins :size="20" />
-          价格表
+          {{ t('adminPrices.priceList') }}
         </h3>
-        <span class="price-count">{{ prices.length }} 条</span>
+        <span class="price-count">{{ prices.length }} {{ t('adminPrices.priceCountLabel') }}</span>
       </div>
       <div class="card-body">
-        <el-table :data="prices" empty-text="暂无价格记录" class="modern-table" :stripe="true">
-          <el-table-column prop="provider" label="Provider" width="110">
+        <el-table :data="prices" :empty-text="t('adminPrices.noPrices')" class="modern-table" :stripe="true">
+          <el-table-column prop="provider" :label="t('adminPrices.provider')" width="110">
             <template #default="{ row }">
               <div class="provider-cell">
                 <div class="provider-badge" :class="row.provider.toLowerCase()">
@@ -104,37 +104,37 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="model" label="模型" min-width="160">
+          <el-table-column prop="model" :label="t('models.model')" min-width="160">
             <template #default="{ row }">
               <code class="model-name mono">{{ row.model }}</code>
             </template>
           </el-table-column>
-          <el-table-column label="输入 / 1k" width="110" align="right">
+          <el-table-column :label="t('adminPrices.inputPer1k')" width="110" align="right">
             <template #default="{ row }">
               <span class="price-value">{{ row.input_price }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="输出 / 1k" width="110" align="right">
+          <el-table-column :label="t('adminPrices.outputPer1k')" width="110" align="right">
             <template #default="{ row }">
               <span class="price-value">{{ row.output_price }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="缓存创建 / 1k" width="120" align="right">
+          <el-table-column :label="t('adminPrices.cacheCreatePer1k')" width="120" align="right">
             <template #default="{ row }">
               <span class="price-value">{{ row.cache_create_price }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="缓存读取 / 1k" width="120" align="right">
+          <el-table-column :label="t('adminPrices.cacheReadPer1k')" width="120" align="right">
             <template #default="{ row }">
               <span class="price-value">{{ row.cache_read_price }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="currency" label="货币" width="80">
+          <el-table-column prop="currency" :label="t('adminPrices.currency')" width="80">
             <template #default="{ row }">
               <el-tag type="info" size="small">{{ row.currency }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="状态" width="80">
+          <el-table-column :label="t('common.status')" width="80">
             <template #default="{ row }">
               <el-tag :type="isActiveStatus(row.status) ? 'success' : 'info'" size="small">
                 {{ row.status }}
@@ -154,7 +154,9 @@ import { ElButton, ElForm, ElFormItem, ElInput, ElTable, ElTableColumn, ElTag } 
 import { adminAPI } from "@/api/admin";
 import type { ModelPrice } from "@/api/types";
 import { isActiveStatus } from "@/utils";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const prices = ref<ModelPrice[]>([]);
 const form = reactive({
   provider: "openai",

@@ -7,9 +7,9 @@
             <Ticket :size="24" />
           </div>
         </div>
-        <p class="stat-label">兑换码总数</p>
+        <p class="stat-label">{{ t('adminCoupons.totalCoupons') }}</p>
         <p class="stat-value">{{ items.length }}</p>
-        <p class="stat-helper">已创建兑换码</p>
+        <p class="stat-helper">{{ t('adminCoupons.couponsCreated') }}</p>
       </div>
 
       <div class="stat-card">
@@ -18,9 +18,9 @@
             <CheckCircle :size="24" />
           </div>
         </div>
-        <p class="stat-label">已激活</p>
+        <p class="stat-label">{{ t('adminCoupons.activated') }}</p>
         <p class="stat-value">{{ items.filter((item) => item.status === "active").length }}</p>
-        <p class="stat-helper">可使用的</p>
+        <p class="stat-helper">{{ t('adminCoupons.available') }}</p>
       </div>
 
       <div class="stat-card">
@@ -29,9 +29,9 @@
             <Gift :size="24" />
           </div>
         </div>
-        <p class="stat-label">已兑换</p>
+        <p class="stat-label">{{ t('adminCoupons.redeemed') }}</p>
         <p class="stat-value">{{ items.reduce((sum, item) => sum + item.used_count, 0) }}</p>
-        <p class="stat-helper">累计使用次数</p>
+        <p class="stat-helper">{{ t('adminCoupons.totalUsageCount') }}</p>
       </div>
     </div>
 
@@ -39,36 +39,36 @@
       <div class="card-header">
         <h3 class="card-title">
           <Ticket :size="20" />
-          创建兑换码
+          {{ t('adminCoupons.createCoupon') }}
         </h3>
       </div>
       <div class="card-body">
         <el-form label-position="top" class="modern-form">
           <div class="form-grid">
-            <el-form-item label="兑换码">
-              <el-input v-model="form.code" placeholder="留空则自动生成">
+            <el-form-item :label="t('adminCoupons.couponCode')">
+              <el-input v-model="form.code" :placeholder="t('adminCoupons.leaveBlankAutoGenerate')">
                 <template #prefix><Ticket :size="16" /></template>
               </el-input>
             </el-form-item>
-            <el-form-item label="金额">
-              <el-input v-model.number="form.amount" type="number" placeholder="充值金额（分）">
+            <el-form-item :label="t('adminCoupons.amount')">
+              <el-input v-model.number="form.amount" type="number" :placeholder="t('adminCoupons.rechargeAmountInCents')">
                 <template #prefix><CircleDollarSign :size="16" /></template>
               </el-input>
             </el-form-item>
-            <el-form-item label="最大使用次数">
-              <el-input v-model.number="form.max_uses" type="number" placeholder="默认 1">
+            <el-form-item :label="t('adminCoupons.maxUses')">
+              <el-input v-model.number="form.max_uses" type="number" :placeholder="t('adminCoupons.defaultOne')">
                 <template #prefix><Hash :size="16" /></template>
               </el-input>
             </el-form-item>
-            <el-form-item label="过期时间">
-              <el-input v-model.number="form.expires_at_ms" type="number" placeholder="0 = 不过期(ms)">
+            <el-form-item :label="t('adminCoupons.expirationTime')">
+              <el-input v-model.number="form.expires_at_ms" type="number" :placeholder="t('adminCoupons.zeroNoExpiry')">
                 <template #prefix><Clock :size="16" /></template>
               </el-input>
             </el-form-item>
           </div>
           <el-button type="primary" @click="create">
             <Ticket :size="16" style="margin-right: 6px" />
-            创建兑换码
+            {{ t('adminCoupons.createCouponBtn') }}
           </el-button>
         </el-form>
       </div>
@@ -78,35 +78,35 @@
       <div class="card-header">
         <h3 class="card-title">
           <Gift :size="20" />
-          兑换码列表
+          {{ t('adminCoupons.couponList') }}
         </h3>
-        <span class="coupon-count">{{ items.length }} 个</span>
+        <span class="coupon-count">{{ items.length }} {{ t('adminCoupons.couponCountLabel') }}</span>
       </div>
       <div class="card-body">
-        <el-table :data="items" empty-text="暂无兑换码" class="modern-table" :stripe="true">
-          <el-table-column prop="code" label="兑换码" min-width="160">
+        <el-table :data="items" :empty-text="t('adminCoupons.noCoupons')" class="modern-table" :stripe="true">
+          <el-table-column prop="code" :label="t('adminCoupons.couponCode')" min-width="160">
             <template #default="{ row }">
               <code class="code-value mono">{{ row.code }}</code>
             </template>
           </el-table-column>
-          <el-table-column label="金额" width="100">
+          <el-table-column :label="t('adminCoupons.amount')" width="100">
             <template #default="{ row }">
-              <span class="amount-value">{{ formatCurrency(row.amount) }} 元</span>
+              <span class="amount-value">{{ formatCurrency(row.amount) }} {{ t('common.currency') }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="已使用" width="80">
+          <el-table-column :label="t('adminCoupons.used')" width="80">
             <template #default="{ row }">
               <span class="used-count">{{ row.used_count }} / {{ row.max_uses }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="状态" width="90">
+          <el-table-column :label="t('common.status')" width="90">
             <template #default="{ row }">
               <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
                 {{ row.status }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="过期时间" width="150">
+          <el-table-column :label="t('adminCoupons.expirationTime')" width="150">
             <template #default="{ row }">
               <span class="time-text">{{ formatTime(Number(row.expires_at_ms || 0)) }}</span>
             </template>
@@ -124,7 +124,9 @@ import { ElButton, ElForm, ElFormItem, ElInput, ElTable, ElTableColumn, ElTag } 
 import { adminAPI } from "@/api/admin";
 import type { Coupon } from "@/api/types";
 import { formatCurrency, formatTime } from "@/utils";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const items = ref<Coupon[]>([]);
 const form = reactive({
   code: "",

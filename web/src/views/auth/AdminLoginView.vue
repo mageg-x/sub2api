@@ -6,32 +6,32 @@
           <img :src="logoUrl" alt="sub2api" />
         </div>
         <h1 class="brand-name">sub2api</h1>
-        <p class="brand-tagline">管理控制台</p>
+        <p class="brand-tagline">{{ t("adminLogin.adminConsole") }}</p>
       </div>
 
       <div class="login-card">
         <div class="mode-switch">
-          <el-button :type="setupMode ? 'default' : 'primary'" plain @click="setupMode = false">登录</el-button>
-          <el-button :type="setupMode ? 'primary' : 'default'" plain @click="setupMode = true">注册</el-button>
+          <el-button :type="setupMode ? 'default' : 'primary'" plain @click="setupMode = false">{{ t("adminLogin.login") }}</el-button>
+          <el-button :type="setupMode ? 'primary' : 'default'" plain @click="setupMode = true">{{ t("adminLogin.register") }}</el-button>
         </div>
 
         <el-form ref="formRef" :model="formData" :rules="rules" @submit.prevent="setupMode ? handleBootstrap() : handleLogin()">
           <el-form-item v-if="setupMode" prop="name">
-            <el-input v-model="formData.name" placeholder="管理员名称" size="large" :prefix-icon="User" />
+            <el-input v-model="formData.name" :placeholder="t('adminLogin.adminName')" size="large" :prefix-icon="User" />
           </el-form-item>
 
           <el-form-item prop="email">
-            <el-input v-model="formData.email" placeholder="管理员邮箱" size="large" :prefix-icon="Mail" />
+            <el-input v-model="formData.email" :placeholder="t('adminLogin.adminEmail')" size="large" :prefix-icon="Mail" />
           </el-form-item>
 
           <el-form-item prop="password">
-            <el-input v-model="formData.password" type="password" :placeholder="setupMode ? '设置管理员密码' : '密码'" size="large" show-password :prefix-icon="Lock" />
+            <el-input v-model="formData.password" type="password" :placeholder="setupMode ? t('adminLogin.setAdminPassword') : t('auth.password')" size="large" show-password :prefix-icon="Lock" />
           </el-form-item>
 
           <el-form-item prop="adminToken">
-            <el-input v-model="formData.adminToken" placeholder="管理员 Token" size="large" :prefix-icon="Key">
+            <el-input v-model="formData.adminToken" :placeholder="t('auth.adminToken')" size="large" :prefix-icon="Key">
               <template #append>
-                <el-tooltip content="首次部署时填写初始化 Token，之后仍用于访问管理接口">
+                <el-tooltip :content="t('adminLogin.initTokenTip')">
                   <el-button><HelpCircle /></el-button>
                 </el-tooltip>
               </template>
@@ -41,14 +41,14 @@
           <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon class="error-alert" />
 
           <el-button type="primary" native-type="submit" size="large" :loading="loading" class="login-button">
-            {{ setupMode ? "注册并进入控制台" : "进入控制台" }}
+            {{ setupMode ? t("adminLogin.registerAndEnter") : t("adminLogin.enterConsole") }}
           </el-button>
         </el-form>
 
         <div class="card-footer">
           <el-link type="info" :underline="'never'" @click="goToHome">
             <ArrowLeft :size="16" />
-            返回首页
+            {{ t("auth.returnHome") }}
           </el-link>
         </div>
       </div>
@@ -57,40 +57,40 @@
     <div class="login-right">
       <div class="showcase-section">
         <div class="showcase-header">
-          <h2>管理控制台功能</h2>
-          <p>强大的管理工具，助您轻松运营平台</p>
+          <h2>{{ t("adminLogin.adminFeatures") }}</h2>
+          <p>{{ t("adminLogin.powerfulTools") }}</p>
         </div>
 
         <div class="features">
           <div class="feature-item">
             <div class="feature-icon"><Users :size="24" /></div>
             <div class="feature-text">
-              <h3>用户管理</h3>
-              <p>管理平台注册用户</p>
+              <h3>{{ t("adminLogin.userManagement") }}</h3>
+              <p>{{ t("adminLogin.managePlatformUsers") }}</p>
             </div>
           </div>
 
           <div class="feature-item">
             <div class="feature-icon"><Boxes :size="24" /></div>
             <div class="feature-text">
-              <h3>上游账户</h3>
-              <p>管理认证与刷新中的上游账号</p>
+              <h3>{{ t("adminLogin.upstreamAccounts") }}</h3>
+              <p>{{ t("adminLogin.manageUpstreamAccounts") }}</p>
             </div>
           </div>
 
           <div class="feature-item">
             <div class="feature-icon"><Banknote :size="24" /></div>
             <div class="feature-text">
-              <h3>价格配置</h3>
-              <p>配置模型计费规则</p>
+              <h3>{{ t("adminLogin.priceConfig") }}</h3>
+              <p>{{ t("adminLogin.configurePricingRules") }}</p>
             </div>
           </div>
 
           <div class="feature-item">
             <div class="feature-icon"><CreditCard :size="24" /></div>
             <div class="feature-text">
-              <h3>支付订单</h3>
-              <p>管理充值订单</p>
+              <h3>{{ t("adminLogin.paymentOrders") }}</h3>
+              <p>{{ t("adminLogin.managePaymentOrders") }}</p>
             </div>
           </div>
         </div>
@@ -98,12 +98,12 @@
         <div class="stats-row">
           <div class="stat-item">
             <div class="stat-value">OAuth</div>
-            <div class="stat-label">多上游认证接入</div>
+            <div class="stat-label">{{ t("adminLogin.multiUpstreamAuth") }}</div>
           </div>
           <div class="stat-divider"></div>
           <div class="stat-item">
             <div class="stat-value">Token</div>
-            <div class="stat-label">用量计费闭环</div>
+            <div class="stat-label">{{ t("adminLogin.tokenBilling") }}</div>
           </div>
         </div>
       </div>
@@ -114,6 +114,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from "vue";
 import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { Mail, Lock, HelpCircle, ArrowLeft, Users, Boxes, Banknote, CreditCard, User, Key } from "lucide-vue-next";
 import { ElAlert, ElButton, ElForm, ElFormItem, ElInput, ElLink, ElTooltip } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
@@ -124,6 +125,7 @@ import { apiURL } from "@/api/client";
 import { clearAdminToken, saveAuth, saveAdminToken } from "@/store/session";
 
 const router = useRouter();
+const { t } = useI18n();
 const formRef = ref<FormInstance>();
 const loading = ref(false);
 const error = ref("");
@@ -137,16 +139,16 @@ const formData = reactive({
 });
 
 const rules = computed<FormRules>(() => ({
-  name: setupMode.value ? [{ required: true, message: "请输入管理员名称", trigger: "blur" }] : [],
+  name: setupMode.value ? [{ required: true, message: t("adminLogin.pleaseInputAdminName"), trigger: "blur" }] : [],
   email: [
-    { required: true, message: "请输入邮箱", trigger: "blur" },
-    { type: "email", message: "请输入有效的邮箱地址", trigger: "blur" },
+    { required: true, message: t("auth.pleaseInputEmail"), trigger: "blur" },
+    { type: "email", message: t("auth.invalidEmail"), trigger: "blur" },
   ],
   password: [
-    { required: true, message: "请输入密码", trigger: "blur" },
-    { min: 6, message: "密码至少 6 位", trigger: "blur" },
+    { required: true, message: t("auth.pleaseInputPassword"), trigger: "blur" },
+    { min: 6, message: t("auth.passwordMinLength"), trigger: "blur" },
   ],
-  adminToken: [{ required: true, message: "请输入管理员 Token", trigger: "blur" }],
+  adminToken: [{ required: true, message: t("auth.pleaseInputAdminToken"), trigger: "blur" }],
 }));
 
 async function handleLogin() {
@@ -166,7 +168,7 @@ async function handleLogin() {
       await router.replace("/admin/dashboard");
     } catch (err) {
       clearAdminToken();
-      error.value = err instanceof Error ? err.message : "登录失败";
+      error.value = err instanceof Error ? err.message : t("adminLogin.loginFailed");
     } finally {
       loading.value = false;
     }
@@ -197,13 +199,13 @@ async function handleBootstrap() {
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(payload?.error || "初始化失败");
+        throw new Error(payload?.error || t("adminLogin.initFailed"));
       }
       saveAuth(payload.access_token, payload.refresh_token, payload.user);
       saveAdminToken(formData.adminToken);
       await router.replace("/admin/dashboard");
     } catch (err) {
-      error.value = err instanceof Error ? err.message : "初始化失败";
+      error.value = err instanceof Error ? err.message : t("adminLogin.initFailed");
     } finally {
       loading.value = false;
     }

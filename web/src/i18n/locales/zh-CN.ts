@@ -38,7 +38,20 @@ export default {
     admin: '管理员',
     currency: '元',
     input: '输入',
-    output: '输出'
+    output: '输出',
+    loadFailed: '加载失败',
+    loadingFailed: '加载失败',
+    noUsers: '暂无用户',
+    noAccounts: '暂无账户',
+    noOrders: '暂无订单',
+    noAnnouncements: '暂无公告',
+    noCoupons: '暂无兑换码',
+    noErrors: '暂无错误记录',
+    noPrices: '暂无价格记录',
+    noKeys: '暂无 Keys',
+    countUnit: '条',
+    tenThousand: '万',
+    hundredMillion: '亿'
   },
   auth: {
     login: '登录',
@@ -112,6 +125,90 @@ export default {
     zhCN: '简体中文',
     enUS: 'English'
   },
+  userLogin: {
+    apiPlatform: 'API 访问平台',
+    quickStart: '快速开始',
+    quickStartDesc: '三步轻松接入 AI 能力',
+    step1Title: '注册账户',
+    step1Desc: '创建账户并完成充值',
+    step2Title: '获取 API Key',
+    step2Desc: '在控制台创建您的专属密钥',
+    step3Title: '开始调用',
+    step3Desc: '通过 API 调用各种 AI 模型',
+    apiExampleTitle: 'API 调用示例',
+    passwordMinLengthPlaceholder: '密码（至少 6 位）'
+  },
+  adminLogin: {
+    adminConsole: '管理控制台',
+    adminFeatures: '管理控制台功能',
+    powerfulTools: '强大的管理工具，助您轻松运营平台',
+    userManagement: '用户管理',
+    managePlatformUsers: '管理平台注册用户',
+    upstreamAccounts: '上游账户',
+    manageUpstreamAccounts: '管理认证与刷新中的上游账号',
+    priceConfig: '价格配置',
+    configurePricingRules: '配置模型计费规则',
+    paymentOrders: '支付订单',
+    managePaymentOrders: '管理充值订单',
+    multiUpstreamAuth: '多上游认证接入',
+    tokenBilling: '用量计费闭环',
+    login: '登录',
+    register: '注册',
+    adminName: '管理员名称',
+    pleaseInputAdminName: '请输入管理员名称',
+    adminEmail: '管理员邮箱',
+    adminPassword: '管理员密码',
+    setAdminPassword: '设置管理员密码',
+    registerAndEnter: '注册并进入控制台',
+    enterConsole: '进入控制台',
+    initTokenTip: '首次部署时填写初始化 Token，之后仍用于访问管理接口',
+    loginFailed: '登录失败',
+    initFailed: '初始化失败'
+  },
+  userShell: {
+    userPanel: '用户面板',
+    home: '首页',
+    balanceLabel: '余额',
+    homeSubtitle: '您的账户概览',
+    keysSubtitle: '管理您的 API Keys',
+    usageSubtitle: '查看使用记录',
+    paymentSubtitle: '充值余额',
+    modelsSubtitle: '查看可用模型和价格',
+    profileSubtitle: '个人资料设置',
+    redeemSubtitle: '兑换码兑换',
+    accessGuideSubtitle: 'API 接入指南',
+    announcementsSubtitle: '查看公告'
+  },
+  adminShell: {
+    adminConsole: '管理控制台',
+    management: '管理',
+    dashboardSubtitle: '平台整体运行状态概览',
+    usersSubtitle: '管理平台注册用户',
+    accountsSubtitle: '管理上游 OAuth 账户',
+    pricesSubtitle: '配置模型价格策略',
+    paymentsSubtitle: '管理支付订单',
+    announcementsSubtitle: '发布系统公告',
+    couponsSubtitle: '管理兑换码',
+    errorsSubtitle: '查看错误日志',
+    systemSubtitle: '系统指标监控'
+  },
+  home: {
+    aiSubscriptionPlatform: 'AI 订阅账户聚合平台',
+    heroSubtitle: '把上游 AI 订阅账户变成可分发、可计费、可运营的 API 服务',
+    startNow: '立即开始',
+    unifiedInterface: '统一接口',
+    unifiedInterfaceDesc: '支持 OpenAI、Claude、Gemini、Antigravity 账户接入，统一管理 OAuth 与静态凭据。',
+    multiChannelScheduling: '多渠道调度',
+    multiChannelDesc: '同一模型可挂多组上游账户，按状态、优先级和并发限制自动分配请求。',
+    easyToUse: '简单易用',
+    easyToUseDesc: '用户创建自己的 API Key 后即可直接接入平台代理地址，无需感知背后账户细节。',
+    stableFirst: '稳定优先',
+    stableFirstDesc: '高质量IP，高质量号池，可用率达 99.9%。',
+    transparentBilling: '计费透明',
+    transparentBillingDesc: '按模型价格记录输入输出 token 消耗，生成用量日志并自动扣减用户余额。',
+    convenientPayment: '支付便捷',
+    convenientPaymentDesc: '支持微信和支付宝充值，并提供公告、优惠码、错误日志、账户与价格管理页面。'
+  },
   dashboard: {
     accountData: '账户数据',
     currentBalance: '当前余额',
@@ -120,14 +217,17 @@ export default {
     rateDiscount: '费率折扣',
     usageStatistics: '使用统计',
     requestCount: '请求次数',
-    requestsLast7Days: '7天请求',
+    requestsLast7Days: '统计次数(7天)',
     apiKeys: 'API Keys',
     recentCalls: '最近调用',
     resourceConsumption: '资源消耗',
-    totalTokens: '总 Tokens',
+    statsQuota: '统计额度',
+    totalTokens: '统计 Tokens',
     inputTokens: '输入 Tokens',
     outputTokens: '输出 Tokens',
-    avgThroughput: '平均吞吐',
+    performanceMetrics: '性能指标',
+    avgRPM: '平均 RPM',
+    avgTPM: '平均 TPM',
     trendOverview: '趋势概览',
     requestTrend: '请求趋势',
     costTrend: '成本趋势',
@@ -136,8 +236,10 @@ export default {
     commonChannels: '常用渠道',
     recentUsage: '最近调用',
     noUsageRecords: '暂无调用记录',
+    noUsageRecordsDesc: '您的 API 调用记录将显示在这里',
     latestOrders: '最新订单',
     noOrders: '暂无订单',
+    noOrdersDesc: '您的充值订单将显示在这里',
     merchantOrderNo: '商户单号',
     amount: '金额',
     orderStatus: '状态',
@@ -149,7 +251,8 @@ export default {
     viewAll: '查看全部',
     recharge: '充值',
     paid: '已支付',
-    pending: '待支付'
+    pending: '待支付',
+    costWithCurrency: '花费 {amount} 元'
   },
   keys: {
     createNewApiKey: '创建新的 API Key',
@@ -179,6 +282,7 @@ export default {
     last30Days: '30天',
     startDate: '开始日期',
     endDate: '结束日期',
+    to: '至',
     recentWeek: '最近一周',
     recentMonth: '最近一月',
     recentThreeMonths: '最近三月',
@@ -199,7 +303,8 @@ export default {
     fee: '费用',
     time: '时间',
     callTrend: '调用趋势',
-    callsCount: '次调用'
+    callsCount: '次调用',
+    modelFilterPlaceholder: '模型 / codex'
   },
   payment: {
     currentBalance: '当前余额',
@@ -248,8 +353,11 @@ export default {
     changePassword: '修改密码',
     updatePassword: '更新密码',
     passwordUpdated: '密码已更新',
-    updateFailed: 'update failed',
-    leaveBlankNoChange: '留空表示不修改'
+    updateFailed: '更新失败',
+    leaveBlankNoChange: '留空表示不修改',
+    inputCurrentPassword: '输入当前密码',
+    inputNewPassword: '输入新密码',
+    changePasswordFailed: '修改密码失败'
   },
   redeem: {
     redeemCode: '兑换码',
@@ -262,7 +370,7 @@ export default {
     instruction3: '兑换成功后余额即时到账',
     instruction4: '如有问题请联系管理员获取帮助',
     redeemSuccess: '兑换成功，余额已更新',
-    redeemFailed: 'redeem failed'
+    redeemFailed: '兑换失败'
   },
   accessGuide: {
     accessGuide: '接入指南',
@@ -292,6 +400,10 @@ export default {
     paymentChannel: '支付渠道',
     createTime: '创建时间',
     commonQuestions: '常见问题',
+    faq: '常见问题',
+    faq1: '支付完成后页面将自动更新状态，请稍候刷新',
+    faq2: '如支付失败，金额将在 24 小时内退回原支付渠道',
+    faq3: '如有其他问题请联系管理员处理',
     question1: '支付完成后页面将自动更新状态，请稍候刷新',
     question2: '如支付失败，金额将在 24 小时内退回原支付渠道',
     question3: '如有其他问题请联系管理员处理',
@@ -318,50 +430,13 @@ export default {
     channel: '渠道',
     amount: '金额',
     orderStatus: '状态',
-    createTime: '创建时间'
-  },
-  adminLogin: {
-    adminConsole: '管理控制台',
-    adminFeatures: '管理控制台功能',
-    powerfulTools: '强大的管理工具，助您轻松运营平台',
-    userManagement: '用户管理',
-    managePlatformUsers: '管理平台注册用户',
-    upstreamAccounts: '上游账户',
-    manageUpstreamAccounts: '管理认证与刷新中的上游账号',
-    priceConfig: '价格配置',
-    configurePricingRules: '配置模型计费规则',
-    paymentOrders: '支付订单',
-    managePaymentOrders: '管理充值订单',
-    multiUpstreamAuth: '多上游认证接入',
-    tokenBilling: '用量计费闭环',
-    login: '登录',
-    register: '注册',
-    adminName: '管理员名称',
-    pleaseInputAdminName: '请输入管理员名称',
-    adminEmail: '管理员邮箱',
-    adminPassword: '管理员密码',
-    setAdminPassword: '设置管理员密码',
-    registerAndEnter: '注册并进入控制台',
-    enterConsole: '进入控制台',
-    initTokenTip: '首次部署时填写初始化 Token，之后仍用于访问管理接口',
-    loginFailed: '登录失败',
-    initFailed: '初始化失败'
-  },
-  home: {
-    aiSubscriptionPlatform: 'AI 订阅账户聚合平台',
-    startNow: '立即开始',
-    unifiedInterface: '统一接口',
-    unifiedInterfaceDesc: '支持 OpenAI、Claude、Gemini、Antigravity 账户接入，统一管理 OAuth 与静态凭据。',
-    multiChannelScheduling: '多渠道调度',
-    multiChannelDesc: '同一模型可挂多组上游账户，按状态、优先级和并发限制自动分配请求。',
-    easyToUse: '简单易用',
-    easyToUseDesc: '用户创建自己的 API Key 后即可直接接入平台代理地址，无需感知背后账户细节。',
-    stableFirst: '稳定优先',
-    stableFirstDesc: '高质量IP，高质量号池，可用率达 99.9%。',
-    transparentBilling: '计费透明',
-    transparentBillingDesc: '按模型价格记录输入输出 token 消耗，生成用量日志并自动扣减用户余额。',
-    convenientPayment: '支付便捷',
-    convenientPaymentDesc: '支持微信和支付宝充值，并提供公告、优惠码、错误日志、账户与价格管理页面。'
+    createTime: '创建时间',
+    userCount: '用户数',
+    platformUsers: '平台注册用户',
+    oauthStaticKey: 'OAuth / 静态密钥',
+    gopayOnly: '一期仅 gopay',
+    noAccounts: '暂无账户',
+    noOrders: '暂无订单'
   },
   adminUsers: {
     totalUsers: '总用户数',
@@ -386,7 +461,8 @@ export default {
     saveChanges: '保存修改',
     leaveBlankNoChange: '留空表示不修改',
     selectAllowedModels: '选择允许的模型；清空表示不限制',
-    saveFailed: '保存失败'
+    saveFailed: '保存失败',
+    noUsers: '暂无用户'
   },
   adminAccounts: {
     totalAccounts: '账户总数',
@@ -400,7 +476,8 @@ export default {
     status: '状态',
     priority: '优先级',
     concurrencyLimit: '并发限制',
-    loadFailed: '加载失败'
+    loadFailed: '加载失败',
+    noAccounts: '暂无账户'
   },
   adminPrices: {
     priceRecords: '价格记录',
@@ -426,7 +503,12 @@ export default {
     priceList: '价格表',
     priceCountLabel: '条',
     currency: '货币',
-    status: '状态'
+    status: '状态',
+    noPrices: '暂无价格记录',
+    inputPer1k: '输入 / 1k',
+    outputPer1k: '输出 / 1k',
+    cacheCreatePer1k: '缓存创建 / 1k',
+    cacheReadPer1k: '缓存读取 / 1k'
   },
   adminPayments: {
     totalOrders: '订单总数',
@@ -442,7 +524,8 @@ export default {
     status: '状态',
     createTime: '创建时间',
     paid: '已支付',
-    pending: '待支付'
+    pending: '待支付',
+    noOrders: '暂无订单'
   },
   adminAnnouncements: {
     publishNewAnnouncement: '发布新公告',
@@ -463,46 +546,51 @@ export default {
     draft: '草稿',
     pleaseFillTitleAndContent: '请填写标题和内容',
     createFailed: '创建失败',
-    loadFailed: '加载失败'
+    loadFailed: '加载失败',
+    noAnnouncements: '暂无公告'
   },
   adminCoupons: {
     totalCoupons: '兑换码总数',
-    createdCoupons: '已创建兑换码',
+    couponsCreated: '已创建兑换码',
     activated: '已激活',
     available: '可使用的',
     redeemed: '已兑换',
-    usedCount: '累计使用次数',
+    totalUsageCount: '累计使用次数',
     createCoupon: '创建兑换码',
     couponCode: '兑换码',
     leaveBlankAutoGenerate: '留空则自动生成',
     amount: '金额',
-    amountNote: '充值金额（分）',
+    rechargeAmountInCents: '充值金额（分）',
     maxUses: '最大使用次数',
-    maxUsesDefault: '默认 1',
-    expireTime: '过期时间',
-    expireTimeNote: '0 = 不过期(ms)',
-    createCouponCode: '创建兑换码',
+    defaultOne: '默认 1',
+    expirationTime: '过期时间',
+    zeroNoExpiry: '0 = 不过期(ms)',
+    createCouponBtn: '创建兑换码',
     couponList: '兑换码列表',
-    couponCount: '个',
+    couponCountLabel: '个',
     used: '已使用',
-    status: '状态',
-    expireTimeHeader: '过期时间'
+    noCoupons: '暂无兑换码'
   },
   adminErrors: {
     totalErrors: '错误总数',
-    errorEntries: '记录的错误条目',
-    last24Hours: '最近 24h',
+    errorRecords: '记录的错误条目',
+    last24h: '最近 24h',
     recentErrors: '近期错误',
-    errorLogs: '错误日志',
-    errorCount: '条',
+    errorLog: '错误日志',
+    errorCountLabel: '条',
     scope: '范围',
     errorMessage: '错误消息',
-    details: '详情',
+    detail: '详情',
     count: '次数',
-    lastSeen: '最近出现'
+    lastSeen: '最近出现',
+    noErrors: '暂无错误记录'
   },
   adminSystem: {
     systemMetrics: '系统指标',
-    metricCount: '项'
+    items: '项'
+  },
+  dataTable: {
+    rowCount: '条',
+    noData: '暂无数据'
   }
 }
