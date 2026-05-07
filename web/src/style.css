@@ -549,7 +549,7 @@ body {
   transition: background var(--transition-fast);
   white-space: nowrap;
 }
-}
+
 
 .data-table tr:last-child td {
   border-bottom: none;

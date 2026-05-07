@@ -1,17 +1,5 @@
 <template>
   <div class="page-container">
-    <div class="page-header">
-      <div class="header-content">
-        <div class="header-icon">
-          <Bell :size="28" />
-        </div>
-        <div class="header-text">
-          <h1 class="page-title">平台公告</h1>
-          <p class="page-subtitle">了解最新的产品更新和重要通知</p>
-        </div>
-      </div>
-    </div>
-
     <div class="content-grid">
       <div class="surface-card announcements-section">
         <div class="card-header">
@@ -78,46 +66,6 @@ onMounted(() => {
 <style scoped>
 .page-container {
   animation: fadeIn 0.4s ease-out;
-}
-
-.page-header {
-  margin-bottom: 32px;
-}
-
-.header-content {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.header-icon {
-  width: 64px;
-  height: 64px;
-  background: var(--primary-lighter);
-  border-radius: var(--radius-xl);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--primary-color);
-  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
-}
-
-.header-text {
-  flex: 1;
-}
-
-.page-title {
-  font-size: 28px;
-  font-weight: 800;
-  margin: 0 0 6px;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
-}
-
-.page-subtitle {
-  font-size: 15px;
-  color: var(--text-muted);
-  margin: 0;
 }
 
 .content-grid {
