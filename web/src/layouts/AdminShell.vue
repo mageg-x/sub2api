@@ -15,7 +15,6 @@
 
       <nav class="sidebar-nav">
         <div class="nav-section">
-          <div class="nav-section-title">{{ t("adminShell.management") }}</div>
           <router-link v-for="item in adminLinks" :key="item.to" :to="item.to" class="nav-item" :class="{ active: route.path === item.to }">
             <component :is="item.icon" class="nav-item-icon" :size="18" />
             <span>{{ item.label }}</span>
@@ -27,7 +26,7 @@
         <div class="user-info-mini">
           <div class="user-avatar-small">{{ userInitials }}</div>
           <div class="user-details">
-            <div class="user-name-small">{{ session.user?.name || "Admin" }}</div>
+            <div class="user-name-small">{{ session.user?.name || t("common.defaultAdmin") }}</div>
             <div class="user-email-small">{{ session.user?.email || "" }}</div>
           </div>
         </div>
@@ -44,13 +43,14 @@
         </div>
 
         <div class="header-right">
+          <LanguageSwitcher />
           <el-tag type="danger" effect="dark">{{ t("common.admin") }}</el-tag>
 
           <el-dropdown @command="handleCommand">
             <div class="user-menu">
               <div class="user-avatar">{{ userInitials }}</div>
               <div class="user-info">
-                <span class="user-name">{{ session.user?.name || "Admin" }}</span>
+                <span class="user-name">{{ session.user?.name || t("common.defaultAdmin") }}</span>
                 <span class="user-role">{{ session.user?.role || "admin" }}</span>
               </div>
               <ChevronDown :size="16" />
@@ -85,6 +85,7 @@ import { Banknote, Bug, ChevronDown, Gauge, LayoutDashboard, LogOut, Megaphone, 
 import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElTag } from "element-plus";
 import logoUrl from "@/assets/logo.svg";
 import { me, logout } from "@/api/auth";
+import LanguageSwitcher from "@/components/LanguageSwitcher.vue";
 import { clearAuth, session } from "@/store/session";
 import { useI18n } from "vue-i18n";
 

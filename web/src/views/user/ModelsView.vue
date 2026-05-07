@@ -40,16 +40,16 @@
               <tr v-for="model in currentModels" :key="model.model">
                 <td class="cell-model">{{ model.model }}</td>
                 <td>
-                  <span class="price-tag input">${{ model.input_price.toFixed(2) }}/M</span>
+                  <span class="price-tag input">${{ model.input_price.toFixed(2) }}{{ t('common.perMillion') }}</span>
                 </td>
                 <td>
-                  <span class="price-tag output">${{ model.output_price.toFixed(2) }}/M</span>
+                  <span class="price-tag output">${{ model.output_price.toFixed(2) }}{{ t('common.perMillion') }}</span>
                 </td>
                 <td>
-                  <span class="price-tag cache-create">${{ model.cache_create_price.toFixed(2) }}/M</span>
+                  <span class="price-tag cache-create">${{ model.cache_create_price.toFixed(2) }}{{ t('common.perMillion') }}</span>
                 </td>
                 <td>
-                  <span class="price-tag cache-read">${{ model.cache_read_price.toFixed(2) }}/M</span>
+                  <span class="price-tag cache-read">${{ model.cache_read_price.toFixed(2) }}{{ t('common.perMillion') }}</span>
                 </td>
                 <td><span class="status-badge" :class="isActiveStatus(model.status) ? 'active' : ''">{{ t('models.available') }}</span></td>
               </tr>

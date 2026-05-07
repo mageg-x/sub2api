@@ -153,7 +153,7 @@ const error = ref("");
 const submitting = ref(false);
 const form = reactive({
   amount: 100,
-  subject: "Balance Recharge",
+  subject: "",
 });
 
 const quickAmounts = [50, 100, 200, 500, 1000];
@@ -170,7 +170,7 @@ async function createOrder() {
   try {
     result.value = await userAPI.createPayment({
       amount: Number(form.amount || 0),
-      subject: form.subject,
+      subject: form.subject || t('common.balanceRecharge'),
     });
     await load();
   } catch (err) {

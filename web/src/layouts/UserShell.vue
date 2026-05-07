@@ -26,7 +26,7 @@
         <div class="user-info-mini">
           <div class="user-avatar-small">{{ userInitials }}</div>
           <div class="user-details">
-            <div class="user-name-small">{{ session.user?.name || "User" }}</div>
+            <div class="user-name-small">{{ session.user?.name || t("common.defaultUser") }}</div>
             <div class="user-email-small">{{ session.user?.email || "" }}</div>
           </div>
         </div>
@@ -43,6 +43,7 @@
         </div>
 
         <div class="header-right">
+          <LanguageSwitcher />
           <el-button class="header-ghost-button" link @click="announcementDialogVisible = true">
             <Bell :size="16" />
             {{ t("user.announcement") }}
@@ -53,7 +54,7 @@
             <div class="user-menu">
               <div class="user-avatar">{{ userInitials }}</div>
               <div class="user-info">
-                <span class="user-name">{{ session.user?.name || "User" }}</span>
+                <span class="user-name">{{ session.user?.name || t("common.defaultUser") }}</span>
                 <span class="user-role">{{ session.user?.role || "user" }}</span>
               </div>
               <ChevronDown :size="16" />
@@ -115,6 +116,7 @@ import { ElDialog, ElDropdown, ElDropdownItem, ElDropdownMenu, ElEmpty, ElTag, E
 import logoUrl from "@/assets/logo.svg";
 import { adminAPI } from "@/api/admin";
 import { me, logout } from "@/api/auth";
+import LanguageSwitcher from "@/components/LanguageSwitcher.vue";
 import type { Announcement } from "@/api/types";
 import { clearAuth, session } from "@/store/session";
 import { formatCurrency, formatTime } from "@/utils";

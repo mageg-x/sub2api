@@ -1,5 +1,9 @@
 <template>
   <div class="home-page">
+    <div class="home-toolbar">
+      <LanguageSwitcher />
+    </div>
+
     <!-- 背景光晕 -->
     <div class="hero-glow"></div>
 
@@ -41,6 +45,7 @@ import { useI18n } from "vue-i18n";
 import { ShieldCheck, Layers, KeyRound, Zap, DollarSign, WalletCards } from "lucide-vue-next";
 import { ElButton } from "element-plus";
 import logoUrl from "@/assets/logo.svg";
+import LanguageSwitcher from "@/components/LanguageSwitcher.vue";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -95,6 +100,13 @@ function goToLogin() {
   background: linear-gradient(175deg, #fafbfe 0%, #f2f4fc 20%, #edeff9 45%, #f4f5fb 70%, #fafbfe 100%);
   overflow: hidden;
   isolation: isolate;
+}
+
+.home-toolbar {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 3;
 }
 
 /* ============ 背景光斑 ============ */
@@ -197,6 +209,13 @@ function goToLogin() {
   }
   100% {
     background-position: 200% center;
+  }
+}
+
+@media (max-width: 640px) {
+  .home-toolbar {
+    top: 14px;
+    right: 14px;
   }
 }
 

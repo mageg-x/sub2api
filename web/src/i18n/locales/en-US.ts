@@ -51,7 +51,13 @@ export default {
     noKeys: 'No Keys',
     countUnit: 'items',
     tenThousand: 'K',
-    hundredMillion: 'M'
+    hundredMillion: 'M',
+    million: 'M',
+    thousand: 'K',
+    perMillion: '/M',
+    defaultUser: 'User',
+    defaultAdmin: 'Admin',
+    balanceRecharge: 'Balance Recharge'
   },
   auth: {
     login: 'Login',
@@ -182,7 +188,6 @@ export default {
   },
   adminShell: {
     adminConsole: 'Admin Console',
-    management: 'Management',
     dashboardSubtitle: 'Platform overall status overview',
     usersSubtitle: 'Manage registered users',
     accountsSubtitle: 'Manage upstream OAuth accounts',

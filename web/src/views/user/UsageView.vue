@@ -352,8 +352,8 @@ const dailyData = computed((): DayData[] => {
 const maxDailyCount = computed(() => Math.max(...dailyData.value.map((d) => d.count), 1));
 
 function formatNumber(n: number): string {
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
-  if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + t('common.million');
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + t('common.thousand');
   return String(n);
 }
 

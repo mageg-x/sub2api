@@ -51,7 +51,13 @@ export default {
     noKeys: '暂无 Keys',
     countUnit: '条',
     tenThousand: '万',
-    hundredMillion: '亿'
+    hundredMillion: '亿',
+    million: '百万',
+    thousand: '千',
+    perMillion: '/百万',
+    defaultUser: '用户',
+    defaultAdmin: '管理员',
+    balanceRecharge: '余额充值'
   },
   auth: {
     login: '登录',
@@ -182,7 +188,6 @@ export default {
   },
   adminShell: {
     adminConsole: '管理控制台',
-    management: '管理',
     dashboardSubtitle: '平台整体运行状态概览',
     usersSubtitle: '管理平台注册用户',
     accountsSubtitle: '管理上游 OAuth 账户',
