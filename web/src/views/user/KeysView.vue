@@ -15,7 +15,9 @@
                 <el-input v-model="form.name" placeholder="如 default-client" size="large" />
               </el-form-item>
               <el-form-item label="允许模型" class="form-item">
-                <el-input v-model="form.models" placeholder="逗号分隔，可留空表示继承用户权限" size="large" />
+                <ElSelect v-model="form.models" multiple filterable clearable size="large" style="width: 100%" placeholder="选择允许的模型，留空表示继承用户权限">
+                  <ElOption v-for="model in modelOptions" :key="model.value" :label="model.label" :value="model.value" />
+                </ElSelect>
               </el-form-item>
             </div>
             <div class="form-actions">
@@ -101,7 +103,12 @@
             </el-table-column>
             <el-table-column prop="allowed_models_json" label="允许模型" width="120">
               <template #default="{ row }">
-                <span class="models-text">{{ row.allowed_models_json || "全部模型" }}</span>
+                <div v-if="parseAllowedModels(row.allowed_models_json).length" class="models-list">
+                  <el-tag v-for="model in parseAllowedModels(row.allowed_models_json)" :key="model" size="small" type="info" effect="plain">
+                    {{ model }}
+                  </el-tag>
+                </div>
+                <span v-else class="models-text">全部</span>
               </template>
             </el-table-column>
             <el-table-column label="最后使用" width="130">
@@ -117,34 +124,76 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { Copy, Eye, EyeOff, KeyRound, ShieldCheck, X } from "lucide-vue-next";
-import { ElButton, ElForm, ElFormItem, ElInput, ElTable, ElTableColumn, ElTag } from "element-plus";
+import { ElButton, ElForm, ElFormItem, ElInput, ElOption, ElSelect, ElTable, ElTableColumn, ElTag } from "element-plus";
 import { userAPI } from "@/api/user";
-import type { APIKey } from "@/api/types";
-import { formatTime, isActiveStatus, maskSecret, parseCSV } from "@/utils";
+import type { APIKey, ModelCatalogChannel } from "@/api/types";
+import { formatTime, isActiveStatus, maskSecret } from "@/utils";
 
 const keys = ref<APIKey[]>([]);
+const catalog = ref<ModelCatalogChannel[]>([]);
 const lastCreatedKey = ref<APIKey | null>(null);
 const revealed = reactive<Record<number, boolean>>({});
 const form = reactive({
   name: "",
-  models: "",
+  models: [] as string[],
+});
+
+const modelOptions = computed(() => {
+  const seen = new Set<string>();
+  const options: Array<{ label: string; value: string }> = [];
+  for (const channel of catalog.value) {
+    for (const model of channel.models || []) {
+      if (!model.model || seen.has(model.model)) continue;
+      seen.add(model.model);
+      options.push({
+        label: `${model.model} · ${channel.name}`,
+        value: model.model,
+      });
+    }
+  }
+  return options.sort((a, b) => a.label.localeCompare(b.label));
 });
 
 async function load() {
   keys.value = await userAPI.keys();
 }
 
+async function loadCatalog() {
+  try {
+    catalog.value = await userAPI.modelCatalog();
+  } catch {
+    catalog.value = [];
+  }
+}
+
+function parseAllowedModels(raw: string): string[] {
+  const text = String(raw || "").trim();
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => String(item).trim()).filter(Boolean);
+    }
+  } catch {
+    // fall through to plain text parsing
+  }
+  return text
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 async function create() {
   const item = await userAPI.createKey({
     name: form.name,
-    allowed_models: parseCSV(form.models),
+    allowed_models: form.models,
   });
   lastCreatedKey.value = item;
   revealed[item.id] = true;
   form.name = "";
-  form.models = "";
+  form.models = [];
   await load();
 }
 
@@ -154,6 +203,7 @@ function copySecret(value: string) {
 
 onMounted(() => {
   void load();
+  void loadCatalog();
 });
 </script>
 
@@ -305,6 +355,12 @@ onMounted(() => {
 .secret-actions-inline {
   display: flex;
   gap: 8px;
+}
+
+.models-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .models-text,

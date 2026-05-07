@@ -429,13 +429,13 @@ onMounted(() => {
 .stat-mini {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 18px 20px !important;
+  gap: 12px;
+  padding: 14px 18px !important;
 }
 
 .stat-mini-icon {
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
@@ -467,13 +467,13 @@ onMounted(() => {
 }
 
 .stat-mini-label {
-  font-size: 12.5px;
+  font-size: 11.5px;
   color: var(--text-muted);
   font-weight: 500;
 }
 
 .stat-mini-value {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.02em;

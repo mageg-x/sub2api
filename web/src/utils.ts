@@ -18,10 +18,6 @@ export function isPaidStatus(status: string): boolean {
   return String(status || '').trim().toLowerCase() === 'paid'
 }
 
-export function parseCSV(value: string): string[] {
-  return value.split(',').map((item) => item.trim()).filter(Boolean)
-}
-
 export function maskSecret(value: string): string {
   if (!value) return '-'
   if (value.length <= 12) return value

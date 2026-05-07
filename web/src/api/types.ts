@@ -7,7 +7,10 @@ export interface User {
   balance: number
   rate_percent: number
   allowed_models_json: string
+  metadata_json: string
   last_login_at_ms: number
+  created_at_ms: number
+  updated_at_ms: number
 }
 
 export interface UserUpdatePayload {
@@ -73,6 +76,8 @@ export interface UsageLog {
   endpoint: string
   input_tokens: number
   output_tokens: number
+  cache_create_tokens: number
+  cache_read_tokens: number
   cost: number
   created_at_ms: number
 }
@@ -102,6 +107,7 @@ export interface Coupon {
   amount: number
   max_uses: number
   used_count: number
+  usage_log_json: string
   expires_at_ms: number
   status: string
 }
@@ -130,6 +136,7 @@ export interface Announcement {
   id: number
   title: string
   content: string
+  read_count: number
   status: string
   published_at_ms: number
 }

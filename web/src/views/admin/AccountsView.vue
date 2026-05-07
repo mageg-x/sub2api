@@ -134,20 +134,20 @@ onMounted(() => {
 
 .stats-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
-  gap: 20px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
 }
 
 .stat-mini {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px !important;
+  padding: 14px 16px !important;
 }
 
 .stat-mini-icon {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;

@@ -2,47 +2,43 @@
   <div>
     <div class="card-grid">
       <div class="stat-card">
-        <div class="stat-header">
-          <div class="stat-icon">
-            <WalletCards :size="24" />
-          </div>
+        <div class="stat-icon-col">
+          <WalletCards :size="28" />
         </div>
-        <p class="stat-label">账户余额</p>
-        <p class="stat-value">{{ formatCurrency(session.user?.balance || 0) }}</p>
-        <p class="stat-helper">单位：元</p>
+        <div class="stat-text-col">
+          <span class="stat-label">账户余额</span>
+          <span class="stat-value">{{ formatCurrency(session.user?.balance || 0) }}</span>
+        </div>
       </div>
 
       <div class="stat-card">
-        <div class="stat-header">
-          <div class="stat-icon">
-            <ReceiptText :size="24" />
-          </div>
+        <div class="stat-icon-col">
+          <ReceiptText :size="28" />
         </div>
-        <p class="stat-label">最近请求</p>
-        <p class="stat-value">{{ usage.length }}</p>
-        <p class="stat-helper">最近加载的调用记录</p>
+        <div class="stat-text-col">
+          <span class="stat-label">最近请求</span>
+          <span class="stat-value">{{ usage.length }}</span>
+        </div>
       </div>
 
       <div class="stat-card">
-        <div class="stat-header">
-          <div class="stat-icon">
-            <ListOrdered :size="24" />
-          </div>
+        <div class="stat-icon-col">
+          <ListOrdered :size="28" />
         </div>
-        <p class="stat-label">订单数量</p>
-        <p class="stat-value">{{ orders.length }}</p>
-        <p class="stat-helper">充值与回调状态追踪</p>
+        <div class="stat-text-col">
+          <span class="stat-label">订单数量</span>
+          <span class="stat-value">{{ orders.length }}</span>
+        </div>
       </div>
 
       <div class="stat-card">
-        <div class="stat-header">
-          <div class="stat-icon">
-            <ShieldUser :size="24" />
-          </div>
+        <div class="stat-icon-col">
+          <ShieldUser :size="28" />
         </div>
-        <p class="stat-label">用户角色</p>
-        <p class="stat-value">{{ session.user?.role || "-" }}</p>
-        <p class="stat-helper">当前登录身份</p>
+        <div class="stat-text-col">
+          <span class="stat-label">用户角色</span>
+          <span class="stat-value">{{ session.user?.role || "-" }}</span>
+        </div>
       </div>
     </div>
 
@@ -137,7 +133,7 @@
                 <WalletCards :size="18" />
                 立即充值
               </el-button>
-              <el-button size="large" @click="router.push('/user/access-guide')">
+              <el-button type="info" size="large" @click="router.push('/user/access-guide')">
                 <BookOpenText :size="18" />
                 接入指南
               </el-button>
@@ -189,6 +185,85 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--bg-raised);
+  border-radius: var(--radius-xl);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-normal);
+  border: 1px solid var(--border-default);
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stat-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--border-focus);
+}
+
+.stat-card:hover::after {
+  opacity: 1;
+}
+
+.stat-icon-col {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-lg);
+  background: var(--primary-lighter);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-color);
+  flex-shrink: 0;
+}
+
+.stat-text-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin: 0;
+  letter-spacing: -0.03em;
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: 1.2fr 0.8fr;

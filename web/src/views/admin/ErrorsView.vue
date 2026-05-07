@@ -1,28 +1,28 @@
 <template>
   <div>
-    <div class="card-grid" style="grid-template-columns: 1fr 1fr">
-      <div class="stat-card">
-        <div class="stat-header">
-          <div class="stat-icon error">
-            <Bug :size="24" />
-          </div>
+    <div class="card-grid" style="grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div class="stat-card">
+      <div class="stat-header">
+        <div class="stat-icon error">
+          <Bug :size="22" />
         </div>
-        <p class="stat-label">错误总数</p>
-        <p class="stat-value">{{ items.length }}</p>
-        <p class="stat-helper">记录的错误条目</p>
       </div>
-
-      <div class="stat-card">
-        <div class="stat-header">
-          <div class="stat-icon alert">
-            <AlertTriangle :size="24" />
-          </div>
-        </div>
-        <p class="stat-label">最近 24h</p>
-        <p class="stat-value">{{ recentItems.length }}</p>
-        <p class="stat-helper">近期错误</p>
-      </div>
+      <p class="stat-label">错误总数</p>
+      <p class="stat-value">{{ items.length }}</p>
+      <p class="stat-helper">记录的错误条目</p>
     </div>
+
+    <div class="stat-card">
+      <div class="stat-header">
+        <div class="stat-icon alert">
+          <AlertTriangle :size="22" />
+        </div>
+      </div>
+      <p class="stat-label">最近 24h</p>
+      <p class="stat-value">{{ recentItems.length }}</p>
+      <p class="stat-helper">近期错误</p>
+    </div>
+  </div>
 
     <div class="surface-card">
       <div class="card-header">

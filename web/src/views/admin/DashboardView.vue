@@ -244,7 +244,7 @@ onMounted(() => {
 }
 
 .stat-item {
-  padding: 14px;
+  padding: 12px;
   background: var(--border-light);
   border-radius: var(--radius-md);
   transition: all var(--transition-fast);
@@ -256,9 +256,9 @@ onMounted(() => {
 }
 
 .stat-item-label {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-muted);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   white-space: nowrap;
@@ -267,12 +267,12 @@ onMounted(() => {
 }
 
 .stat-item-value {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.02em;
   word-break: break-all;
-  line-height: 1.3;
+  line-height: 1.2;
 }
 
 .stat-item-value.date-value {

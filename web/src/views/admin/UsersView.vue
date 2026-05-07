@@ -137,8 +137,8 @@
           </ElFormItem>
         </div>
         <ElFormItem label="允许模型" class="form-item-wide">
-          <ElSelect v-model="editForm.models" multiple filterable allow-create default-first-option clearable size="large" style="width: 100%" placeholder="选择或输入模型；清空表示不限制">
-            <ElOption v-for="model in commonModelOptions" :key="model" :label="model" :value="model" />
+          <ElSelect v-model="editForm.models" multiple filterable clearable size="large" style="width: 100%" placeholder="选择允许的模型；清空表示不限制">
+            <ElOption v-for="model in modelOptions" :key="model.value" :label="model.label" :value="model.value" />
           </ElSelect>
         </ElFormItem>
       </ElForm>
@@ -158,10 +158,12 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { CircleDollarSign, Mail, ShieldUser, User, UserCheck, Users } from "lucide-vue-next";
 import { ElAlert, ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElOption, ElSelect, ElTable, ElTableColumn, ElTag } from "element-plus";
 import { adminAPI } from "@/api/admin";
-import type { User as UserType } from "@/api/types";
-import { formatCurrency, formatTime, isActiveStatus, parseCSV } from "@/utils";
+import { userAPI } from "@/api/user";
+import type { ModelCatalogChannel, User as UserType } from "@/api/types";
+import { formatCurrency, formatTime, isActiveStatus } from "@/utils";
 
 const users = ref<UserType[]>([]);
+const catalog = ref<ModelCatalogChannel[]>([]);
 const saving = ref(false);
 const error = ref("");
 const editingUser = ref<UserType | null>(null);
@@ -177,10 +179,32 @@ const editForm = reactive({
 });
 
 const activeUsers = computed(() => users.value.filter((item) => isActiveStatus(item.status)).length);
-const commonModelOptions = ["gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "claude-3-5-sonnet", "claude-3-7-sonnet", "claude-sonnet-4", "gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.5-pro"];
+const modelOptions = computed(() => {
+  const seen = new Set<string>();
+  const options: Array<{ label: string; value: string }> = [];
+  for (const channel of catalog.value) {
+    for (const model of channel.models || []) {
+      if (!model.model || seen.has(model.model)) continue;
+      seen.add(model.model);
+      options.push({
+        label: `${model.model} · ${channel.name}`,
+        value: model.model,
+      });
+    }
+  }
+  return options.sort((a, b) => a.label.localeCompare(b.label));
+});
 
 async function load() {
   users.value = await adminAPI.users();
+}
+
+async function loadCatalog() {
+  try {
+    catalog.value = await userAPI.modelCatalog();
+  } catch {
+    catalog.value = [];
+  }
 }
 
 function selectUser(user: UserType) {
@@ -244,6 +268,7 @@ async function saveUser() {
 
 onMounted(() => {
   void load();
+  void loadCatalog();
 });
 </script>
 
