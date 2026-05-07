@@ -116,6 +116,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import { BookOpenText, Copy, KeyRound, Lightbulb, Send, Bot, Sparkles, Hexagon, Zap } from "lucide-vue-next";
 import { ElButton, ElTag } from "element-plus";
 import { publicAPIOrigin } from "@/api/client";
