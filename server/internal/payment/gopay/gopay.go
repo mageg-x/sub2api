@@ -243,7 +243,8 @@ func (p *Provider) Refund(ctx context.Context, req payment.RefundRequest) error 
 }
 
 // sign 生成签名
-// 使用HMAC-SHA256算法
+// Gopay 当前接口要求先在待签名串末尾追加 `key=<merchantKey>`，
+// 再以同一个 merchantKey 作为 HMAC-SHA256 密钥计算摘要。
 // 参数：
 //   - params: 待签名参数
 //   - key: 密钥

@@ -75,6 +75,7 @@ func (h *HTTP) Routes() http.Handler {
 	mux.HandleFunc("PATCH /api/admin/model-prices/", h.adminUpdateModelPrice)
 	mux.HandleFunc("DELETE /api/admin/model-prices/", h.adminDeleteModelPrice)
 	mux.HandleFunc("GET /api/model-catalog", h.userModelCatalog)
+	mux.HandleFunc("GET /api/providers", h.userProviders)
 	mux.HandleFunc("GET /api/model-prices", h.userModelPrices)
 	mux.HandleFunc("GET /api/announcements", h.userAnnouncements)
 	mux.HandleFunc("GET /api/admin/announcements", h.adminAnnouncements)
@@ -224,6 +225,10 @@ func (h *HTTP) me(w http.ResponseWriter, r *http.Request) {
 // bootstrapAdmin 引导创建管理员
 // 如果系统没有管理员，则创建第一个管理员
 func (h *HTTP) bootstrapAdmin(w http.ResponseWriter, r *http.Request) {
+	if !h.cfg.AllowBootstrap {
+		writeError(w, http.StatusForbidden, fmt.Errorf("bootstrap is disabled"))
+		return
+	}
 	// 解析请求体
 	var req struct {
 		Name     string `json:"name"`
@@ -554,6 +559,15 @@ func (h *HTTP) userModelCatalog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, items)
+}
+
+func (h *HTTP) userProviders(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.requireUser(w, r)
+	if !ok {
+		return
+	}
+	_ = user
+	writeJSON(w, http.StatusOK, h.core.SupportedProviders())
 }
 
 // adminAnnouncements 管理后台公告列表

@@ -9,6 +9,7 @@ export const userAPI = {
   keys: () => request<APIKey[]>('/api/keys'),
   createKey: (payload: { provider: string; name: string; expires_at_ms?: number }) =>
     request<APIKey>('/api/keys', 'POST', payload),
+  providers: () => request<string[]>('/api/providers'),
   usage: (limit = 100) => request<UsageLog[]>(`/api/usage?limit=${limit}`),
   orders: () => request<PaymentOrder[]>('/api/payment/orders/my'),
   orderByID: (id: number) => request<PaymentOrder>(`/api/payment/orders/${id}`),

@@ -52,6 +52,12 @@
                 <template #prefix><CircleDollarSign :size="16" /></template>
               </el-input>
             </el-form-item>
+            <el-form-item :label="t('adminCoupons.kind')">
+              <el-select v-model="form.kind">
+                <el-option :label="t('adminCoupons.kindBalance')" value="balance" />
+                <el-option :label="t('adminCoupons.kindPercent')" value="percent" />
+              </el-select>
+            </el-form-item>
             <el-form-item :label="t('adminCoupons.maxUses')">
               <el-input v-model.number="form.max_uses" type="number" :placeholder="t('adminCoupons.defaultOne')">
                 <template #prefix><Hash :size="16" /></template>
@@ -88,7 +94,16 @@
           </el-table-column>
           <el-table-column :label="t('adminCoupons.amount')" width="100">
             <template #default="{ row }">
-              <span class="amount-value">{{ formatCurrency(row.amount) }} {{ t('common.currency') }}</span>
+              <span class="amount-value">
+                {{ row.kind === 'percent' ? `${row.amount}%` : `${formatCurrency(row.amount)} ${t('common.currency')}` }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column :label="t('adminCoupons.kind')" width="100">
+            <template #default="{ row }">
+              <el-tag size="small" :type="row.kind === 'percent' ? 'warning' : 'success'">
+                {{ row.kind === 'percent' ? t('adminCoupons.kindPercent') : t('adminCoupons.kindBalance') }}
+              </el-tag>
             </template>
           </el-table-column>
           <el-table-column :label="t('adminCoupons.used')" width="80">

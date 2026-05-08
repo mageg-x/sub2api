@@ -10,7 +10,7 @@ import (
 type CreateOrderRequest struct {
 	OutTradeNo string // 商户订单号（唯一）
 	Subject    string // 订单主题/描述
-	Amount     int64  // 订单金额（分）
+	Amount     int64  // 订单金额（万分之CNY）
 	NotifyURL  string // 异步通知URL
 	ReturnURL  string // 支付完成后返回的URL
 	ClientIP   string // 客户端IP地址
@@ -29,14 +29,14 @@ type CreateOrderResponse struct {
 type NotifyResult struct {
 	OutTradeNo      string // 商户订单号
 	ProviderTradeNo string // 支付平台订单号
-	Amount          int64  // 支付金额（分）
+	Amount          int64  // 支付金额（万分之CNY）
 	Paid            bool   // 是否已支付
 }
 
 // RefundRequest 退款请求参数
 type RefundRequest struct {
 	ProviderTradeNo string // 支付平台订单号
-	Amount          int64  // 退款金额（分）
+	Amount          int64  // 退款金额（万分之CNY）
 }
 
 // Provider 支付渠道Provider接口

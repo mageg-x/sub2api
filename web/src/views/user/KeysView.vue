@@ -130,16 +130,16 @@ import { useI18n } from "vue-i18n";
 const { t } = useI18n();
 const keys = ref<APIKey[]>([]);
 const catalog = ref<ModelCatalogChannel[]>([]);
+const providers = ref<string[]>([]);
 const lastCreatedKey = ref<APIKey | null>(null);
 const revealed = reactive<Record<number, boolean>>({});
-const supportedProviders = ["openai", "claude", "gemini", "antigravity"] as const;
 const form = reactive({
   name: "",
   provider: "",
 });
 
 const providerOptions = computed(() =>
-  supportedProviders.map((key) => {
+  providers.value.map((key) => {
     const matched = catalog.value.find((item) => item.key === key);
     return {
       value: key,
@@ -157,6 +157,14 @@ async function loadCatalog() {
     catalog.value = await userAPI.modelCatalog();
   } catch {
     catalog.value = [];
+  }
+}
+
+async function loadProviders() {
+  try {
+    providers.value = await userAPI.providers();
+  } catch {
+    providers.value = [];
   }
 }
 
@@ -180,6 +188,7 @@ function copySecret(value: string) {
 onMounted(() => {
   void load();
   void loadCatalog();
+  void loadProviders();
 });
 </script>
 

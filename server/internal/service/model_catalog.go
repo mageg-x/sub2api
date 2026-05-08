@@ -98,6 +98,10 @@ func (c *Core) ModelCatalog() ([]ModelCatalogChannel, error) {
 	return catalog, nil
 }
 
+func (c *Core) SupportedProviders() []string {
+	return c.providers.Names()
+}
+
 func modelPriceKey(provider, model string) string {
 	return strings.TrimSpace(strings.ToLower(provider)) + "/" + strings.TrimSpace(strings.ToLower(model))
 }

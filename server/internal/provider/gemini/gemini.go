@@ -24,16 +24,11 @@ func (p *Provider) Name() string {
 }
 
 // BuildUpstreamURL 构建Gemini API的完整URL
-// 支持不同的端点：generativelanguage.googleapis.com（标准）和cloudcode-pa.googleapis.com（内部）
+// 标准 Gemini 路由使用 generativelanguage.googleapis.com。
 func (p *Provider) BuildUpstreamURL(account model.Account, path, rawQuery string) string {
 	base := strings.TrimRight(account.BaseURL, "/")
 	if base == "" {
-		// 根据路径选择默认端点
-		if strings.HasPrefix(path, "/v1internal:") {
-			base = "https://cloudcode-pa.googleapis.com"
-		} else {
-			base = "https://generativelanguage.googleapis.com"
-		}
+		base = "https://generativelanguage.googleapis.com"
 	}
 	url := base + path
 	if rawQuery != "" {
@@ -46,10 +41,6 @@ func (p *Provider) BuildUpstreamURL(account model.Account, path, rawQuery string
 func (p *Provider) ApplyRequest(req *http.Request, account model.Account, token string) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
-	// 为内部API添加User-Agent
-	if strings.HasPrefix(req.URL.Path, "/v1internal:") {
-		req.Header.Set("User-Agent", "GeminiCLI/0.1.5 (Windows; AMD64)")
-	}
 	return nil
 }
 

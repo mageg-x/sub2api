@@ -110,6 +110,7 @@ type Core struct {
 	dashboardCache map[uint64]cachedUserDashboard
 	statsMu        sync.RWMutex
 	statsCache     map[string]cachedStats
+	tokenSignKey   []byte
 }
 
 type cachedUserDashboard struct {
@@ -422,6 +423,7 @@ func New(cfg config.Config, db *gorm.DB, providers *provider.Registry, payments 
 		db:        db,
 		providers: providers,
 		payments:  payments,
+		tokenSignKey: deriveScopedKey(cfg.AESKey, "user-token-signing"),
 		httpClient: &http.Client{
 			Timeout:   120 * time.Second,
 			Transport: transport,
@@ -598,6 +600,7 @@ func (c *Core) GetUserByID(id uint64) (*model.User, error) {
 //
 // 返回：用户认证信息和错误
 const registerCooldownMS int64 = 60_000
+const maxRegisterIPEntries = 10000
 
 func (c *Core) Register(in RegisterInput) (*UserAuth, error) {
 	if ip := strings.TrimSpace(in.ClientIP); ip != "" {
@@ -607,6 +610,19 @@ func (c *Core) Register(in RegisterInput) (*UserAuth, error) {
 		for k, v := range c.registerIPs {
 			if v < cutoff {
 				delete(c.registerIPs, k)
+			}
+		}
+		if len(c.registerIPs) >= maxRegisterIPEntries {
+			oldestIP := ""
+			var oldestAt int64
+			for k, v := range c.registerIPs {
+				if oldestIP == "" || v < oldestAt {
+					oldestIP = k
+					oldestAt = v
+				}
+			}
+			if oldestIP != "" {
+				delete(c.registerIPs, oldestIP)
 			}
 		}
 		if last, ok := c.registerIPs[ip]; ok && now-last < registerCooldownMS {
@@ -780,8 +796,8 @@ func (c *Core) ListUserAPIKeys(userID uint64) ([]model.APIKey, error) {
 // CreateUserAPIKey 为用户创建API密钥
 // 参数：
 //   - userID: 用户ID
+//   - provider: 绑定的供应商
 //   - name: 密钥名称
-//   - allowedModels: 允许使用的模型列表
 //   - expiresAtMS: 过期时间（毫秒）
 //
 // 返回：创建的API密钥和错误
@@ -991,6 +1007,7 @@ func (c *Core) RedeemCoupon(userID uint64, code string) (*model.Coupon, error) {
 	}
 	var coupon model.Coupon
 	now := time.Now().UnixMilli()
+	var userUpdates map[string]any
 	err := c.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("code = ? AND status = ?", code, "active").First(&coupon).Error; err != nil {
 			return fmt.Errorf("coupon not found")
@@ -1022,10 +1039,24 @@ func (c *Core) RedeemCoupon(userID uint64, code string) (*model.Coupon, error) {
 		}).Error; err != nil {
 			return err
 		}
-		return tx.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]any{
-			"balance":       gorm.Expr("balance + ?", coupon.Amount),
-			"updated_at_ms": now,
-		}).Error
+		switch strings.TrimSpace(strings.ToLower(coupon.Kind)) {
+		case "", "balance":
+			userUpdates = map[string]any{
+				"balance":       gorm.Expr("balance + ?", coupon.Amount),
+				"updated_at_ms": now,
+			}
+		case "percent":
+			if coupon.Amount <= 0 {
+				return fmt.Errorf("invalid percent coupon amount")
+			}
+			userUpdates = map[string]any{
+				"rate_percent":  coupon.Amount,
+				"updated_at_ms": now,
+			}
+		default:
+			return fmt.Errorf("unsupported coupon kind")
+		}
+		return tx.Model(&model.User{}).Where("id = ?", userID).Updates(userUpdates).Error
 	})
 	if err != nil {
 		return nil, err
@@ -1314,9 +1345,25 @@ func (c *Core) ListAnnouncements() ([]model.Announcement, error) {
 //
 // 返回：创建的优惠券和错误
 func (c *Core) CreateCoupon(in CreateCouponInput) (*model.Coupon, error) {
+	kind := strings.TrimSpace(strings.ToLower(in.Kind))
+	if kind == "" {
+		kind = "balance"
+	}
+	switch kind {
+	case "balance":
+		if in.Amount <= 0 {
+			return nil, fmt.Errorf("coupon amount must be greater than 0")
+		}
+	case "percent":
+		if in.Amount <= 0 || in.Amount > 1000 {
+			return nil, fmt.Errorf("percent coupon amount must be between 1 and 1000")
+		}
+	default:
+		return nil, fmt.Errorf("unsupported coupon kind")
+	}
 	item := &model.Coupon{
 		Code:         strings.TrimSpace(in.Code),
-		Kind:         strings.TrimSpace(in.Kind),
+		Kind:         kind,
 		Amount:       in.Amount,
 		MaxUses:      defaultInt(in.MaxUses, 1),
 		ExpiresAtMS:  in.ExpiresAtMS,
@@ -1750,7 +1797,9 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 					}
 					// 记录使用量
 					if inTokens > 0 || outTokens > 0 || cacheCreateTokens > 0 || cacheReadTokens > 0 {
-						_ = c.recordUsage(auth, &account, modelName, path, inTokens, outTokens, cacheCreateTokens, cacheReadTokens)
+						if err := c.recordUsage(auth, &account, modelName, path, inTokens, outTokens, cacheCreateTokens, cacheReadTokens); err != nil {
+							c.recordError("usage.record", "record stream usage failed", err.Error())
+						}
 					}
 				},
 			}
@@ -1772,7 +1821,9 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 	if resp.StatusCode < 400 && modelName != "" {
 		inTokens, outTokens := providerImpl.ParseUsage(respBody)
 		cacheCreateTokens, cacheReadTokens := c.parseCacheUsage(providerImpl, respBody)
-		_ = c.recordUsage(auth, &account, modelName, path, inTokens, outTokens, cacheCreateTokens, cacheReadTokens)
+		if err := c.recordUsage(auth, &account, modelName, path, inTokens, outTokens, cacheCreateTokens, cacheReadTokens); err != nil {
+			c.recordError("usage.record", "record usage failed", err.Error())
+		}
 	}
 	return resp, respBody, nil
 }
@@ -2716,8 +2767,17 @@ func (c *Core) recordUsage(auth *ProxyAuth, account *model.Account, modelName, e
 		CreatedAtMS:       now,
 	}
 	if cost > 0 {
-		if err := c.db.Model(&model.User{}).Where("id = ?", auth.User.ID).Update("balance", gorm.Expr("balance - ?", cost)).Error; err != nil {
-			return err
+		result := c.db.Model(&model.User{}).
+			Where("id = ? AND balance >= ?", auth.User.ID, cost).
+			Updates(map[string]any{
+				"balance":       gorm.Expr("balance - ?", cost),
+				"updated_at_ms": now,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return fmt.Errorf("insufficient balance")
 		}
 	}
 	c.enqueueUserLastUsed(auth.User.ID, now)
@@ -2833,15 +2893,16 @@ func (c *Core) flushUsageLogsBatch() {
 	c.usageLogQueue = c.usageLogQueue[batchSize:]
 	c.usageLogMu.Unlock()
 
-	if err := c.db.CreateInBatches(items, 100).Error; err != nil {
+	if err := c.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.CreateInBatches(items, 100).Error; err != nil {
+			return err
+		}
+		return c.upsertUsageAggregatesTx(tx, items)
+	}); err != nil {
 		c.recordError("usage.flush", "flush usage logs failed", err.Error())
 		c.usageLogMu.Lock()
 		c.usageLogQueue = append(items, c.usageLogQueue...)
 		c.usageLogMu.Unlock()
-		return
-	}
-	if err := c.upsertUsageAggregates(items); err != nil {
-		c.recordError("usage.aggregate", "upsert usage aggregates failed", err.Error())
 	}
 }
 
@@ -3153,6 +3214,12 @@ func normalizeProvider(name string) string {
 	}
 }
 
+func deriveScopedKey(base []byte, scope string) []byte {
+	mac := hmac.New(sha256.New, base)
+	mac.Write([]byte(scope))
+	return mac.Sum(nil)
+}
+
 // normalizeStrings 标准化字符串数组
 // 去除空格和空字符串
 func normalizeStrings(items []string) []string {
@@ -3443,11 +3510,10 @@ func (c *Core) putCachedResponse(key string, statusCode int, header http.Header,
 	}
 	c.cacheMu.Lock()
 	if len(c.cacheItems) >= maxCacheItems {
-		now := time.Now()
 		oldestKey := ""
-		oldestTime := now
+		var oldestTime time.Time
 		for k, v := range c.cacheItems {
-			if v.ExpiresAt.Before(oldestTime) {
+			if oldestKey == "" || v.ExpiresAt.Before(oldestTime) {
 				oldestTime = v.ExpiresAt
 				oldestKey = k
 			}
@@ -3647,7 +3713,7 @@ func (c *Core) signUserToken(userID uint64, tokenVersion int64, kind string, exp
 		return "", err
 	}
 	rawPayload := base64.RawURLEncoding.EncodeToString(payload)
-	mac := hmac.New(sha256.New, c.cfg.AESKey)
+	mac := hmac.New(sha256.New, c.tokenSignKey)
 	mac.Write([]byte(rawPayload))
 	sig := mac.Sum(nil)
 	return "v2." + rawPayload + "." + base64.RawURLEncoding.EncodeToString(sig), nil
@@ -3669,7 +3735,7 @@ func (c *Core) parseUserToken(token, expectedKind string) (*userTokenClaims, err
 			return nil, fmt.Errorf("invalid token")
 		}
 		payloadStr, sigStr = parts[0], parts[1]
-		mac := hmac.New(sha256.New, c.cfg.AESKey)
+		mac := hmac.New(sha256.New, c.tokenSignKey)
 		mac.Write([]byte(payloadStr))
 		if subtle.ConstantTimeCompare([]byte(sigStr), []byte(base64.RawURLEncoding.EncodeToString(mac.Sum(nil)))) != 1 {
 			return nil, fmt.Errorf("invalid token signature")
@@ -3680,10 +3746,7 @@ func (c *Core) parseUserToken(token, expectedKind string) (*userTokenClaims, err
 			return nil, fmt.Errorf("invalid token")
 		}
 		payloadStr, sigStr = parts[0], parts[1]
-		mac := sha256.Sum256([]byte(payloadStr + "." + hex.EncodeToString(c.cfg.AESKey)))
-		if subtle.ConstantTimeCompare([]byte(sigStr), []byte(base64.RawURLEncoding.EncodeToString(mac[:]))) != 1 {
-			return nil, fmt.Errorf("invalid token signature")
-		}
+		return nil, fmt.Errorf("legacy token format is no longer supported")
 	}
 	payload, err := base64.RawURLEncoding.DecodeString(payloadStr)
 	if err != nil {
