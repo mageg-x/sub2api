@@ -71,7 +71,7 @@ func (p *Provider) CreateOrder(ctx context.Context, req payment.CreateOrderReque
 		"type":         p.payType,
 		"out_trade_no": req.OutTradeNo,
 		"name":         req.Subject,
-		"money":        fenToYuan(req.Amount), // 转换为元（分->元）
+		"money":        amountToYuan(req.Amount),
 		"notify_url":   req.NotifyURL,
 		"return_url":   req.ReturnURL,
 		"clientip":     req.ClientIP,
@@ -79,13 +79,12 @@ func (p *Provider) CreateOrder(ctx context.Context, req payment.CreateOrderReque
 		"sign_type":    "HMAC-SHA256",
 	}
 
-	// 签名参数（不含sign本身）
 	signParams := map[string]string{
 		"pid":          strconv.FormatUint(p.pid, 10),
 		"type":         strconv.Itoa(p.payType),
 		"out_trade_no": req.OutTradeNo,
 		"name":         req.Subject,
-		"money":        fenToYuan(req.Amount),
+		"money":        amountToYuan(req.Amount),
 		"notify_url":   req.NotifyURL,
 		"return_url":   req.ReturnURL,
 		"clientip":     req.ClientIP,
@@ -174,7 +173,7 @@ func (p *Provider) VerifyNotify(r *http.Request) (*payment.NotifyResult, error) 
 		return nil, fmt.Errorf("invalid gopay notify sign")
 	}
 	// 解析金额（元转分）
-	amount, err := yuanToFen(params["money"])
+	amount, err := yuanToAmount(params["money"])
 	if err != nil {
 		return nil, err
 	}
@@ -198,12 +197,12 @@ func (p *Provider) Refund(ctx context.Context, req payment.RefundRequest) error 
 	form := url.Values{}
 	form.Set("pid", strconv.FormatUint(p.pid, 10))
 	form.Set("trade_no", req.ProviderTradeNo)
-	form.Set("money", fenToYuan(req.Amount))
+	form.Set("money", amountToYuan(req.Amount))
 	form.Set("sign_type", "HMAC-SHA256")
 	form.Set("sign", sign(map[string]string{
 		"pid":      strconv.FormatUint(p.pid, 10),
 		"trade_no": req.ProviderTradeNo,
-		"money":    fenToYuan(req.Amount),
+		"money":    amountToYuan(req.Amount),
 	}, p.key))
 
 	// 发送退款请求
@@ -276,25 +275,14 @@ func sign(params map[string]string, key string) string {
 	return strings.ToLower(hex.EncodeToString(mac.Sum(nil)))
 }
 
-// fenToYuan 分转元
-// 参数：
-//   - amount: 金额（分）
-//
-// 返回：金额（元）的字符串表示
-func fenToYuan(amount int64) string {
+func amountToYuan(amount int64) string {
 	return strconv.FormatFloat(float64(amount)/10000, 'f', 2, 64)
 }
 
-// yuanToFen 元转分
-// 参数：
-//   - raw: 金额（元）字符串
-//
-// 返回：金额（分）和错误
-func yuanToFen(raw string) (int64, error) {
+func yuanToAmount(raw string) (int64, error) {
 	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
 	if err != nil {
 		return 0, err
 	}
-	// 四舍五入
 	return int64(value*10000 + 0.5), nil
 }

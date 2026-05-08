@@ -5,6 +5,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -389,6 +390,8 @@ func New(cfg config.Config, db *gorm.DB, providers *provider.Registry, payments 
 func (c *Core) Start(ctx context.Context) {
 	go c.refreshOAuthLoop(ctx)
 	go c.snapshotMetricsLoop(ctx)
+	go c.cacheCleanupLoop(ctx)
+	go c.oauthSessionCleanupLoop(ctx)
 }
 
 // CheckAdminToken 检查管理员令牌是否有效
@@ -434,13 +437,17 @@ func (c *Core) BootstrapAdmin(name, email, password string) (*UserAuth, error) {
 //
 // 返回：创建的用户和错误
 func (c *Core) CreateUser(in CreateUserInput) (*model.User, error) {
+	email := strings.TrimSpace(in.Email)
+	if email != "" && !isValidEmail(email) {
+		return nil, fmt.Errorf("invalid email format")
+	}
 	allowed, _ := json.Marshal(normalizeStrings(in.AllowedModels))
 	salt, hash, err := hashPassword(in.Password)
 	if err != nil {
 		return nil, err
 	}
 	user := &model.User{
-		Email:             strings.TrimSpace(in.Email),
+		Email:             email,
 		Name:              strings.TrimSpace(in.Name),
 		PasswordSalt:      salt,
 		PasswordHash:      hash,
@@ -749,123 +756,109 @@ func (c *Core) UserDashboard(userID uint64) (*UserDashboardData, error) {
 	if err != nil {
 		return nil, err
 	}
-	var usage []model.UsageLog
-	if err := c.db.Where("user_id = ?", userID).Order("id desc").Find(&usage).Error; err != nil {
-		return nil, err
-	}
-	var orders []model.PaymentOrder
-	if err := c.db.Where("user_id = ?", userID).Order("id desc").Find(&orders).Error; err != nil {
-		return nil, err
-	}
-	var keyCount int64
-	if err := c.db.Model(&model.APIKey{}).Where("user_id = ?", userID).Count(&keyCount).Error; err != nil {
-		return nil, err
-	}
-
 	now := time.Now().UnixMilli()
 	oneHourAgo := now - int64(time.Hour/time.Millisecond)
 	sevenDaysAgo := now - int64(7*24*time.Hour/time.Millisecond)
+
+	var agg struct {
+		TotalCost   int64
+		TotalInput  int64
+		TotalOutput int64
+		Count       int64
+		LastUsedAt  int64
+	}
+	c.db.Model(&model.UsageLog{}).Where("user_id = ?", userID).Select(
+		"COALESCE(SUM(cost),0) as total_cost, COALESCE(SUM(input_tokens),0) as total_input, " +
+			"COALESCE(SUM(output_tokens),0) as total_output, COUNT(*) as count, COALESCE(MAX(created_at_ms),0) as last_used_at",
+	).Scan(&agg)
+
+	var recentUsageCount int64
+	c.db.Model(&model.UsageLog{}).Where("user_id = ? AND created_at_ms >= ?", userID, sevenDaysAgo).Count(&recentUsageCount)
+
+	var hourAgg struct {
+		Count  int64
+		Tokens int64
+	}
+	c.db.Model(&model.UsageLog{}).Where("user_id = ? AND created_at_ms >= ?", userID, oneHourAgo).Select(
+		"COUNT(*) as count, COALESCE(SUM(input_tokens+output_tokens),0) as tokens",
+	).Scan(&hourAgg)
+
+	var topModelResult struct {
+		Model string
+		Cnt   int64
+	}
+	c.db.Model(&model.UsageLog{}).Where("user_id = ?", userID).Select(
+		"model, COUNT(*) as cnt").Group("model").Order("cnt desc").Limit(1).Scan(&topModelResult)
+	topModel := "-"
+	if topModelResult.Model != "" {
+		topModel = topModelResult.Model
+	}
+
+	var topProviderResult struct {
+		Provider string
+		Cnt      int64
+	}
+	c.db.Model(&model.UsageLog{}).Where("user_id = ?", userID).Select(
+		"provider, COUNT(*) as cnt").Group("provider").Order("cnt desc").Limit(1).Scan(&topProviderResult)
+	topProvider := "-"
+	if topProviderResult.Provider != "" {
+		topProvider = topProviderResult.Provider
+	}
+
+	var rechargeAgg struct {
+		Total int64
+	}
+	c.db.Model(&model.PaymentOrder{}).Where("user_id = ? AND status = ?", userID, "paid").Select(
+		"COALESCE(SUM(amount),0) as total").Scan(&rechargeAgg)
+
+	var keyCount int64
+	c.db.Model(&model.APIKey{}).Where("user_id = ?", userID).Count(&keyCount)
+
+	var recentUsage []model.UsageLog
+	c.db.Where("user_id = ? AND created_at_ms >= ?", userID, sevenDaysAgo).Find(&recentUsage)
+
 	dayBuckets := 14
 	dailyRequests := make([]int64, dayBuckets)
 	dailyCost := make([]int64, dayBuckets)
 	dailyTokens := make([]int64, dayBuckets)
-
-	var (
-		totalCost         int64
-		totalInput        int64
-		totalOutput       int64
-		totalTokens       int64
-		recentUsageCount  int64
-		topModelCounts    = map[string]int64{}
-		topProviderCounts = map[string]int64{}
-		lastUsageTimeMS   int64
-	)
-	for _, item := range usage {
-		totalCost += item.Cost
-		totalInput += item.InputTokens
-		totalOutput += item.OutputTokens
-		totalTokens += item.InputTokens + item.OutputTokens
-		if item.CreatedAtMS > lastUsageTimeMS {
-			lastUsageTimeMS = item.CreatedAtMS
-		}
-		topModelCounts[item.Model]++
-		topProviderCounts[item.Provider]++
-		if item.CreatedAtMS >= sevenDaysAgo {
-			recentUsageCount++
-		}
-		if item.CreatedAtMS >= sevenDaysAgo {
-			idx := int((now - item.CreatedAtMS) / int64(24*time.Hour/time.Millisecond))
-			if idx >= 0 && idx < dayBuckets {
-				dailyRequests[dayBuckets-1-idx]++
-				dailyCost[dayBuckets-1-idx] += item.Cost
-				dailyTokens[dayBuckets-1-idx] += item.InputTokens + item.OutputTokens
-			}
+	msPerDay := int64(24 * time.Hour / time.Millisecond)
+	for _, item := range recentUsage {
+		idx := int((now - item.CreatedAtMS) / msPerDay)
+		if idx >= 0 && idx < dayBuckets {
+			dailyRequests[dayBuckets-1-idx]++
+			dailyCost[dayBuckets-1-idx] += item.Cost
+			dailyTokens[dayBuckets-1-idx] += item.InputTokens + item.OutputTokens
 		}
 	}
 
-	totalRecharge := int64(0)
-	for _, order := range orders {
-		if strings.EqualFold(order.Status, "paid") {
-			totalRecharge += order.Amount
-		}
-	}
+	var recentUsageLogs []model.UsageLog
+	c.db.Where("user_id = ?", userID).Order("id desc").Limit(20).Find(&recentUsageLogs)
 
-	topModel := "-"
-	var topModelCount int64
-	for modelName, count := range topModelCounts {
-		if count > topModelCount {
-			topModel = modelName
-			topModelCount = count
-		}
-	}
-	topProvider := "-"
-	var topProviderCount int64
-	for providerName, count := range topProviderCounts {
-		if count > topProviderCount {
-			topProvider = providerName
-			topProviderCount = count
-		}
-	}
+	var recentPaymentOrders []model.PaymentOrder
+	c.db.Where("user_id = ?", userID).Order("id desc").Limit(10).Find(&recentPaymentOrders)
 
 	avgRPM := "0"
 	avgTPM := "0"
-	if len(usage) > 0 {
-		recentHourCount := int64(0)
-		recentHourTokens := int64(0)
-		for _, item := range usage {
-			if item.CreatedAtMS >= oneHourAgo {
-				recentHourCount++
-				recentHourTokens += item.InputTokens + item.OutputTokens
-			}
-		}
-		avgRPM = fmt.Sprintf("%.3f", float64(recentHourCount)/60.0)
-		avgTPM = fmt.Sprintf("%.3f", float64(recentHourTokens)/60.0)
-	}
-
-	recentUsageLogs := usage
-	if len(recentUsageLogs) > 20 {
-		recentUsageLogs = recentUsageLogs[:20]
-	}
-	recentPaymentOrders := orders
-	if len(recentPaymentOrders) > 10 {
-		recentPaymentOrders = recentPaymentOrders[:10]
+	if hourAgg.Count > 0 {
+		avgRPM = fmt.Sprintf("%.3f", float64(hourAgg.Count)/60.0)
+		avgTPM = fmt.Sprintf("%.3f", float64(hourAgg.Tokens)/60.0)
 	}
 
 	return &UserDashboardData{
 		Balance:             user.Balance,
 		RatePercent:         user.RatePercent,
-		TotalCost:           totalCost,
-		TotalRecharge:       totalRecharge,
-		RequestCount:        int64(len(usage)),
+		TotalCost:           agg.TotalCost,
+		TotalRecharge:       rechargeAgg.Total,
+		RequestCount:        agg.Count,
 		RecentUsageCount:    recentUsageCount,
-		TotalInputTokens:    totalInput,
-		TotalOutputTokens:   totalOutput,
-		TotalTokens:         totalTokens,
+		TotalInputTokens:    agg.TotalInput,
+		TotalOutputTokens:   agg.TotalOutput,
+		TotalTokens:         agg.TotalInput + agg.TotalOutput,
 		AvgRPM:              avgRPM,
 		AvgTPM:              avgTPM,
 		TopModel:            topModel,
 		TopProvider:         topProvider,
-		LastUsageTimeMS:     lastUsageTimeMS,
+		LastUsageTimeMS:     agg.LastUsedAt,
 		KeyCount:            keyCount,
 		UsageTimeline:       dailyRequests,
 		CostTimeline:        dailyCost,
@@ -901,21 +894,28 @@ func (c *Core) RedeemCoupon(userID uint64, code string) (*model.Coupon, error) {
 		return nil, fmt.Errorf("coupon code is required")
 	}
 	var coupon model.Coupon
-	if err := c.db.Where("code = ? AND status = ?", code, "active").First(&coupon).Error; err != nil {
-		return nil, fmt.Errorf("coupon not found")
-	}
-	if coupon.ExpiresAtMS > 0 && coupon.ExpiresAtMS < time.Now().UnixMilli() {
-		return nil, fmt.Errorf("coupon expired")
-	}
-	if coupon.MaxUses > 0 && coupon.UsedCount >= coupon.MaxUses {
-		return nil, fmt.Errorf("coupon exhausted")
-	}
 	now := time.Now().UnixMilli()
-	if err := c.db.Transaction(func(tx *gorm.DB) error {
+	err := c.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("code = ? AND status = ?", code, "active").First(&coupon).Error; err != nil {
+			return fmt.Errorf("coupon not found")
+		}
+		if coupon.ExpiresAtMS > 0 && coupon.ExpiresAtMS < now {
+			return fmt.Errorf("coupon expired")
+		}
+		if coupon.MaxUses > 0 && coupon.UsedCount >= coupon.MaxUses {
+			return fmt.Errorf("coupon exhausted")
+		}
+		var usageLog []map[string]any
+		_ = json.Unmarshal([]byte(coupon.UsageLogJSON), &usageLog)
+		usageLog = append(usageLog, map[string]any{
+			"user_id":        userID,
+			"redeemed_at_ms": now,
+		})
+		usageLogRaw, _ := json.Marshal(usageLog)
 		if err := tx.Model(&coupon).Updates(map[string]any{
 			"used_count":     gorm.Expr("used_count + 1"),
 			"updated_at_ms":  now,
-			"usage_log_json": coupon.UsageLogJSON,
+			"usage_log_json": string(usageLogRaw),
 		}).Error; err != nil {
 			return err
 		}
@@ -923,7 +923,8 @@ func (c *Core) RedeemCoupon(userID uint64, code string) (*model.Coupon, error) {
 			"balance":       gorm.Expr("balance + ?", coupon.Amount),
 			"updated_at_ms": now,
 		}).Error
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, err
 	}
 	coupon.UsedCount++
@@ -1353,14 +1354,13 @@ func (c *Core) RefundPayment(ctx context.Context, outTradeNo string, amount int6
 	// 更新订单状态和用户余额
 	now := time.Now().UnixMilli()
 	return c.db.Transaction(func(tx *gorm.DB) error {
-		// 更新订单状态为已退款
 		if err := tx.Model(&order).Updates(map[string]any{
-			"status":        "REFUNDED",
-			"updated_at_ms": now,
+			"status":          "REFUNDED",
+			"refunded_amount": gorm.Expr("refunded_amount + ?", amount),
+			"updated_at_ms":   now,
 		}).Error; err != nil {
 			return err
 		}
-		// 扣减用户余额
 		return tx.Model(&user).Updates(map[string]any{
 			"balance":       gorm.Expr("balance - ?", amount),
 			"updated_at_ms": now,
@@ -1420,7 +1420,7 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 		return nil, nil, fmt.Errorf("model is not allowed")
 	}
 	// 生成缓存键，检查是否可缓存
-	cacheKey, cacheable := c.cacheKey(providerName, path, rawQuery, body, stream)
+	cacheKey, cacheable := c.cacheKey(auth.User.ID, providerName, path, rawQuery, body, stream)
 	if cacheable {
 		// 尝试从缓存获取响应
 		if cached, ok := c.getCachedResponse(cacheKey); ok {
@@ -1527,20 +1527,13 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 //
 // 返回：OAuth授权结果和错误
 func (c *Core) OAuthStart(in OAuthStartInput) (*OAuthStartResult, error) {
-	// 标准化Provider名称
 	providerName := normalizeProvider(in.Provider)
-	// 生成会话ID
-	sessionID := randomHex(16)
-	// 生成state参数用于防止CSRF攻击
 	state := randomState()
-	// 生成PKCE code verifier
 	codeVerifier := randomCodeVerifier(providerName)
-	// 处理回调URL
 	redirectURI := strings.TrimSpace(in.RedirectURI)
 	if redirectURI == "" {
 		redirectURI = defaultRedirectURI(providerName, strings.TrimSpace(in.OAuthType))
 	}
-	// 构建元数据
 	meta := map[string]string{
 		"provider":   providerName,
 		"oauth_type": strings.TrimSpace(in.OAuthType),
@@ -1548,20 +1541,17 @@ func (c *Core) OAuthStart(in OAuthStartInput) (*OAuthStartResult, error) {
 		"tier_id":    strings.TrimSpace(in.TierID),
 	}
 	metaRaw, _ := json.Marshal(meta)
-	// 创建OAuth会话记录
 	session := &model.OAuthSession{
 		Provider:     providerName,
 		State:        state,
 		CodeVerifier: codeVerifier,
 		RedirectURI:  redirectURI,
-		ExpiresAtMS:  time.Now().Add(30 * time.Minute).UnixMilli(), // 会话30分钟有效
+		ExpiresAtMS:  time.Now().Add(30 * time.Minute).UnixMilli(),
 		MetadataJSON: string(metaRaw),
 	}
 	if err := c.db.Create(session).Error; err != nil {
 		return nil, err
 	}
-	_ = sessionID
-	// 构建授权URL
 	authURL, err := c.buildAuthorizationURL(providerName, state, codeVerifier, redirectURI, meta)
 	if err != nil {
 		return nil, err
@@ -2234,7 +2224,12 @@ func (c *Core) oauthFormRequest(ctx context.Context, endpoint string, form url.V
 	}
 	result := map[string]string{}
 	for k, v := range data {
-		result[k] = fmt.Sprintf("%v", v)
+		switch val := v.(type) {
+		case string:
+			result[k] = val
+		default:
+			result[k] = fmt.Sprintf("%v", v)
+		}
 	}
 	return result, nil
 }
@@ -2713,17 +2708,15 @@ func cloneBody(body []byte) []byte {
 //   - stream: 是否流式请求
 //
 // 返回：缓存键和是否可缓存
-func (c *Core) cacheKey(providerName, path, rawQuery string, body []byte, stream bool) (string, bool) {
-	// 流式请求不可缓存
+func (c *Core) cacheKey(userID uint64, providerName, path, rawQuery string, body []byte, stream bool) (string, bool) {
 	if stream || providerName == "antigravity" {
 		return "", false
 	}
-	// 检查请求体中是否有stream标志
 	if bytes.Contains(body, []byte(`"stream":true`)) || bytes.Contains(body, []byte(`"stream": true`)) {
 		return "", false
 	}
-	// 生成SHA256哈希作为缓存键
-	sum := sha256.Sum256(append([]byte(providerName+"|"+path+"?"+rawQuery+"|"), body...))
+	raw := fmt.Sprintf("%d|%s|%s?%s|", userID, providerName, path, rawQuery)
+	sum := sha256.Sum256(append([]byte(raw), body...))
 	return hex.EncodeToString(sum[:]), true
 }
 
@@ -2885,20 +2878,20 @@ func hashPassword(password string) (string, string, error) {
 		return "", "", fmt.Errorf("password must be at least 6 characters")
 	}
 	salt := randomHex(16)
-	sum := sha256.Sum256([]byte(salt + ":" + password))
-	return salt, hex.EncodeToString(sum[:]), nil
+	mac := hmac.New(sha256.New, []byte(salt))
+	mac.Write([]byte(password))
+	return salt, "$hmac$" + hex.EncodeToString(mac.Sum(nil)), nil
 }
 
-// verifyPassword 验证密码
-// 参数：
-//   - salt: 盐值
-//   - expectedHash: 期望的哈希值
-//   - password: 待验证的密码
-//
-// 返回：密码是否正确
 func verifyPassword(salt, expectedHash, password string) bool {
 	if salt == "" || expectedHash == "" {
 		return false
+	}
+	if strings.HasPrefix(expectedHash, "$hmac$") {
+		mac := hmac.New(sha256.New, []byte(salt))
+		mac.Write([]byte(password))
+		expected := "$hmac$" + hex.EncodeToString(mac.Sum(nil))
+		return subtle.ConstantTimeCompare([]byte(expectedHash), []byte(expected)) == 1
 	}
 	sum := sha256.Sum256([]byte(salt + ":" + password))
 	return subtle.ConstantTimeCompare([]byte(expectedHash), []byte(hex.EncodeToString(sum[:]))) == 1
@@ -2951,8 +2944,10 @@ func (c *Core) signUserToken(userID uint64, tokenVersion int64, kind string, exp
 		return "", err
 	}
 	rawPayload := base64.RawURLEncoding.EncodeToString(payload)
-	mac := sha256.Sum256([]byte(rawPayload + "." + hex.EncodeToString(c.cfg.AESKey)))
-	return rawPayload + "." + base64.RawURLEncoding.EncodeToString(mac[:]), nil
+	mac := hmac.New(sha256.New, c.cfg.AESKey)
+	mac.Write([]byte(rawPayload))
+	sig := mac.Sum(nil)
+	return "v2." + rawPayload + "." + base64.RawURLEncoding.EncodeToString(sig), nil
 }
 
 // parseUserToken 解析用户令牌
@@ -2963,33 +2958,203 @@ func (c *Core) signUserToken(userID uint64, tokenVersion int64, kind string, exp
 //
 // 返回：令牌声明和错误
 func (c *Core) parseUserToken(token, expectedKind string) (*userTokenClaims, error) {
-	// 解析令牌（payload.signature格式）
-	parts := strings.Split(strings.TrimSpace(token), ".")
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid token")
+	token = strings.TrimSpace(token)
+	var payloadStr, sigStr string
+	if strings.HasPrefix(token, "v2.") {
+		parts := strings.Split(token[3:], ".")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid token")
+		}
+		payloadStr, sigStr = parts[0], parts[1]
+		mac := hmac.New(sha256.New, c.cfg.AESKey)
+		mac.Write([]byte(payloadStr))
+		if subtle.ConstantTimeCompare([]byte(sigStr), []byte(base64.RawURLEncoding.EncodeToString(mac.Sum(nil)))) != 1 {
+			return nil, fmt.Errorf("invalid token signature")
+		}
+	} else {
+		parts := strings.Split(token, ".")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid token")
+		}
+		payloadStr, sigStr = parts[0], parts[1]
+		mac := sha256.Sum256([]byte(payloadStr + "." + hex.EncodeToString(c.cfg.AESKey)))
+		if subtle.ConstantTimeCompare([]byte(sigStr), []byte(base64.RawURLEncoding.EncodeToString(mac[:]))) != 1 {
+			return nil, fmt.Errorf("invalid token signature")
+		}
 	}
-	// 验证签名
-	mac := sha256.Sum256([]byte(parts[0] + "." + hex.EncodeToString(c.cfg.AESKey)))
-	if subtle.ConstantTimeCompare([]byte(parts[1]), []byte(base64.RawURLEncoding.EncodeToString(mac[:]))) != 1 {
-		return nil, fmt.Errorf("invalid token signature")
-	}
-	// 解码payload
-	payload, err := base64.RawURLEncoding.DecodeString(parts[0])
+	payload, err := base64.RawURLEncoding.DecodeString(payloadStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid token payload")
 	}
-	// 解析声明
 	var claims userTokenClaims
 	if err := json.Unmarshal(payload, &claims); err != nil {
 		return nil, fmt.Errorf("invalid token payload")
 	}
-	// 验证令牌类型
 	if claims.Kind != expectedKind {
 		return nil, fmt.Errorf("invalid token type")
 	}
-	// 验证过期时间
 	if claims.ExpiresAtMS <= time.Now().UnixMilli() {
 		return nil, fmt.Errorf("token expired")
 	}
 	return &claims, nil
+}
+
+func (c *Core) cacheCleanupLoop(ctx context.Context) {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			c.cacheMu.Lock()
+			now := time.Now()
+			for k, v := range c.cacheItems {
+				if now.After(v.ExpiresAt) {
+					delete(c.cacheItems, k)
+				}
+			}
+			c.cacheMu.Unlock()
+		}
+	}
+}
+
+func (c *Core) oauthSessionCleanupLoop(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			expiry := time.Now().Add(-1 * time.Hour).UnixMilli()
+			c.db.Where("status = ? AND created_at_ms < ?", "pending", expiry).Delete(&model.OAuthSession{})
+		}
+	}
+}
+
+func isValidEmail(email string) bool {
+	at := strings.Index(email, "@")
+	if at < 1 || at == len(email)-1 {
+		return false
+	}
+	dot := strings.LastIndex(email[at+1:], ".")
+	return dot >= 1
+}
+
+type UpdateModelPriceInput struct {
+	InputPrice       *int64 `json:"input_price"`
+	OutputPrice      *int64 `json:"output_price"`
+	CacheCreatePrice *int64 `json:"cache_create_price"`
+	CacheReadPrice   *int64 `json:"cache_read_price"`
+	Status           string `json:"status"`
+}
+
+type UpdateAnnouncementInput struct {
+	Title         string `json:"title"`
+	Content       string `json:"content"`
+	Status        string `json:"status"`
+	PublishedAtMS int64  `json:"published_at_ms"`
+}
+
+type UpdateCouponInput struct {
+	Status      string `json:"status"`
+	MaxUses     *int   `json:"max_uses"`
+	ExpiresAtMS *int64 `json:"expires_at_ms"`
+}
+
+func (c *Core) ListPublishedAnnouncements() ([]model.Announcement, error) {
+	var items []model.Announcement
+	now := time.Now().UnixMilli()
+	err := c.db.Where("status = ? AND published_at_ms <= ?", "published", now).
+		Order("id desc").Limit(20).Find(&items).Error
+	return items, err
+}
+
+func (c *Core) DeleteModelPrice(id uint64) error {
+	return c.db.Delete(&model.ModelPrice{}, id).Error
+}
+
+func (c *Core) UpdateModelPrice(id uint64, in UpdateModelPriceInput) error {
+	updates := map[string]any{}
+	if in.InputPrice != nil {
+		updates["input_price"] = *in.InputPrice
+	}
+	if in.OutputPrice != nil {
+		updates["output_price"] = *in.OutputPrice
+	}
+	if in.CacheCreatePrice != nil {
+		updates["cache_create_price"] = *in.CacheCreatePrice
+	}
+	if in.CacheReadPrice != nil {
+		updates["cache_read_price"] = *in.CacheReadPrice
+	}
+	if in.Status != "" {
+		updates["status"] = in.Status
+	}
+	if len(updates) == 0 {
+		return fmt.Errorf("no fields to update")
+	}
+	result := c.db.Model(&model.ModelPrice{}).Where("id = ?", id).Updates(updates)
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("model price not found")
+	}
+	return result.Error
+}
+
+func (c *Core) DeleteAnnouncement(id uint64) error {
+	return c.db.Delete(&model.Announcement{}, id).Error
+}
+
+func (c *Core) UpdateAnnouncement(id uint64, in UpdateAnnouncementInput) error {
+	updates := map[string]any{}
+	if in.Title != "" {
+		updates["title"] = in.Title
+	}
+	if in.Content != "" {
+		updates["content"] = in.Content
+	}
+	if in.Status != "" {
+		updates["status"] = in.Status
+	}
+	if in.PublishedAtMS > 0 {
+		updates["published_at_ms"] = in.PublishedAtMS
+	}
+	if len(updates) == 0 {
+		return fmt.Errorf("no fields to update")
+	}
+	result := c.db.Model(&model.Announcement{}).Where("id = ?", id).Updates(updates)
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("announcement not found")
+	}
+	return result.Error
+}
+
+func (c *Core) DeleteCoupon(id uint64) error {
+	return c.db.Delete(&model.Coupon{}, id).Error
+}
+
+func (c *Core) UpdateCoupon(id uint64, in UpdateCouponInput) error {
+	updates := map[string]any{}
+	if in.Status != "" {
+		updates["status"] = in.Status
+	}
+	if in.MaxUses != nil {
+		updates["max_uses"] = *in.MaxUses
+	}
+	if in.ExpiresAtMS != nil {
+		updates["expires_at_ms"] = *in.ExpiresAtMS
+	}
+	if len(updates) == 0 {
+		return fmt.Errorf("no fields to update")
+	}
+	result := c.db.Model(&model.Coupon{}).Where("id = ?", id).Updates(updates)
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("coupon not found")
+	}
+	return result.Error
+}
+
+func (c *Core) DeleteErrorLog(id uint64) error {
+	return c.db.Delete(&model.ErrorLog{}, id).Error
 }

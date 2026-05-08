@@ -72,13 +72,21 @@ func (h *HTTP) Routes() http.Handler {
 	mux.HandleFunc("POST /api/admin/accounts/oauth/create", h.adminOAuthCreateAccount)
 	mux.HandleFunc("GET /api/admin/model-prices", h.adminModelPrices)
 	mux.HandleFunc("POST /api/admin/model-prices", h.adminCreateModelPrice)
+	mux.HandleFunc("PATCH /api/admin/model-prices/", h.adminUpdateModelPrice)
+	mux.HandleFunc("DELETE /api/admin/model-prices/", h.adminDeleteModelPrice)
 	mux.HandleFunc("GET /api/model-catalog", h.userModelCatalog)
 	mux.HandleFunc("GET /api/model-prices", h.userModelPrices)
+	mux.HandleFunc("GET /api/announcements", h.userAnnouncements)
 	mux.HandleFunc("GET /api/admin/announcements", h.adminAnnouncements)
 	mux.HandleFunc("POST /api/admin/announcements", h.adminCreateAnnouncement)
+	mux.HandleFunc("PATCH /api/admin/announcements/", h.adminUpdateAnnouncement)
+	mux.HandleFunc("DELETE /api/admin/announcements/", h.adminDeleteAnnouncement)
 	mux.HandleFunc("GET /api/admin/coupons", h.adminCoupons)
 	mux.HandleFunc("POST /api/admin/coupons", h.adminCreateCoupon)
+	mux.HandleFunc("PATCH /api/admin/coupons/", h.adminUpdateCoupon)
+	mux.HandleFunc("DELETE /api/admin/coupons/", h.adminDeleteCoupon)
 	mux.HandleFunc("GET /api/admin/errors", h.adminErrors)
+	mux.HandleFunc("DELETE /api/admin/errors/", h.adminDeleteError)
 	mux.HandleFunc("GET /api/admin/stats", h.adminStats)
 	mux.HandleFunc("GET /api/admin/payment-orders", h.adminPaymentOrders)
 	mux.HandleFunc("POST /api/admin/payment-orders/refund", h.adminRefundPayment)
@@ -1053,7 +1061,7 @@ func withCORS(next http.Handler) http.Handler {
 		// 添加CORS头
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Admin-Token")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
 		// 处理预检请求
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
@@ -1134,11 +1142,146 @@ func parseIntDefault(raw string, fallback int) int {
 // 根据User-Agent判断移动设备
 func detectDevice(ua string) string {
 	ua = strings.ToLower(ua)
-	// 检查常见的移动设备标识
 	for _, marker := range []string{"iphone", "android", "mobile", "micromessenger"} {
 		if strings.Contains(ua, marker) {
 			return "mobile"
 		}
 	}
 	return "pc"
+}
+
+func (h *HTTP) userAnnouncements(w http.ResponseWriter, r *http.Request) {
+	items, err := h.core.ListPublishedAnnouncements()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (h *HTTP) adminDeleteModelPrice(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(w, r) {
+		return
+	}
+	id, err := strconv.ParseUint(strings.TrimPrefix(r.URL.Path, "/api/admin/model-prices/"), 10, 64)
+	if err != nil || id == 0 {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid model price id"))
+		return
+	}
+	if err := h.core.DeleteModelPrice(id); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (h *HTTP) adminUpdateModelPrice(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(w, r) {
+		return
+	}
+	id, err := strconv.ParseUint(strings.TrimPrefix(r.URL.Path, "/api/admin/model-prices/"), 10, 64)
+	if err != nil || id == 0 {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid model price id"))
+		return
+	}
+	var req service.UpdateModelPriceInput
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := h.core.UpdateModelPrice(id, req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (h *HTTP) adminDeleteAnnouncement(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(w, r) {
+		return
+	}
+	id, err := strconv.ParseUint(strings.TrimPrefix(r.URL.Path, "/api/admin/announcements/"), 10, 64)
+	if err != nil || id == 0 {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid announcement id"))
+		return
+	}
+	if err := h.core.DeleteAnnouncement(id); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (h *HTTP) adminUpdateAnnouncement(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(w, r) {
+		return
+	}
+	id, err := strconv.ParseUint(strings.TrimPrefix(r.URL.Path, "/api/admin/announcements/"), 10, 64)
+	if err != nil || id == 0 {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid announcement id"))
+		return
+	}
+	var req service.UpdateAnnouncementInput
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := h.core.UpdateAnnouncement(id, req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (h *HTTP) adminDeleteCoupon(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(w, r) {
+		return
+	}
+	id, err := strconv.ParseUint(strings.TrimPrefix(r.URL.Path, "/api/admin/coupons/"), 10, 64)
+	if err != nil || id == 0 {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid coupon id"))
+		return
+	}
+	if err := h.core.DeleteCoupon(id); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (h *HTTP) adminUpdateCoupon(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(w, r) {
+		return
+	}
+	id, err := strconv.ParseUint(strings.TrimPrefix(r.URL.Path, "/api/admin/coupons/"), 10, 64)
+	if err != nil || id == 0 {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid coupon id"))
+		return
+	}
+	var req service.UpdateCouponInput
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := h.core.UpdateCoupon(id, req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (h *HTTP) adminDeleteError(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(w, r) {
+		return
+	}
+	id, err := strconv.ParseUint(strings.TrimPrefix(r.URL.Path, "/api/admin/errors/"), 10, 64)
+	if err != nil || id == 0 {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid error log id"))
+		return
+	}
+	if err := h.core.DeleteErrorLog(id); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }

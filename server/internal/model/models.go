@@ -2,10 +2,13 @@ package model
 
 import (
 	"database/sql"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
 )
+
+var idMu sync.Mutex
 
 // User 用户模型
 // 存储用户账户信息、认证凭证和余额等
@@ -65,17 +68,17 @@ type Account struct {
 // ModelPrice 模型价格模型
 // 存储不同AI模型的定价信息，用于计算使用成本
 type ModelPrice struct {
-	ID          uint64 `gorm:"primaryKey;autoIncrement:false" json:"id"`
-	Provider    string `gorm:"index;size:40;not null" json:"provider"`
-	Model       string `gorm:"index;size:120;not null" json:"model"`
-	InputPrice  int64  `gorm:"not null" json:"input_price"`
-	OutputPrice int64  `gorm:"not null" json:"output_price"`
+	ID               uint64 `gorm:"primaryKey;autoIncrement:false" json:"id"`
+	Provider         string `gorm:"index;size:40;not null" json:"provider"`
+	Model            string `gorm:"index;size:120;not null" json:"model"`
+	InputPrice       int64  `gorm:"not null" json:"input_price"`
+	OutputPrice      int64  `gorm:"not null" json:"output_price"`
 	CacheCreatePrice int64  `gorm:"not null;default:0" json:"cache_create_price"`
 	CacheReadPrice   int64  `gorm:"not null;default:0" json:"cache_read_price"`
-	Currency    string `gorm:"size:20;not null;default:CNY_1E4" json:"currency"`
-	Status      string `gorm:"size:20;not null;default:active" json:"status"`
-	CreatedAtMS int64  `gorm:"not null" json:"created_at_ms"`
-	UpdatedAtMS int64  `gorm:"not null" json:"updated_at_ms"`
+	Currency         string `gorm:"size:20;not null;default:CNY_1E4" json:"currency"`
+	Status           string `gorm:"size:20;not null;default:active" json:"status"`
+	CreatedAtMS      int64  `gorm:"not null" json:"created_at_ms"`
+	UpdatedAtMS      int64  `gorm:"not null" json:"updated_at_ms"`
 }
 
 // PaymentOrder 支付订单模型
@@ -90,6 +93,7 @@ type PaymentOrder struct {
 	Status          string `gorm:"size:20;not null;default:PENDING" json:"status"`
 	Amount          int64  `gorm:"not null" json:"amount"`
 	CreditedAmount  int64  `gorm:"not null" json:"credited_amount"`
+	RefundedAmount  int64  `gorm:"not null;default:0" json:"refunded_amount"`
 	MetadataJSON    string `gorm:"type:text;not null;default:'{}'" json:"metadata_json"`
 	NotifiedAtMS    int64  `gorm:"not null;default:0" json:"notified_at_ms"`
 	CreatedAtMS     int64  `gorm:"not null" json:"created_at_ms"`
@@ -151,19 +155,19 @@ type SystemMetric struct {
 // UsageLog 使用日志模型
 // 记录用户使用AI服务的详细情况
 type UsageLog struct {
-	ID           uint64 `gorm:"primaryKey;autoIncrement:false" json:"id"`
-	UserID       uint64 `gorm:"index;not null" json:"user_id"`
-	APIKeyID     uint64 `gorm:"index;not null" json:"api_key_id"`
-	AccountID    uint64 `gorm:"index;not null" json:"account_id"`
-	Provider     string `gorm:"size:40;not null" json:"provider"`
-	Model        string `gorm:"size:120;not null" json:"model"`
-	Endpoint     string `gorm:"size:120;not null" json:"endpoint"`
-	InputTokens  int64  `gorm:"not null;default:0" json:"input_tokens"`
-	OutputTokens int64  `gorm:"not null;default:0" json:"output_tokens"`
-	CacheCreateTokens int64 `gorm:"not null;default:0" json:"cache_create_tokens"`
-	CacheReadTokens   int64 `gorm:"not null;default:0" json:"cache_read_tokens"`
-	Cost         int64  `gorm:"not null;default:0" json:"cost"`
-	CreatedAtMS  int64  `gorm:"not null" json:"created_at_ms"`
+	ID                uint64 `gorm:"primaryKey;autoIncrement:false" json:"id"`
+	UserID            uint64 `gorm:"index;not null" json:"user_id"`
+	APIKeyID          uint64 `gorm:"index;not null" json:"api_key_id"`
+	AccountID         uint64 `gorm:"index;not null" json:"account_id"`
+	Provider          string `gorm:"size:40;not null" json:"provider"`
+	Model             string `gorm:"size:120;not null" json:"model"`
+	Endpoint          string `gorm:"size:120;not null" json:"endpoint"`
+	InputTokens       int64  `gorm:"not null;default:0" json:"input_tokens"`
+	OutputTokens      int64  `gorm:"not null;default:0" json:"output_tokens"`
+	CacheCreateTokens int64  `gorm:"not null;default:0" json:"cache_create_tokens"`
+	CacheReadTokens   int64  `gorm:"not null;default:0" json:"cache_read_tokens"`
+	Cost              int64  `gorm:"not null;default:0" json:"cost"`
+	CreatedAtMS       int64  `gorm:"not null" json:"created_at_ms"`
 }
 
 // OAuthSession OAuth会话模型
@@ -241,6 +245,8 @@ func initCreate(tx *gorm.DB, table string, id *uint64, createdAt *int64, updated
 // nextID 生成下一个自增ID
 // 从数据库表中获取最大ID并加1
 func nextID(tx *gorm.DB, table string) (uint64, error) {
+	idMu.Lock()
+	defer idMu.Unlock()
 	var max sql.NullInt64
 	if err := tx.Table(table).Select("COALESCE(MAX(id), 9999)").Scan(&max).Error; err != nil {
 		return 0, err
