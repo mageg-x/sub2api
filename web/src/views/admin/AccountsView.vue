@@ -52,6 +52,7 @@
           </h3>
           <div class="account-actions">
             <span class="account-count">{{ filteredAccounts.length }} / {{ accounts.length }} {{ t('adminAccounts.accountCount') }}</span>
+            <span v-if="riskAccounts > 0" class="risk-hint">{{ t('adminAccounts.riskFirstHint') }}</span>
             <el-button type="primary" @click="showCreate = true">
               <Plus :size="16" style="margin-right: 6px" />
               {{ t('adminAccounts.createAccount') }}
@@ -59,6 +60,21 @@
           </div>
         </div>
         <div class="card-body">
+          <div class="quick-filters">
+            <el-button :type="quickFilter === 'all' ? 'primary' : 'default'" size="small" @click="setQuickFilter('all')">
+              {{ t('adminAccounts.quickAll') }}
+            </el-button>
+            <el-button :type="quickFilter === 'risk' ? 'warning' : 'default'" size="small" @click="setQuickFilter('risk')">
+              {{ t('adminAccounts.quickRisk') }}
+            </el-button>
+            <el-button :type="quickFilter === 'expired' ? 'danger' : 'default'" size="small" @click="setQuickFilter('expired')">
+              {{ t('adminAccounts.quickExpired') }}
+            </el-button>
+            <el-button :type="quickFilter === 'oauth' ? 'primary' : 'default'" size="small" @click="setQuickFilter('oauth')">
+              {{ t('adminAccounts.quickOAuth') }}
+            </el-button>
+          </div>
+
           <div class="filter-toolbar">
             <el-input
               v-model="keyword"
@@ -77,6 +93,10 @@
             <el-select v-model="statusFilter" clearable class="filter-item" :placeholder="t('adminAccounts.statusPlaceholder')">
               <el-option :label="t('common.all')" value="" />
               <el-option v-for="status in statusOptions" :key="status" :label="status" :value="status" />
+            </el-select>
+            <el-select v-model="healthFilter" clearable class="filter-item" :placeholder="t('adminAccounts.healthPlaceholder')">
+              <el-option :label="t('common.all')" value="" />
+              <el-option v-for="health in healthOptions" :key="health.value" :label="health.label" :value="health.value" />
             </el-select>
             <el-button class="filter-reset" @click="resetFilters">
               {{ t('common.reset') }}
@@ -141,16 +161,32 @@
             <el-table-column :label="t('adminAccounts.actions')" width="160" fixed="right">
               <template #default="{ row }">
                 <div class="table-actions">
+                  <el-button
+                    v-if="row.auth_type === 'oauth' && isUrgentRefresh(row)"
+                    link
+                    type="warning"
+                    class="action-refresh-urgent"
+                    :loading="refreshingId === row.id"
+                    @click="handleRefresh(row.id)"
+                  >
+                    {{ t('adminAccounts.refreshNow') }}
+                  </el-button>
                   <el-button link type="info" @click="openDetail(row)">
                     {{ t('adminAccounts.details') }}
                   </el-button>
                   <el-button link type="primary" @click="openEdit(row)">
                     {{ t('adminAccounts.edit') }}
                   </el-button>
-                  <el-button v-if="row.auth_type === 'oauth'" link type="primary" @click="handleRefresh(row.id)">
+                  <el-button
+                    v-if="row.auth_type === 'oauth' && !isUrgentRefresh(row)"
+                    link
+                    type="primary"
+                    :loading="refreshingId === row.id"
+                    @click="handleRefresh(row.id)"
+                  >
                     {{ t('adminAccounts.refresh') }}
                   </el-button>
-                  <el-button link type="danger" @click="handleDelete(row.id)">
+                  <el-button link type="danger" :loading="deletingId === row.id" @click="handleDelete(row.id)">
                     {{ t('adminAccounts.delete') }}
                   </el-button>
                 </div>
@@ -190,11 +226,24 @@ const keyword = ref("");
 const providerFilter = ref("");
 const authTypeFilter = ref("");
 const statusFilter = ref("");
+const healthFilter = ref("");
+const quickFilter = ref<"all" | "risk" | "expired" | "oauth">("all");
+const refreshingId = ref<number | null>(null);
+const deletingId = ref<number | null>(null);
 
 const providerOptions = computed(() => Array.from(new Set(accounts.value.map((item) => item.provider))).sort((a, b) => a.localeCompare(b)));
 const authTypeOptions = computed(() => Array.from(new Set(accounts.value.map((item) => item.auth_type))).sort((a, b) => a.localeCompare(b)));
 const statusOptions = computed(() => Array.from(new Set(accounts.value.map((item) => item.status))).sort((a, b) => a.localeCompare(b)));
-const hasActiveFilters = computed(() => Boolean(keyword.value.trim() || providerFilter.value || authTypeFilter.value || statusFilter.value));
+const healthOptions = computed(() => [
+  { value: "healthy", label: t("adminAccounts.healthHealthy") },
+  { value: "expiring", label: t("adminAccounts.healthExpiring") },
+  { value: "expired", label: t("adminAccounts.healthExpired") },
+  { value: "stale", label: t("adminAccounts.healthNeedsRefresh") },
+  { value: "inactive", label: t("adminAccounts.healthInactive") },
+]);
+const hasActiveFilters = computed(() =>
+  Boolean(keyword.value.trim() || providerFilter.value || authTypeFilter.value || statusFilter.value || healthFilter.value || quickFilter.value !== "all"),
+);
 
 function accountHealth(item: Account) {
   const now = Date.now();
@@ -216,29 +265,55 @@ function accountHealth(item: Account) {
   return { key: "healthy", label: t("adminAccounts.healthHealthy"), tagType: "success" as const };
 }
 
+function healthPriority(item: Account) {
+  const key = accountHealth(item).key;
+  if (key === "expired") return 0;
+  if (key === "expiring") return 1;
+  if (key === "stale") return 2;
+  if (key === "healthy") return 3;
+  return 4;
+}
+
+function isUrgentRefresh(item: Account) {
+  const key = accountHealth(item).key;
+  return item.auth_type === "oauth" && (key === "expired" || key === "expiring" || key === "stale");
+}
+
 const filteredAccounts = computed(() => {
   const query = keyword.value.trim().toLowerCase();
-  return accounts.value.filter((item) => {
-    if (providerFilter.value && item.provider !== providerFilter.value) return false;
-    if (authTypeFilter.value && item.auth_type !== authTypeFilter.value) return false;
-    if (statusFilter.value && item.status !== statusFilter.value) return false;
-    if (!query) return true;
+  return accounts.value
+    .filter((item) => {
+      if (quickFilter.value === "risk" && !["expired", "expiring", "stale"].includes(accountHealth(item).key)) return false;
+      if (quickFilter.value === "expired" && accountHealth(item).key !== "expired") return false;
+      if (quickFilter.value === "oauth" && item.auth_type !== "oauth") return false;
+      if (providerFilter.value && item.provider !== providerFilter.value) return false;
+      if (authTypeFilter.value && item.auth_type !== authTypeFilter.value) return false;
+      if (statusFilter.value && item.status !== statusFilter.value) return false;
+      if (healthFilter.value && accountHealth(item).key !== healthFilter.value) return false;
+      if (!query) return true;
 
-    const haystacks = [
-      item.provider,
-      item.name,
-      item.auth_type,
-      item.status,
-      item.base_url,
-      item.credentials?.email,
-      item.credentials?.organization_id,
-      item.credentials?.project_id,
-      item.credentials?.account_id,
-      accountHealth(item).label,
-    ];
+      const haystacks = [
+        item.provider,
+        item.name,
+        item.auth_type,
+        item.status,
+        item.base_url,
+        item.credentials?.email,
+        item.credentials?.organization_id,
+        item.credentials?.project_id,
+        item.credentials?.account_id,
+        accountHealth(item).label,
+      ];
 
-    return haystacks.some((value) => String(value || "").toLowerCase().includes(query));
-  });
+      return haystacks.some((value) => String(value || "").toLowerCase().includes(query));
+    })
+    .slice()
+    .sort((a, b) => {
+      const healthDiff = healthPriority(a) - healthPriority(b);
+      if (healthDiff !== 0) return healthDiff;
+      if (a.priority !== b.priority) return b.priority - a.priority;
+      return a.id - b.id;
+    });
 });
 const activeAccounts = computed(() => filteredAccounts.value.filter((item) => isActiveStatus(item.status)).length);
 const providerCount = computed(() => new Set(filteredAccounts.value.map((item) => item.provider)).size);
@@ -287,31 +362,45 @@ function resetFilters() {
   providerFilter.value = "";
   authTypeFilter.value = "";
   statusFilter.value = "";
+  healthFilter.value = "";
+  quickFilter.value = "all";
+}
+
+function setQuickFilter(value: "all" | "risk" | "expired" | "oauth") {
+  quickFilter.value = value;
 }
 
 async function handleRefresh(id: number) {
+  if (refreshingId.value === id) return;
+  refreshingId.value = id;
   try {
     await adminAPI.refreshAccount(id);
     ElMessage.success(t('adminAccounts.refreshSuccess'));
     await load();
   } catch (err) {
     ElMessage.error(err instanceof Error ? err.message : t('adminAccounts.refreshFailed'));
+  } finally {
+    refreshingId.value = null;
   }
 }
 
 async function handleDelete(id: number) {
+  if (deletingId.value === id) return;
   try {
     await ElMessageBox.confirm(t('adminAccounts.deleteConfirm'), t('common.warning'), {
       type: 'warning',
       confirmButtonText: t('common.confirm'),
       cancelButtonText: t('common.cancel'),
     });
+    deletingId.value = id;
     await adminAPI.deleteAccount(id);
     ElMessage.success(t('adminAccounts.deleteSuccess'));
     await load();
   } catch (err) {
     if (err === 'cancel') return;
     ElMessage.error(err instanceof Error ? err.message : t('adminAccounts.deleteFailed'));
+  } finally {
+    deletingId.value = null;
   }
 }
 </script>
@@ -410,11 +499,27 @@ async function handleDelete(id: number) {
   gap: 12px;
 }
 
+.risk-hint {
+  font-size: 12px;
+  color: var(--warning-color);
+  background: var(--warning-light);
+  padding: 6px 10px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+}
+
 .filter-toolbar {
   display: grid;
-  grid-template-columns: minmax(220px, 1.6fr) repeat(3, minmax(140px, 1fr)) auto;
+  grid-template-columns: minmax(220px, 1.6fr) repeat(4, minmax(140px, 1fr)) auto;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.quick-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
 }
 
 .filter-item {
@@ -443,6 +548,11 @@ async function handleDelete(id: number) {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.action-refresh-urgent {
+  font-weight: 700;
 }
 
 .provider-badge {

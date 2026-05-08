@@ -345,8 +345,8 @@ function buildCreatePayload(credentials: Record<string, unknown>) {
     base_url: form.baseUrl.trim(),
     model_scope: parseModelScope(),
     credentials,
-    priority: Number(form.priority || 100),
-    concurrency_limit: Number(form.concurrencyLimit || 4),
+    priority: Number(form.priority ?? 100),
+    concurrency_limit: Number(form.concurrencyLimit ?? 4),
     metadata: {},
   };
 }
@@ -406,8 +406,8 @@ async function completeOAuthCreate() {
       name: form.name.trim(),
       model_scope: parseModelScope(),
       base_url: form.baseUrl.trim(),
-      priority: Number(form.priority || 100),
-      concurrency_limit: Number(form.concurrencyLimit || 4),
+      priority: Number(form.priority ?? 100),
+      concurrency_limit: Number(form.concurrencyLimit ?? 4),
       credentials: credentials as AccountCredentials,
     });
 
