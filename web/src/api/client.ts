@@ -99,7 +99,3 @@ export async function request<T>(path: string, method: HttpMethod = 'GET', body?
   }
   return data as T
 }
-
-export async function adminRequest<T>(path: string, method: HttpMethod = 'GET', body?: unknown): Promise<T> {
-  return request<T>(path, method, body)
-}

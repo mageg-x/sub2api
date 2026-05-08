@@ -149,13 +149,21 @@ const form = reactive({
 });
 
 async function load() {
-  items.value = await adminAPI.coupons();
+  try {
+    items.value = await adminAPI.coupons();
+  } catch {
+    items.value = [];
+  }
 }
 
 async function create() {
-  await adminAPI.createCoupon(form);
-  form.code = "";
-  await load();
+  if (!form.amount || form.amount <= 0) return;
+  try {
+    await adminAPI.createCoupon(form);
+    form.code = "";
+    await load();
+  } catch {
+  }
 }
 
 onMounted(() => {

@@ -70,29 +70,35 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { Copy, Lightbulb, ReceiptText } from "lucide-vue-next";
 import { ElAlert, ElButton, ElTag } from "element-plus";
 import { userAPI } from "@/api/user";
 import type { PaymentOrder } from "@/api/types";
-import { formatCurrency, formatTime } from "@/utils";
+import { formatCurrency, formatTime, copyToClipboard } from "@/utils";
 import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const route = useRoute();
+const router = useRouter();
 const order = ref<PaymentOrder | null>(null);
 const loading = ref(true);
 const error = ref("");
 
 function copyText(value: string) {
-  void navigator.clipboard.writeText(value);
+  void copyToClipboard(value);
 }
 
 async function load() {
+  const id = Number(route.params.id);
+  if (!id || Number.isNaN(id)) {
+    router.replace("/user/payment");
+    return;
+  }
   loading.value = true;
   error.value = "";
   try {
-    order.value = await userAPI.orderByID(Number(route.params.id));
+    order.value = await userAPI.orderByID(id);
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('common.loadingFailed');
   } finally {

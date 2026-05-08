@@ -170,24 +170,32 @@ const form = reactive({
 const providerCount = computed(() => new Set(prices.value.map((item) => item.provider)).size);
 
 async function load() {
-  prices.value = await adminAPI.prices();
+  try {
+    prices.value = await adminAPI.prices();
+  } catch {
+    prices.value = [];
+  }
 }
 
 async function create() {
-  await adminAPI.createPrice({
-    provider: form.provider,
-    model: form.model,
-    input_price: Number(form.input_price || 0),
-    output_price: Number(form.output_price || 0),
-    cache_create_price: Number(form.cache_create_price || 0),
-    cache_read_price: Number(form.cache_read_price || 0),
-  });
-  form.model = "";
-  form.input_price = 0;
-  form.output_price = 0;
-  form.cache_create_price = 0;
-  form.cache_read_price = 0;
-  await load();
+  if (!form.provider.trim() || !form.model.trim()) return;
+  try {
+    await adminAPI.createPrice({
+      provider: form.provider,
+      model: form.model,
+      input_price: Number(form.input_price || 0),
+      output_price: Number(form.output_price || 0),
+      cache_create_price: Number(form.cache_create_price || 0),
+      cache_read_price: Number(form.cache_read_price || 0),
+    });
+    form.model = "";
+    form.input_price = 0;
+    form.output_price = 0;
+    form.cache_create_price = 0;
+    form.cache_read_price = 0;
+    await load();
+  } catch {
+  }
 }
 
 onMounted(() => {

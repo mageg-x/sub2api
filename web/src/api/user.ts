@@ -1,5 +1,5 @@
 import { request } from './client'
-import type { APIKey, ModelCatalogChannel, ModelPrice, PaymentCreateResponse, PaymentOrder, UsageLog, User, UserDashboardResponse } from './types'
+import type { Announcement, APIKey, ModelCatalogChannel, ModelPrice, PaymentCreateResponse, PaymentOrder, UsageLog, User, UserDashboardResponse } from './types'
 
 export const userAPI = {
   profile: () => request<User>('/api/user/profile'),
@@ -17,5 +17,6 @@ export const userAPI = {
   modelPrices: () => request<ModelPrice[]>('/api/model-prices'),
   dashboard: () => request<UserDashboardResponse>('/api/user/dashboard'),
   createPayment: (payload: { user_id?: number; amount: number; subject?: string; return_url?: string }) =>
-    request<PaymentCreateResponse>('/api/payments/orders', 'POST', payload)
+    request<PaymentCreateResponse>('/api/payments/orders', 'POST', payload),
+  announcements: () => request<Announcement[]>('/api/announcements'),
 }

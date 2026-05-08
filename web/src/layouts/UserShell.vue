@@ -114,7 +114,7 @@ import { useI18n } from "vue-i18n";
 import { Bell, BookOpenText, ChevronDown, Gift, KeyRound, LayoutDashboard, LogOut, ShieldCheck, Sparkles, User, UserCog, WalletCards, Bolt } from "lucide-vue-next";
 import { ElDialog, ElDropdown, ElDropdownItem, ElDropdownMenu, ElEmpty, ElTag, ElTimeline, ElTimelineItem } from "element-plus";
 import logoUrl from "@/assets/logo.svg";
-import { adminAPI } from "@/api/admin";
+import { userAPI } from "@/api/user";
 import { me, logout } from "@/api/auth";
 import LanguageSwitcher from "@/components/LanguageSwitcher.vue";
 import type { Announcement } from "@/api/types";
@@ -194,6 +194,7 @@ function handleCommand(command: string) {
       router.push("/user/profile");
       break;
     case "switch-admin":
+      clearAuth();
       router.push("/login/admin");
       break;
     case "logout":
@@ -203,10 +204,10 @@ function handleCommand(command: string) {
 }
 
 async function loadAnnouncements() {
-  if (announcementLoading.value || announcements.value.length) return;
+  if (announcementLoading.value) return;
   announcementLoading.value = true;
   try {
-    announcements.value = await adminAPI.announcements();
+    announcements.value = await userAPI.announcements();
   } finally {
     announcementLoading.value = false;
   }

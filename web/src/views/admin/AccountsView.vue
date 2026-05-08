@@ -397,7 +397,7 @@ async function handleDelete(id: number) {
     ElMessage.success(t('adminAccounts.deleteSuccess'));
     await load();
   } catch (err) {
-    if (err === 'cancel') return;
+    if (err === 'cancel' || err === 'close') return;
     ElMessage.error(err instanceof Error ? err.message : t('adminAccounts.deleteFailed'));
   } finally {
     deletingId.value = null;

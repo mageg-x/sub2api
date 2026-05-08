@@ -198,7 +198,11 @@ const modelOptions = computed(() => {
 });
 
 async function load() {
-  users.value = await adminAPI.users();
+  try {
+    users.value = await adminAPI.users();
+  } catch {
+    users.value = [];
+  }
 }
 
 async function loadCatalog() {

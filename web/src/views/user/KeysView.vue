@@ -124,7 +124,7 @@ import { Copy, Eye, EyeOff, KeyRound, ShieldCheck, X } from "lucide-vue-next";
 import { ElButton, ElForm, ElFormItem, ElInput, ElOption, ElSelect, ElTable, ElTableColumn, ElTag } from "element-plus";
 import { userAPI } from "@/api/user";
 import type { APIKey, ModelCatalogChannel } from "@/api/types";
-import { formatTime, isActiveStatus, maskSecret } from "@/utils";
+import { formatTime, isActiveStatus, maskSecret, copyToClipboard } from "@/utils";
 import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
@@ -149,7 +149,11 @@ const providerOptions = computed(() =>
 );
 
 async function load() {
-  keys.value = await userAPI.keys();
+  try {
+    keys.value = await userAPI.keys();
+  } catch {
+    keys.value = [];
+  }
 }
 
 async function loadCatalog() {
@@ -170,19 +174,23 @@ async function loadProviders() {
 
 async function create() {
   if (!form.provider) return;
-  const item = await userAPI.createKey({
-    provider: form.provider,
-    name: form.name,
-  });
-  lastCreatedKey.value = item;
-  revealed[item.id] = true;
-  form.name = "";
-  form.provider = "";
-  await load();
+  if (!form.name.trim()) return;
+  try {
+    const item = await userAPI.createKey({
+      provider: form.provider,
+      name: form.name,
+    });
+    lastCreatedKey.value = item;
+    revealed[item.id] = true;
+    form.name = "";
+    form.provider = "";
+    await load();
+  } catch {
+  }
 }
 
 function copySecret(value: string) {
-  void navigator.clipboard.writeText(value);
+  void copyToClipboard(value);
 }
 
 onMounted(() => {

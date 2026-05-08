@@ -227,7 +227,7 @@ import { BarChart3, Bolt, BookOpenText, KeyRound, ReceiptText, Send, Timer, Tren
 import { ElButton, ElTag } from "element-plus";
 import { userAPI } from "@/api/user";
 import type { PaymentOrder, UsageLog, UserDashboardResponse } from "@/api/types";
-import { formatCurrency, formatTime } from "@/utils";
+import { formatCurrency, formatNumber, formatTime } from "@/utils";
 
 const { t } = useI18n();
 const router = useRouter();
@@ -271,14 +271,12 @@ const tokenSparkline = computed(() => generateSparkline(tokenTimeline.value));
 const rpmSparkline = computed(() => generateSparkline(requestTimeline.value.map((count) => count / 1440)));
 const tpmSparkline = computed(() => generateSparkline(tokenTimeline.value.map((count) => count / 1440)));
 
-function formatNumber(value: number): string {
-  if (value >= 1e8) return (value / 1e8).toFixed(2) + t('common.hundredMillion');
-  if (value >= 1e4) return (value / 1e4).toFixed(2) + t('common.tenThousand');
-  return value.toLocaleString();
-}
-
 async function load() {
-  dashboard.value = await userAPI.dashboard();
+  try {
+    dashboard.value = await userAPI.dashboard();
+  } catch {
+    dashboard.value = null;
+  }
 }
 
 onMounted(() => {

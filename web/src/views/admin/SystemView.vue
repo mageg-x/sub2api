@@ -49,7 +49,11 @@ function formatKey(key: string): string {
 }
 
 async function load() {
-  stats.value = await adminAPI.stats();
+  try {
+    stats.value = await adminAPI.stats();
+  } catch {
+    stats.value = {};
+  }
 }
 
 onMounted(() => {

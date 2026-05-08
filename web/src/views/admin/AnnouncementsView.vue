@@ -97,8 +97,7 @@ const form = ref({
 
 async function load() {
   try {
-    const data = await adminAPI.dashboard();
-    items.value = data.announcements || [];
+    items.value = await adminAPI.announcements();
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('adminAnnouncements.loadFailed');
   }

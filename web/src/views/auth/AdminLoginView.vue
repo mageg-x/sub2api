@@ -111,7 +111,7 @@ import type { FormInstance, FormRules } from "element-plus";
 import logoUrl from "@/assets/logo.svg";
 import { adminAPI } from "@/api/admin";
 import { login, registerAdmin } from "@/api/auth";
-import { saveAuth } from "@/store/session";
+import { clearAuth, saveAuth } from "@/store/session";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -150,7 +150,12 @@ async function handleLogin() {
     try {
       const result = await login(formData.email, formData.password);
       saveAuth(result.access_token, result.refresh_token, result.user);
-      await adminAPI.dashboard();
+      try {
+        await adminAPI.dashboard();
+      } catch {
+        clearAuth();
+        throw new Error(t("adminLogin.loginFailed"));
+      }
       await router.replace("/admin/dashboard");
     } catch (err) {
       error.value = err instanceof Error ? err.message : t("adminLogin.loginFailed");

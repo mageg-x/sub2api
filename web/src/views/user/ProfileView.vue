@@ -66,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from "vue";
+import { reactive, ref, watch } from "vue";
 import { Check, KeyRound, Lock, LockKeyhole, Mail, ShieldCheck, User, UserCog } from "lucide-vue-next";
 import { ElAlert, ElButton, ElForm, ElFormItem, ElInput } from "element-plus";
 import { session } from "@/store/session";
@@ -82,6 +82,12 @@ const profileForm = reactive({
 const passwordForm = reactive({
   old_password: "",
   new_password: "",
+});
+
+watch(() => session.user, (user) => {
+  if (user) {
+    profileForm.name = user.name || "";
+  }
 });
 
 async function saveProfile() {

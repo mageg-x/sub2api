@@ -192,7 +192,7 @@ import { ArrowDownToLine, ArrowUpFromLine, Bolt, Gauge, ListOrdered, PieChart, R
 import { ElButton, ElButtonGroup, ElDatePicker, ElInput, ElTable, ElTableColumn, ElTag } from "element-plus";
 import { userAPI } from "@/api/user";
 import type { UsageLog } from "@/api/types";
-import { formatCurrency, formatTime } from "@/utils";
+import { formatCurrency, formatNumber, formatTime } from "@/utils";
 import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
@@ -351,12 +351,6 @@ const dailyData = computed((): DayData[] => {
 
 const maxDailyCount = computed(() => Math.max(...dailyData.value.map((d) => d.count), 1));
 
-function formatNumber(n: number): string {
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + t('common.million');
-  if (n >= 1e3) return (n / 1e3).toFixed(1) + t('common.thousand');
-  return String(n);
-}
-
 function barWidth(pct: number): string {
   return Math.max(pct, 2) + "%";
 }
@@ -367,7 +361,11 @@ function trendBarHeight(count: number): string {
 }
 
 async function load() {
-  usage.value = await userAPI.usage();
+  try {
+    usage.value = await userAPI.usage();
+  } catch {
+    usage.value = [];
+  }
 }
 
 onMounted(() => {

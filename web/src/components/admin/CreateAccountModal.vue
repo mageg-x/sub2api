@@ -172,6 +172,7 @@ import { ElAlert, ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber
 import { useI18n } from "vue-i18n";
 import { adminAPI } from "@/api/admin";
 import type { AccountCredentials, ProviderCapability, ProviderCapabilityField } from "@/api/types";
+import { copyToClipboard } from "@/utils";
 
 const props = defineProps<{
   visible: boolean;
@@ -232,6 +233,11 @@ watch(
   async (visible) => {
     if (!visible) return;
     await ensureCapabilities();
+    if (providers.length === 0) {
+      ElMessage.error(t("common.loadFailed"));
+      emit("close");
+      return;
+    }
     resetForm();
   },
 );
@@ -452,7 +458,7 @@ async function createAPIKeyAccount() {
 }
 
 async function copyText(text: string) {
-  await navigator.clipboard.writeText(text);
+  await copyToClipboard(text);
   ElMessage.success(t("adminAccounts.copied"));
 }
 

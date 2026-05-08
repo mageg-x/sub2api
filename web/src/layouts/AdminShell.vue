@@ -147,7 +147,7 @@ async function bootstrap() {
   } catch {
     clearAuth();
     if (!route.path.startsWith("/login") && route.path !== "/") {
-      router.replace("/login/user");
+      router.replace("/login/admin");
     }
   }
 }

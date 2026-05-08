@@ -161,7 +161,11 @@ const quickAmounts = [50, 100, 200, 500, 1000];
 const paidOrders = computed(() => orders.value.filter((item) => isPaidStatus(item.status)).length);
 
 async function load() {
-  orders.value = await userAPI.orders();
+  try {
+    orders.value = await userAPI.orders();
+  } catch {
+    orders.value = [];
+  }
 }
 
 async function createOrder() {
@@ -201,7 +205,7 @@ onMounted(() => {
 
 .stats-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 20px;
 }
 

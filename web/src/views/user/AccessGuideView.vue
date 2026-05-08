@@ -121,20 +121,21 @@ import { BookOpenText, Copy, KeyRound, Lightbulb, Send, Bot, Sparkles, Hexagon, 
 import { ElButton, ElTag } from "element-plus";
 import { publicAPIOrigin } from "@/api/client";
 import { session } from "@/store/session";
+import { copyToClipboard } from "@/utils";
 import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const baseURL = publicAPIOrigin();
 
 function copyText(value: string) {
-  void navigator.clipboard.writeText(value);
+  void copyToClipboard(value);
 }
 
 const providers = computed(() => [
-  { name: "OpenAI", endpoint: "`/v1/chat/completions` / `/v1/responses`", icon: Bot, color: "linear-gradient(135deg, #10a37f, #1a7f64)" },
-  { name: "Claude", endpoint: "`/v1/messages` / `/v1/messages/count_tokens`", icon: Sparkles, color: "linear-gradient(135deg, #d97706, #b45309)" },
-  { name: "Gemini", endpoint: "`/v1beta/models/*` / `/v1/models/*`", icon: Hexagon, color: "linear-gradient(135deg, #4285f4, #2563eb)" },
-  { name: "Antigravity", endpoint: "`/v1internal:*` / " + t('accessGuide.dedicatedCompatEndpoint'), icon: Zap, color: "linear-gradient(135deg, #8b5cf6, #6d28d9)" },
+  { name: "OpenAI", endpoint: "/v1/chat/completions / /v1/responses", icon: Bot, color: "linear-gradient(135deg, #10a37f, #1a7f64)" },
+  { name: "Claude", endpoint: "/v1/messages / /v1/messages/count_tokens", icon: Sparkles, color: "linear-gradient(135deg, #d97706, #b45309)" },
+  { name: "Gemini", endpoint: "/v1beta/models/* / /v1/models/*", icon: Hexagon, color: "linear-gradient(135deg, #4285f4, #2563eb)" },
+  { name: "Antigravity", endpoint: "/v1internal:* / " + t('accessGuide.dedicatedCompatEndpoint'), icon: Zap, color: "linear-gradient(135deg, #8b5cf6, #6d28d9)" },
 ]);
 
 const endpoints = ["/v1/chat/completions", "/v1/responses", "/v1/embeddings", "/v1/messages", "/v1/messages/count_tokens", "/v1beta/models/*", "/v1/models/*"];

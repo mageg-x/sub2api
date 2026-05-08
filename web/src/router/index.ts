@@ -1,14 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { session } from '@/store/session'
 
 function hasAdminAccess(): boolean {
-  try {
-    const raw = localStorage.getItem('sub2api_user')
-    if (!raw) return false
-    const user = JSON.parse(raw) as { role?: string }
-    return user.role === 'admin'
-  } catch {
-    return false
-  }
+  return session.user?.role === 'admin'
 }
 
 const router = createRouter({
@@ -35,6 +29,7 @@ const router = createRouter({
     },
     {
       path: '/user',
+      redirect: '/user/dashboard',
       component: () => import('@/layouts/UserShell.vue'),
       children: [
         { path: 'dashboard', name: 'user-dashboard', component: () => import('@/views/user/DashboardView.vue') },
@@ -51,6 +46,7 @@ const router = createRouter({
     },
     {
       path: '/admin',
+      redirect: '/admin/dashboard',
       component: () => import('@/layouts/AdminShell.vue'),
       children: [
         { path: 'dashboard', name: 'admin-dashboard', component: () => import('@/views/admin/DashboardView.vue') },

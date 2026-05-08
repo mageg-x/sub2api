@@ -80,7 +80,11 @@ const recentItems = computed(() => {
 });
 
 async function load() {
-  items.value = await adminAPI.errors();
+  try {
+    items.value = await adminAPI.errors();
+  } catch {
+    items.value = [];
+  }
 }
 
 onMounted(() => {
