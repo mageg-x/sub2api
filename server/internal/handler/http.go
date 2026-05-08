@@ -159,7 +159,7 @@ func (h *HTTP) register(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	req.ClientIP = r.RemoteAddr
+	req.ClientIP = clientIP(r)
 	item, err := h.core.Register(req)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -201,7 +201,10 @@ func (h *HTTP) refreshToken(w http.ResponseWriter, r *http.Request) {
 // logout 用户登出
 func (h *HTTP) logout(w http.ResponseWriter, r *http.Request) {
 	var req service.RefreshTokenInput
-	_ = decodeJSON(r, &req)
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
 	if err := h.core.LogoutUser(req.RefreshToken); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return

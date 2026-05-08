@@ -55,39 +55,30 @@ type AntigravityConfig struct {
 // 优先级：命令行参数 > 环境变量 > 默认值
 // 返回: 配置结构体
 func Load() Config {
-	// 服务器监听地址，默认: :8080
-	addr := stringValue("addr", env("SUB2API_ADDR", ":8080"))
-	// 数据库文件路径，默认: data/sub2api.db
-	dbPath := stringValue("db", env("SUB2API_DB", filepath.Join("data", "sub2api.db")))
-	// 管理员Token，默认: sub2api-admin-change-me（生产环境应修改）
-	adminToken := stringValue("admin-token", env("SUB2API_ADMIN_TOKEN", "sub2api-admin-change-me"))
-	// 公共基础URL（用于支付回调）
-	publicBase := stringValue("public-base-url", env("SUB2API_PUBLIC_BASE_URL", ""))
-	// Gopay支付网关URL
-	gopayURL := stringValue("gopay-url", env("SUB2API_GOPAY_URL", ""))
-	// Gopay商户ID
-	gopayPID := uint64Value("gopay-pid", env("SUB2API_GOPAY_PID", "0"))
-	// Gopay商户密钥
-	gopayKey := stringValue("gopay-key", env("SUB2API_GOPAY_KEY", ""))
-	// Gopay支付类型
-	gopayType := intValue("gopay-type", env("SUB2API_GOPAY_TYPE", "1"))
-	// AES加密密钥种子
-	aesSeed := stringValue("aes-key", env("SUB2API_AES_KEY", "sub2api-dev-key"))
+	addr := flag.String("addr", env("SUB2API_ADDR", ":8080"), "")
+	dbPath := flag.String("db", env("SUB2API_DB", filepath.Join("data", "sub2api.db")), "")
+	adminToken := flag.String("admin-token", env("SUB2API_ADMIN_TOKEN", "sub2api-admin-change-me"), "")
+	publicBase := flag.String("public-base-url", env("SUB2API_PUBLIC_BASE_URL", ""), "")
+	gopayURL := flag.String("gopay-url", env("SUB2API_GOPAY_URL", ""), "")
+	gopayPID := flag.Uint64("gopay-pid", mustParseUint64(env("SUB2API_GOPAY_PID", "0")), "")
+	gopayKey := flag.String("gopay-key", env("SUB2API_GOPAY_KEY", ""), "")
+	gopayType := flag.Int("gopay-type", mustParseInt(env("SUB2API_GOPAY_TYPE", "1")), "")
+	aesSeed := flag.String("aes-key", env("SUB2API_AES_KEY", "sub2api-dev-key"), "")
 	// 解析命令行参数
 	flag.Parse()
 
 	// 返回完整配置
 	return Config{
-		Addr:           addr,
-		DBPath:         dbPath,
-		AdminToken:     adminToken,
-		AllowBootstrap: env("SUB2API_ALLOW_BOOTSTRAP", "true") == "true",
-		AESKey:         derive32(aesSeed),                  // 从种子派生32字节密钥
-		PublicBaseURL:  strings.TrimRight(publicBase, "/"), // 移除尾部斜杠
-		GopayURL:       strings.TrimRight(gopayURL, "/"),
-		GopayPID:       gopayPID,
-		GopayKey:       gopayKey,
-		GopayType:      gopayType,
+		Addr:           *addr,
+		DBPath:         *dbPath,
+		AdminToken:     *adminToken,
+		AllowBootstrap: env("SUB2API_ALLOW_BOOTSTRAP", "false") == "true",
+		AESKey:         derive32(*aesSeed),                  // 从种子派生32字节密钥
+		PublicBaseURL:  strings.TrimRight(*publicBase, "/"), // 移除尾部斜杠
+		GopayURL:       strings.TrimRight(*gopayURL, "/"),
+		GopayPID:       *gopayPID,
+		GopayKey:       *gopayKey,
+		GopayType:      *gopayType,
 		// OpenAI配置
 		OpenAI: OpenAIConfig{
 			ClientID: env("SUB2API_OPENAI_CLIENT_ID", "app_EMoamEEZ73f0CkXaXp7hrann"),
@@ -118,21 +109,14 @@ func env(key, fallback string) string {
 	return fallback
 }
 
-// stringValue 获取命令行参数的值（通过flag）
-func stringValue(name, value string) string {
-	return *flag.String(name, value, "")
-}
-
-// intValue 解析整数类型的命令行参数
-func intValue(name, raw string) int {
+func mustParseInt(raw string) int {
 	value, _ := strconv.Atoi(raw)
-	return *flag.Int(name, value, "")
+	return value
 }
 
-// uint64Value 解析无符号64位整数类型的命令行参数
-func uint64Value(name, raw string) uint64 {
+func mustParseUint64(raw string) uint64 {
 	value, _ := strconv.ParseUint(raw, 10, 64)
-	return *flag.Uint64(name, value, "")
+	return value
 }
 
 // derive32 从种子生成32字节的AES加密密钥

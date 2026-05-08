@@ -77,7 +77,7 @@ func (p *Provider) ParseUsage(body []byte) (int64, int64) {
 
 // SupportsPath 判断Gemini Provider支持的API路径
 func (p *Provider) SupportsPath(path string) bool {
-	return strings.HasPrefix(path, "/v1beta/models/") || strings.HasPrefix(path, "/v1/models/") || strings.HasPrefix(path, "/v1internal:")
+	return strings.HasPrefix(path, "/v1beta/models/") || strings.HasPrefix(path, "/v1/models/")
 }
 
 // ParseStreamUsage 解析流式响应中的使用量

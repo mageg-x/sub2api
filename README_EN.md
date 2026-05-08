@@ -2,9 +2,9 @@
 
 [中文版](./README.md)
 
-**Disclaimer**: This project is not a derivative work of https://github.com/Wei-Shaw/sub2api. It only borrows the name “sub2api”; there is no other relationship. Wei-Shaw/sub2api has over 600k lines of code and 70+ database tables, while this one has only about 20k lines of code and 16 tables. Anyone with development experience knows that no amount of trimming could produce this. The code has been completely rewritten from scratch, taking some ideas from Wei-Shaw/sub2api and one-api.
+**Disclaimer**: This project is not a derivative work of https://github.com/Wei-Shaw/sub2api. It only borrows the name "sub2api"; there is no other relationship. Wei-Shaw/sub2api has over 600k lines of code and 70+ database tables, while this one has only about 20k lines of code and 16 tables. Anyone with development experience knows that no amount of trimming could produce this. The code has been completely rewritten from scratch, taking some ideas from Wei-Shaw/sub2api and one-api.
 
-The current goal is not to replicate all the capabilities of other projects, but to secure the essential closed loop first:
+The current goal is not to replicate all the capabilities of other projects, but to prioritize securing the core closed loop — a minimal personal standalone edition, or for small teams of a few dozen people; it is not intended as a large-scale relay station for hundreds of users. This is mainly because the storage uses dependency-free SQLite. However, as the saying goes, "small as a sparrow, it has all five vital organs" — the core features such as proxy/relay, payment, and statistics are all there.
 - Multi-user + API Key
 - Account pool + Provider plugin system
 - OpenAI-compatible protocol forwarding
@@ -12,10 +12,30 @@ The current goal is not to replicate all the capabilities of other projects, but
 - SQLite + GORM single-machine deployment
 - `gopay` top-up payment integration
 
+## Screenshots
+
+<table>
+  <tr>
+    <td><img src="./snapshots/en/home.png" width="400" /></td>
+    <td><img src="./snapshots/en/admin-login.png" width="400" /></td>
+    <td><img src="./snapshots/en/user-login.png" width="400" /></td>
+  </tr>
+  <tr>
+    <td><img src="./snapshots/en/admin-provider.png" width="400" /></td>
+    <td><img src="./snapshots/en/admin-price.png" width="400" /></td>
+    <td><img src="./snapshots/en/user-dashboard.png" width="400" /></td>
+  </tr>
+  <tr>
+    <td><img src="./snapshots/en/user-models.png" width="400" /></td>
+    <td><img src="./snapshots/en/user-apikey.png" width="400" /></td>
+    <td></td>
+  </tr>
+</table>
+
 ## Administrator Account Notes
 
 - The system **does not have a built-in default admin account or default password**.
-- The first admin account must be created after the initial deployment via `POST /api/admin/bootstrap` or through the front-end “Initialize First Admin” page.
+- The first admin account must be created after the initial deployment via `POST /api/admin/bootstrap` or through the front-end "Initialize First Admin" page.
 - **The admin password is the one you submit during initialization**.
 - Admin APIs additionally require the request header `X-Admin-Token`.
 
@@ -104,7 +124,7 @@ VITE_PROXY_TARGET=http://127.0.0.1:18080 npm run dev
 
 1. Start the backend service
 2. Open `http://127.0.0.1:8080/`, or the front-end dev version `http://127.0.0.1:5173/`
-3. Go to the “Admin Login” page and click “Initialize First Admin”
+3. Go to the "Admin Login" page and click "Initialize First Admin"
 4. Fill in the admin email, password, and the `X-Admin-Token` corresponding admin token
 5. After successful initialization, enter the admin dashboard
 6. In the admin dashboard, create upstream accounts, model prices, regular users, and API Keys
@@ -129,5 +149,5 @@ curl -X POST http://127.0.0.1:8080/api/admin/bootstrap \
 Explanation:
 
 - The `password` field here is the admin login password.
-- Upon successful bootstrap, the response directly returns the admin’s `access_token` and `refresh_token`.
+- Upon successful bootstrap, the response directly returns the admin's `access_token` and `refresh_token`.
 - Afterwards, you can use that email and password to log in from the front-end login page.
