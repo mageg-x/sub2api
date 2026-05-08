@@ -34,10 +34,10 @@ func New(cfg config.Config) (*http.Server, func(), error) {
 	// 创建AI Provider注册表并注册支持的Provider
 	// 支持: OpenAI, Claude, Gemini, Antigravity
 	providers := provider.NewRegistry()
-	providers.Register(openai.New())
-	providers.Register(claude.New())
-	providers.Register(gemini.New())
-	providers.Register(antigravity.New())
+	providers.Register(openai.New(cfg))
+	providers.Register(claude.New(cfg))
+	providers.Register(gemini.New(cfg))
+	providers.Register(antigravity.New(cfg))
 
 	// 创建支付Provider注册表
 	payments := payment.NewRegistry()
@@ -60,7 +60,7 @@ func New(cfg config.Config) (*http.Server, func(), error) {
 
 	// 创建HTTP服务器
 	server := &http.Server{
-		Addr:              cfg.Addr,                      // 监听地址
+		Addr:              cfg.Addr,                        // 监听地址
 		Handler:           handler.New(cfg, core).Routes(), // HTTP路由处理器
 		ReadHeaderTimeout: 15 * time.Second,                // 读取请求头超时时间
 	}

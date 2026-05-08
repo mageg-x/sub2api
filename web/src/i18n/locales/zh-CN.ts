@@ -58,6 +58,7 @@ export default {
     defaultUser: '用户',
     defaultAdmin: '管理员',
     balanceRecharge: '余额充值'
+    ,requiredSuffix: '不能为空'
   },
   auth: {
     login: '登录',

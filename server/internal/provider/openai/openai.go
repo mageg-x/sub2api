@@ -2,21 +2,37 @@ package openai
 
 import (
 	"bytes"
+	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
+	"time"
 
+	"sub2api/server/internal/config"
 	"sub2api/server/internal/model"
+	"sub2api/server/internal/provider"
 )
 
 // Provider OpenAI API Provider实现
 // 支持OpenAI兼容的API接口
-type Provider struct{}
+type Provider struct {
+	clientID string
+}
 
 // New 创建OpenAI Provider实例
-func New() *Provider {
-	return &Provider{}
+func New(cfg config.Config) *Provider {
+	return &Provider{clientID: cfg.OpenAI.ClientID}
 }
+
+const (
+	authorizeURL    = "https://auth.openai.com/oauth/authorize"
+	tokenURL        = "https://auth.openai.com/oauth/token"
+	defaultRedirect = "http://localhost:1455/auth/callback"
+	scopes          = "openid profile email offline_access"
+	refreshScopes   = "openid profile email"
+)
 
 // Name 返回Provider名称
 func (p *Provider) Name() string {
@@ -166,6 +182,141 @@ func (p *Provider) ParseCacheUsage(body []byte) (int64, int64, bool) {
 		return 0, 0, false
 	}
 	return extractOpenAICacheUsage(payload)
+}
+
+func (p *Provider) AccountCapability() provider.AccountCapability {
+	return provider.AccountCapability{
+		Name:               p.Name(),
+		Label:              "OpenAI",
+		Notice:             "OAuth 账号用于官方授权；API Key 账号适合兼容 OpenAI 协议的上游。",
+		DefaultBaseURL:     "https://api.openai.com",
+		BaseURLPlaceholder: "https://api.openai.com",
+		DefaultAuthMode:    "oauth",
+		AuthModes: []provider.AccountAuthMode{
+			{Value: "oauth", Label: "OAuth"},
+			{Value: "api_key", Label: "API Key"},
+		},
+		APIKeyField: provider.CapabilityField{
+			Key:         "api_key",
+			Label:       "API Key",
+			Type:        "textarea",
+			Required:    true,
+			Placeholder: "sk-...",
+			Storage:     "credentials",
+		},
+	}
+}
+
+func (p *Provider) DefaultOAuthRedirectURI(map[string]string) string {
+	return defaultRedirect
+}
+
+func (p *Provider) BuildOAuthAuthorizationURL(input provider.OAuthAuthorizationInput) (string, error) {
+	params := url.Values{}
+	params.Set("response_type", "code")
+	params.Set("client_id", p.clientID)
+	params.Set("redirect_uri", input.RedirectURI)
+	params.Set("scope", scopes)
+	params.Set("state", input.State)
+	params.Set("code_challenge", provider.PKCEChallenge(input.CodeVerifier))
+	params.Set("code_challenge_method", "S256")
+	params.Set("id_token_add_organizations", "true")
+	params.Set("codex_cli_simplified_flow", "true")
+	return authorizeURL + "?" + params.Encode(), nil
+}
+
+func (p *Provider) ExchangeOAuthCode(ctx context.Context, client *http.Client, input provider.OAuthExchangeInput) (*provider.AccountCredentials, error) {
+	form := url.Values{}
+	form.Set("grant_type", "authorization_code")
+	form.Set("client_id", p.clientID)
+	form.Set("code", input.Code)
+	form.Set("redirect_uri", input.RedirectURI)
+	form.Set("code_verifier", input.CodeVerifier)
+	resp, err := provider.FormRequest(ctx, client, tokenURL, form)
+	if err != nil {
+		return nil, err
+	}
+	cred := &provider.AccountCredentials{
+		AccessToken:  resp["access_token"],
+		RefreshToken: resp["refresh_token"],
+		ClientID:     p.clientID,
+		TokenURL:     tokenURL,
+		RedirectURI:  input.RedirectURI,
+	}
+	if expiresIn := provider.ParseExpires(resp["expires_in"]); expiresIn > 0 {
+		cred.ExpiresAtMS = time.Now().Add(time.Duration(expiresIn) * time.Second).UnixMilli()
+	}
+	populateIDToken(cred, resp["id_token"])
+	return cred, nil
+}
+
+func (p *Provider) RefreshOAuthToken(ctx context.Context, client *http.Client, input provider.OAuthRefreshInput) (*provider.AccountCredentials, error) {
+	cred := *input.Credentials
+	form := url.Values{}
+	form.Set("grant_type", "refresh_token")
+	form.Set("client_id", defaultString(cred.ClientID, p.clientID))
+	form.Set("refresh_token", cred.RefreshToken)
+	form.Set("scope", refreshScopes)
+	resp, err := provider.FormRequest(ctx, client, tokenURL, form)
+	if err != nil {
+		return nil, err
+	}
+	cred.TokenURL = tokenURL
+	cred.AccessToken = resp["access_token"]
+	if token := resp["refresh_token"]; token != "" {
+		cred.RefreshToken = token
+	}
+	if expiresIn := provider.ParseExpires(resp["expires_in"]); expiresIn > 0 {
+		cred.ExpiresAtMS = time.Now().Add(time.Duration(expiresIn) * time.Second).UnixMilli()
+	}
+	populateIDToken(&cred, resp["id_token"])
+	return &cred, nil
+}
+
+func populateIDToken(cred *provider.AccountCredentials, idToken string) {
+	if idToken == "" {
+		return
+	}
+	parts := strings.Split(idToken, ".")
+	if len(parts) != 3 {
+		return
+	}
+	payload := parts[1]
+	switch len(payload) % 4 {
+	case 2:
+		payload += "=="
+	case 3:
+		payload += "="
+	}
+	raw, err := base64.URLEncoding.DecodeString(payload)
+	if err != nil {
+		return
+	}
+	var claims map[string]any
+	if json.Unmarshal(raw, &claims) != nil {
+		return
+	}
+	if email, _ := claims["email"].(string); email != "" {
+		cred.Email = email
+	}
+	if authClaims, ok := claims["https://api.openai.com/auth"].(map[string]any); ok {
+		if id, _ := authClaims["chatgpt_account_id"].(string); id != "" {
+			cred.AccountID = id
+		}
+		if plan, _ := authClaims["chatgpt_plan_type"].(string); plan != "" {
+			cred.PlanType = plan
+		}
+		if oid, _ := authClaims["poid"].(string); oid != "" {
+			cred.OrganizationID = oid
+		}
+	}
+}
+
+func defaultString(value, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return value
 }
 
 func extractOpenAICacheUsage(v any) (int64, int64, bool) {

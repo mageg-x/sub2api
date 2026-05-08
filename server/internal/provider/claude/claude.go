@@ -2,21 +2,36 @@ package claude
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
+	"time"
 
+	"sub2api/server/internal/config"
 	"sub2api/server/internal/model"
+	"sub2api/server/internal/provider"
 )
 
 // Provider Claude API Provider实现
 // 支持Anthropic Claude API接口
-type Provider struct{}
+type Provider struct {
+	clientID string
+}
 
 // New 创建Claude Provider实例
-func New() *Provider {
-	return &Provider{}
+func New(cfg config.Config) *Provider {
+	return &Provider{clientID: cfg.Claude.ClientID}
 }
+
+const (
+	authorizeURL    = "https://claude.ai/oauth/authorize"
+	tokenURL        = "https://platform.claude.com/v1/oauth/token"
+	redirectURI     = "https://platform.claude.com/oauth/code/callback"
+	oauthScopeValue = "org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload"
+)
 
 // Name 返回Provider名称
 func (p *Provider) Name() string {
@@ -145,6 +160,118 @@ func (p *Provider) ParseCacheUsage(body []byte) (int64, int64, bool) {
 		return 0, 0, false
 	}
 	return extractClaudeCacheUsage(payload)
+}
+
+func (p *Provider) AccountCapability() provider.AccountCapability {
+	return provider.AccountCapability{
+		Name:               p.Name(),
+		Label:              "Claude",
+		Notice:             "Claude OAuth 与 Claude API Key 是两套认证体系，建议分别建账号。",
+		DefaultBaseURL:     "https://api.anthropic.com",
+		BaseURLPlaceholder: "https://api.anthropic.com",
+		DefaultAuthMode:    "oauth",
+		AuthModes: []provider.AccountAuthMode{
+			{Value: "oauth", Label: "OAuth"},
+			{Value: "api_key", Label: "API Key"},
+		},
+		APIKeyField: provider.CapabilityField{
+			Key:         "api_key",
+			Label:       "API Key",
+			Type:        "textarea",
+			Required:    true,
+			Placeholder: "sk-ant-...",
+			Storage:     "credentials",
+		},
+	}
+}
+
+func (p *Provider) DefaultOAuthRedirectURI(map[string]string) string {
+	return redirectURI
+}
+
+func (p *Provider) BuildOAuthAuthorizationURL(input provider.OAuthAuthorizationInput) (string, error) {
+	return fmt.Sprintf("%s?code=true&client_id=%s&response_type=code&redirect_uri=%s&scope=%s&code_challenge=%s&code_challenge_method=S256&state=%s",
+		authorizeURL,
+		url.QueryEscape(p.clientID),
+		url.QueryEscape(input.RedirectURI),
+		strings.ReplaceAll(url.QueryEscape(oauthScopeValue), "%20", "+"),
+		url.QueryEscape(provider.PKCEChallenge(input.CodeVerifier)),
+		url.QueryEscape(input.State),
+	), nil
+}
+
+func (p *Provider) ExchangeOAuthCode(ctx context.Context, client *http.Client, input provider.OAuthExchangeInput) (*provider.AccountCredentials, error) {
+	payload := map[string]any{
+		"grant_type":    "authorization_code",
+		"client_id":     p.clientID,
+		"code":          input.Code,
+		"redirect_uri":  input.RedirectURI,
+		"code_verifier": input.CodeVerifier,
+	}
+	body, err := provider.JSONRequest(ctx, client, tokenURL, payload)
+	if err != nil {
+		return nil, err
+	}
+	var result struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int64  `json:"expires_in"`
+		Account      struct {
+			UUID         string `json:"uuid"`
+			EmailAddress string `json:"email_address"`
+		} `json:"account"`
+		Organization struct {
+			UUID string `json:"uuid"`
+		} `json:"organization"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+	cred := &provider.AccountCredentials{
+		AccessToken:    result.AccessToken,
+		RefreshToken:   result.RefreshToken,
+		ClientID:       p.clientID,
+		TokenURL:       tokenURL,
+		RedirectURI:    input.RedirectURI,
+		Email:          result.Account.EmailAddress,
+		OrganizationID: result.Organization.UUID,
+		AccountID:      result.Account.UUID,
+	}
+	if result.ExpiresIn > 0 {
+		cred.ExpiresAtMS = time.Now().Add(time.Duration(result.ExpiresIn) * time.Second).UnixMilli()
+	}
+	return cred, nil
+}
+
+func (p *Provider) RefreshOAuthToken(ctx context.Context, client *http.Client, input provider.OAuthRefreshInput) (*provider.AccountCredentials, error) {
+	cred := *input.Credentials
+	form := url.Values{}
+	form.Set("grant_type", "refresh_token")
+	form.Set("refresh_token", cred.RefreshToken)
+	form.Set("client_id", defaultString(cred.ClientID, p.clientID))
+	if cred.ClientSecret != "" {
+		form.Set("client_secret", cred.ClientSecret)
+	}
+	resp, err := provider.FormRequest(ctx, client, tokenURL, form)
+	if err != nil {
+		return nil, err
+	}
+	cred.TokenURL = tokenURL
+	cred.AccessToken = resp["access_token"]
+	if token := resp["refresh_token"]; token != "" {
+		cred.RefreshToken = token
+	}
+	if expiresIn := provider.ParseExpires(resp["expires_in"]); expiresIn > 0 {
+		cred.ExpiresAtMS = time.Now().Add(time.Duration(expiresIn) * time.Second).UnixMilli()
+	}
+	return &cred, nil
+}
+
+func defaultString(value, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return value
 }
 
 func extractClaudeCacheUsage(v any) (int64, int64, bool) {

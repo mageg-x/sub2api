@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sort"
@@ -37,6 +38,107 @@ type StreamUsageParser interface {
 	ParseStreamUsage(body []byte) (int64, int64, bool)
 }
 
+// AccountCredentials 账号凭证
+// 供 service 持久化，也供 provider 认证流程读写。
+type AccountCredentials struct {
+	APIKey            string `json:"api_key,omitempty"`
+	AccessToken       string `json:"access_token,omitempty"`
+	RefreshToken      string `json:"refresh_token,omitempty"`
+	TokenURL          string `json:"token_url,omitempty"`
+	ClientID          string `json:"client_id,omitempty"`
+	ClientSecret      string `json:"client_secret,omitempty"`
+	RedirectURI       string `json:"redirect_uri,omitempty"`
+	CodeVerifier      string `json:"code_verifier,omitempty"`
+	ExpiresAtMS       int64  `json:"expires_at_ms,omitempty"`
+	ProjectID         string `json:"project_id,omitempty"`
+	OAuthType         string `json:"oauth_type,omitempty"`
+	Email             string `json:"email,omitempty"`
+	OrganizationID    string `json:"organization_id,omitempty"`
+	AccountID         string `json:"account_id,omitempty"`
+	BaseURL           string `json:"base_url,omitempty"`
+	UserAgent         string `json:"user_agent,omitempty"`
+	SetupToken        string `json:"setup_token,omitempty"`
+	TierID            string `json:"tier_id,omitempty"`
+	PlanType          string `json:"plan_type,omitempty"`
+	SubscriptionUntil string `json:"subscription_expires_at,omitempty"`
+}
+
+// AccountCapabilityProvider 暴露账号创建能力
+type AccountCapabilityProvider interface {
+	AccountCapability() AccountCapability
+}
+
+// OAuthStarter 负责 OAuth 授权入口
+type OAuthStarter interface {
+	DefaultOAuthRedirectURI(meta map[string]string) string
+	BuildOAuthAuthorizationURL(input OAuthAuthorizationInput) (string, error)
+}
+
+// OAuthExchanger 负责 OAuth 授权码换 token
+type OAuthExchanger interface {
+	ExchangeOAuthCode(ctx context.Context, client *http.Client, input OAuthExchangeInput) (*AccountCredentials, error)
+}
+
+// OAuthRefresher 负责刷新 OAuth token
+type OAuthRefresher interface {
+	RefreshOAuthToken(ctx context.Context, client *http.Client, input OAuthRefreshInput) (*AccountCredentials, error)
+}
+
+type OAuthAuthorizationInput struct {
+	State        string
+	CodeVerifier string
+	RedirectURI  string
+	Meta         map[string]string
+}
+
+type OAuthExchangeInput struct {
+	Code         string
+	CodeVerifier string
+	RedirectURI  string
+	Meta         map[string]string
+}
+
+type OAuthRefreshInput struct {
+	Account     model.Account
+	Credentials *AccountCredentials
+}
+
+type AccountCapability struct {
+	Name               string            `json:"name"`
+	Label              string            `json:"label"`
+	Notice             string            `json:"notice"`
+	DefaultBaseURL     string            `json:"default_base_url"`
+	BaseURLPlaceholder string            `json:"base_url_placeholder"`
+	DefaultAuthMode    string            `json:"default_auth_mode"`
+	AuthModes          []AccountAuthMode `json:"auth_modes"`
+	APIKeyField        CapabilityField   `json:"api_key_field"`
+	AccountFields      []CapabilityField `json:"account_fields,omitempty"`
+	OAuthFields        []CapabilityField `json:"oauth_fields,omitempty"`
+}
+
+type AccountAuthMode struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
+}
+
+type CapabilityField struct {
+	Key          string              `json:"key"`
+	Label        string              `json:"label"`
+	Type         string              `json:"type"`
+	Required     bool                `json:"required"`
+	Placeholder  string              `json:"placeholder,omitempty"`
+	DefaultValue string              `json:"default_value,omitempty"`
+	Help         string              `json:"help,omitempty"`
+	Storage      string              `json:"storage,omitempty"`
+	VisibleWhen  map[string][]string `json:"visible_when,omitempty"`
+	Options      []CapabilityOption  `json:"options,omitempty"`
+}
+
+type CapabilityOption struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
+}
+
 // Registry Provider注册表
 // 用于管理所有可用的AI服务Provider
 type Registry struct {
@@ -69,4 +171,18 @@ func (r *Registry) Names() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+func (r *Registry) Capabilities() []AccountCapability {
+	names := r.Names()
+	items := make([]AccountCapability, 0, len(names))
+	for _, name := range names {
+		item := r.items[name]
+		capabilityProvider, ok := item.(AccountCapabilityProvider)
+		if !ok {
+			continue
+		}
+		items = append(items, capabilityProvider.AccountCapability())
+	}
+	return items
 }

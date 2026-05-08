@@ -5,13 +5,14 @@ import (
 	"strings"
 
 	"sub2api/server/internal/model"
+	"sub2api/server/internal/provider"
 )
 
 type ModelCatalogChannel struct {
-	Key        string           `json:"key"`
-	Name       string           `json:"name"`
-	Multiplier string           `json:"multiplier"`
-	Note       string           `json:"note"`
+	Key        string             `json:"key"`
+	Name       string             `json:"name"`
+	Multiplier string             `json:"multiplier"`
+	Note       string             `json:"note"`
 	Models     []model.ModelPrice `json:"models"`
 }
 
@@ -100,6 +101,10 @@ func (c *Core) ModelCatalog() ([]ModelCatalogChannel, error) {
 
 func (c *Core) SupportedProviders() []string {
 	return c.providers.Names()
+}
+
+func (c *Core) ProviderCapabilities() []provider.AccountCapability {
+	return c.providers.Capabilities()
 }
 
 func modelPriceKey(provider, model string) string {

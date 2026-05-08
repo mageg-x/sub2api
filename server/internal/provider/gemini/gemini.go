@@ -2,21 +2,38 @@ package gemini
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
+	"time"
 
+	"sub2api/server/internal/config"
 	"sub2api/server/internal/model"
+	"sub2api/server/internal/provider"
 )
 
 // Provider Gemini API Provider实现
 // 支持Google Gemini API接口
-type Provider struct{}
+type Provider struct {
+	cfg config.GeminiConfig
+}
 
 // New 创建Gemini Provider实例
-func New() *Provider {
-	return &Provider{}
+func New(cfg config.Config) *Provider {
+	return &Provider{cfg: cfg.Gemini}
 }
+
+const (
+	authorizeURL     = "https://accounts.google.com/o/oauth2/v2/auth"
+	tokenURL         = "https://oauth2.googleapis.com/token"
+	codeAssistScopes = "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
+	aiStudioScopes   = "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/generative-language.retriever"
+	aiRedirectURI    = "http://localhost:1455/auth/callback"
+	cliRedirectURI   = "https://codeassist.google.com/authcode"
+	builtinClientID  = "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com"
+)
 
 // Name 返回Provider名称
 func (p *Provider) Name() string {
@@ -150,6 +167,214 @@ func (p *Provider) ParseCacheUsage(body []byte) (int64, int64, bool) {
 		return 0, 0, false
 	}
 	return extractGeminiCacheUsage(payload)
+}
+
+func (p *Provider) AccountCapability() provider.AccountCapability {
+	return provider.AccountCapability{
+		Name:               p.Name(),
+		Label:              "Gemini",
+		Notice:             "Gemini 账号区分 OAuth 与 API Key，且不同 OAuth 类型对应不同套餐与回调。",
+		DefaultBaseURL:     "https://generativelanguage.googleapis.com",
+		BaseURLPlaceholder: "https://generativelanguage.googleapis.com",
+		DefaultAuthMode:    "oauth",
+		AuthModes: []provider.AccountAuthMode{
+			{Value: "oauth", Label: "OAuth"},
+			{Value: "api_key", Label: "API Key"},
+		},
+		APIKeyField: provider.CapabilityField{
+			Key:         "api_key",
+			Label:       "API Key",
+			Type:        "textarea",
+			Required:    true,
+			Placeholder: "AIza...",
+			Storage:     "credentials",
+		},
+		AccountFields: []provider.CapabilityField{
+			{
+				Key:          "tier_id",
+				Label:        "Tier",
+				Type:         "select",
+				DefaultValue: "gcp_standard",
+				Storage:      "credentials",
+				Options: []provider.CapabilityOption{
+					{Value: "gcp_standard", Label: "GCP Standard"},
+					{Value: "gcp_enterprise", Label: "GCP Enterprise"},
+					{Value: "google_one_free", Label: "Google One Free"},
+					{Value: "google_ai_pro", Label: "Google AI Pro"},
+					{Value: "google_ai_ultra", Label: "Google AI Ultra"},
+					{Value: "aistudio_free", Label: "AI Studio Free"},
+					{Value: "aistudio_paid", Label: "AI Studio Paid"},
+				},
+			},
+		},
+		OAuthFields: []provider.CapabilityField{
+			{
+				Key:          "oauth_type",
+				Label:        "OAuth Type",
+				Type:         "select",
+				Required:     true,
+				DefaultValue: "code_assist",
+				Storage:      "meta",
+				Options: []provider.CapabilityOption{
+					{Value: "code_assist", Label: "Code Assist"},
+					{Value: "google_one", Label: "Google One"},
+					{Value: "ai_studio", Label: "AI Studio"},
+				},
+			},
+			{
+				Key:         "project_id",
+				Label:       "Project ID",
+				Type:        "text",
+				Placeholder: "optional-gcp-project",
+				Storage:     "meta",
+			},
+			{
+				Key:          "tier_id",
+				Label:        "Tier",
+				Type:         "select",
+				Required:     true,
+				DefaultValue: "gcp_standard",
+				Storage:      "meta",
+				Options: []provider.CapabilityOption{
+					{Value: "gcp_standard", Label: "GCP Standard"},
+					{Value: "gcp_enterprise", Label: "GCP Enterprise"},
+					{Value: "google_one_free", Label: "Google One Free"},
+					{Value: "google_ai_pro", Label: "Google AI Pro"},
+					{Value: "google_ai_ultra", Label: "Google AI Ultra"},
+					{Value: "aistudio_free", Label: "AI Studio Free"},
+					{Value: "aistudio_paid", Label: "AI Studio Paid"},
+				},
+			},
+		},
+	}
+}
+
+func (p *Provider) DefaultOAuthRedirectURI(meta map[string]string) string {
+	_, redirectURI, _ := p.oauthConfig(meta["oauth_type"])
+	return redirectURI
+}
+
+func (p *Provider) BuildOAuthAuthorizationURL(input provider.OAuthAuthorizationInput) (string, error) {
+	cfg, effectiveRedirect, scopes := p.oauthConfig(input.Meta["oauth_type"])
+	redirectURI := input.RedirectURI
+	if strings.TrimSpace(redirectURI) == "" {
+		redirectURI = effectiveRedirect
+	}
+	params := url.Values{}
+	params.Set("response_type", "code")
+	params.Set("client_id", cfg.ClientID)
+	params.Set("redirect_uri", redirectURI)
+	params.Set("scope", scopes)
+	params.Set("state", input.State)
+	params.Set("code_challenge", provider.PKCEChallenge(input.CodeVerifier))
+	params.Set("code_challenge_method", "S256")
+	if projectID := strings.TrimSpace(input.Meta["project_id"]); projectID != "" {
+		params.Set("project_id", projectID)
+	}
+	return authorizeURL + "?" + params.Encode(), nil
+}
+
+func (p *Provider) ExchangeOAuthCode(ctx context.Context, client *http.Client, input provider.OAuthExchangeInput) (*provider.AccountCredentials, error) {
+	cfg, _, _ := p.oauthConfig(input.Meta["oauth_type"])
+	form := url.Values{}
+	form.Set("grant_type", "authorization_code")
+	form.Set("client_id", cfg.ClientID)
+	if cfg.ClientSecret != "" {
+		form.Set("client_secret", cfg.ClientSecret)
+	}
+	form.Set("code", input.Code)
+	form.Set("redirect_uri", input.RedirectURI)
+	form.Set("code_verifier", input.CodeVerifier)
+	resp, err := provider.FormRequest(ctx, client, tokenURL, form)
+	if err != nil {
+		return nil, err
+	}
+	cred := &provider.AccountCredentials{
+		AccessToken:  resp["access_token"],
+		RefreshToken: resp["refresh_token"],
+		ClientID:     cfg.ClientID,
+		ClientSecret: cfg.ClientSecret,
+		TokenURL:     tokenURL,
+		RedirectURI:  input.RedirectURI,
+		OAuthType:    input.Meta["oauth_type"],
+		ProjectID:    input.Meta["project_id"],
+		TierID:       input.Meta["tier_id"],
+	}
+	if expiresIn := provider.ParseExpires(resp["expires_in"]); expiresIn > 0 {
+		cred.ExpiresAtMS = time.Now().Add(time.Duration(expiresIn) * time.Second).UnixMilli()
+	}
+	return cred, nil
+}
+
+func (p *Provider) RefreshOAuthToken(ctx context.Context, client *http.Client, input provider.OAuthRefreshInput) (*provider.AccountCredentials, error) {
+	cred := *input.Credentials
+	cfg, redirectURI, scopes := p.oauthConfig(cred.OAuthType)
+	form := url.Values{}
+	form.Set("grant_type", "refresh_token")
+	form.Set("client_id", cfg.ClientID)
+	if cfg.ClientSecret != "" {
+		form.Set("client_secret", cfg.ClientSecret)
+	}
+	form.Set("refresh_token", cred.RefreshToken)
+	form.Set("scope", scopes)
+	resp, err := provider.FormRequest(ctx, client, tokenURL, form)
+	if err != nil {
+		return nil, err
+	}
+	cred.TokenURL = tokenURL
+	cred.RedirectURI = defaultString(cred.RedirectURI, redirectURI)
+	cred.ClientID = cfg.ClientID
+	cred.ClientSecret = cfg.ClientSecret
+	cred.AccessToken = resp["access_token"]
+	if token := resp["refresh_token"]; token != "" {
+		cred.RefreshToken = token
+	}
+	if expiresIn := provider.ParseExpires(resp["expires_in"]); expiresIn > 0 {
+		cred.ExpiresAtMS = time.Now().Add(time.Duration(expiresIn) * time.Second).UnixMilli()
+	}
+	return &cred, nil
+}
+
+func (p *Provider) oauthConfig(oauthType string) (config.GeminiConfig, string, string) {
+	cfg := p.cfg
+	effective := config.GeminiConfig{
+		ClientID:            strings.TrimSpace(cfg.ClientID),
+		ClientSecret:        strings.TrimSpace(cfg.ClientSecret),
+		BuiltinClientSecret: strings.TrimSpace(cfg.BuiltinClientSecret),
+	}
+	oauthType = strings.TrimSpace(oauthType)
+	if oauthType == "" {
+		oauthType = "code_assist"
+	}
+	isBuiltin := false
+	if effective.ClientID == "" && effective.ClientSecret == "" {
+		effective.ClientID = builtinClientID
+		effective.ClientSecret = effective.BuiltinClientSecret
+		isBuiltin = true
+	}
+	redirectURI := aiRedirectURI
+	scopes := codeAssistScopes
+	switch oauthType {
+	case "ai_studio":
+		if !isBuiltin {
+			scopes = aiStudioScopes
+		}
+	case "google_one", "code_assist":
+		redirectURI = cliRedirectURI
+	default:
+		redirectURI = cliRedirectURI
+	}
+	if isBuiltin {
+		redirectURI = cliRedirectURI
+	}
+	return effective, redirectURI, scopes
+}
+
+func defaultString(value, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return value
 }
 
 func extractGeminiCacheUsage(v any) (int64, int64, bool) {

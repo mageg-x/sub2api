@@ -15,11 +15,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
-	"strconv"
 	"runtime"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -34,53 +33,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-)
-
-const (
-	// OpenAI OAuth授权URL
-	openAIAuthorizeURL = "https://auth.openai.com/oauth/authorize"
-	// OpenAI OAuth令牌URL
-	openAITokenURL = "https://auth.openai.com/oauth/token"
-	// OpenAI默认回调地址
-	openAIDefaultRedirect = "http://localhost:1455/auth/callback"
-	// OpenAI授权范围
-	openAIScopes = "openid profile email offline_access"
-	// OpenAI刷新令牌范围
-	openAIRefreshScopes = "openid profile email"
-	// Claude OAuth授权URL
-	claudeAuthorizeURL = "https://claude.ai/oauth/authorize"
-	// Claude OAuth令牌URL
-	claudeTokenURL = "https://platform.claude.com/v1/oauth/token"
-	// Claude回调地址
-	claudeRedirectURI = "https://platform.claude.com/oauth/code/callback"
-	// Claude授权范围
-	claudeScopeOAuth = "org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload"
-	// Gemini OAuth授权URL
-	geminiAuthorizeURL = "https://accounts.google.com/o/oauth2/v2/auth"
-	// Gemini OAuth令牌URL
-	geminiTokenURL = "https://oauth2.googleapis.com/token"
-	// Gemini Code Assist授权范围
-	geminiCodeAssistScopes = "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
-	// Gemini AI Studio授权范围
-	geminiAIStudioScopes = "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/generative-language.retriever"
-	// Gemini AI重定向URI
-	geminiAIRedirectURI = "http://localhost:1455/auth/callback"
-	// Gemini CLI重定向URI
-	geminiCLIRedirectURI = "https://codeassist.google.com/authcode"
-	// Gemini内置客户端ID
-	geminiBuiltinClientID = "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com"
-	// Antigravity OAuth授权URL
-	antigravityAuthorizeURL = "https://accounts.google.com/o/oauth2/v2/auth"
-	// Antigravity OAuth令牌URL
-	antigravityTokenURL = "https://oauth2.googleapis.com/token"
-	// Antigravity用户信息URL
-	antigravityUserInfoURL = "https://www.googleapis.com/oauth2/v2/userinfo"
-	// Antigravity回调地址
-	antigravityRedirectURI = "http://localhost:8085/callback"
-	// Antigravity授权范围
-	antigravityScopes = "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/cclog https://www.googleapis.com/auth/experimentsandconfigs"
-	// Antigravity客户端ID
-	antigravityClientID = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
 )
 
 // Core 核心服务结构体
@@ -178,30 +130,7 @@ type userTokenClaims struct {
 	Kind         string `json:"kind"`          // 令牌类型
 }
 
-// AccountCredentials AI账号凭证结构
-// 存储各种OAuth和API密钥信息
-type AccountCredentials struct {
-	APIKey            string `json:"api_key,omitempty"`                 // API密钥
-	AccessToken       string `json:"access_token,omitempty"`            // 访问令牌
-	RefreshToken      string `json:"refresh_token,omitempty"`           // 刷新令牌
-	TokenURL          string `json:"token_url,omitempty"`               // 令牌URL
-	ClientID          string `json:"client_id,omitempty"`               // 客户端ID
-	ClientSecret      string `json:"client_secret,omitempty"`           // 客户端密钥
-	RedirectURI       string `json:"redirect_uri,omitempty"`            // 回调URI
-	CodeVerifier      string `json:"code_verifier,omitempty"`           // PKCE代码验证器
-	ExpiresAtMS       int64  `json:"expires_at_ms,omitempty"`           // 过期时间（毫秒）
-	ProjectID         string `json:"project_id,omitempty"`              // 项目ID
-	OAuthType         string `json:"oauth_type,omitempty"`              // OAuth类型
-	Email             string `json:"email,omitempty"`                   // 邮箱
-	OrganizationID    string `json:"organization_id,omitempty"`         // 组织ID
-	AccountID         string `json:"account_id,omitempty"`              // 账号ID
-	BaseURL           string `json:"base_url,omitempty"`                // 基础URL
-	UserAgent         string `json:"user_agent,omitempty"`              // 用户代理
-	SetupToken        string `json:"setup_token,omitempty"`             // 设置令牌
-	TierID            string `json:"tier_id,omitempty"`                 // 套餐ID
-	PlanType          string `json:"plan_type,omitempty"`               // 套餐类型
-	SubscriptionUntil string `json:"subscription_expires_at,omitempty"` // 订阅截止时间
-}
+type AccountCredentials = provider.AccountCredentials
 
 // ProxyAuth 代理认证结构
 // 用于API代理请求的身份验证
@@ -334,11 +263,12 @@ type ChangePasswordInput struct {
 
 // OAuthStartInput OAuth授权开始输入结构
 type OAuthStartInput struct {
-	Provider    string `json:"provider"`     // OAuth提供商
-	RedirectURI string `json:"redirect_uri"` // 回调URI
-	OAuthType   string `json:"oauth_type"`   // OAuth类型
-	ProjectID   string `json:"project_id"`   // 项目ID
-	TierID      string `json:"tier_id"`      // 套餐ID
+	Provider    string            `json:"provider"`     // OAuth提供商
+	RedirectURI string            `json:"redirect_uri"` // 回调URI
+	OAuthType   string            `json:"oauth_type"`   // OAuth类型
+	ProjectID   string            `json:"project_id"`   // 项目ID
+	TierID      string            `json:"tier_id"`      // 套餐ID
+	Meta        map[string]string `json:"meta"`
 }
 
 // OAuthStartResult OAuth授权开始结果结构
@@ -420,10 +350,10 @@ func New(cfg config.Config, db *gorm.DB, providers *provider.Registry, payments 
 		ForceAttemptHTTP2:     true,
 	}
 	c := &Core{
-		cfg:       cfg,
-		db:        db,
-		providers: providers,
-		payments:  payments,
+		cfg:          cfg,
+		db:           db,
+		providers:    providers,
+		payments:     payments,
 		tokenSignKey: deriveScopedKey(cfg.AESKey, "user-token-signing"),
 		httpClient: &http.Client{
 			Timeout:   120 * time.Second,
@@ -1542,11 +1472,11 @@ func (c *Core) HandlePaymentNotify(r *http.Request) error {
 		result := tx.Model(&model.PaymentOrder{}).
 			Where("id = ? AND status <> ?", order.ID, "PAID").
 			Updates(map[string]any{
-			"status":            "PAID",
-			"provider_trade_no": notify.ProviderTradeNo,
-			"notified_at_ms":    now,
-			"updated_at_ms":     now,
-		})
+				"status":            "PAID",
+				"provider_trade_no": notify.ProviderTradeNo,
+				"notified_at_ms":    now,
+				"updated_at_ms":     now,
+			})
 		if result.Error != nil {
 			return result.Error
 		}
@@ -1694,10 +1624,10 @@ func (c *Core) AuthenticateAPIKey(secret string) (*ProxyAuth, error) {
 			AllowedModelsJSON: authRow.UserAllowedModels,
 		},
 		APIKey: model.APIKey{
-			ID:           authRow.APIKeyID,
-			UserID:       authRow.APIKeyUserID,
-			Provider:     authRow.APIKeyProvider,
-			ExpiresAtMS:  authRow.APIKeyExpiresAtMS,
+			ID:          authRow.APIKeyID,
+			UserID:      authRow.APIKeyUserID,
+			Provider:    authRow.APIKeyProvider,
+			ExpiresAtMS: authRow.APIKeyExpiresAtMS,
 		},
 		UserAllowedSet: parseAllowedModelsSet(authRow.UserAllowedModels),
 	}, nil
@@ -1845,17 +1775,38 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 // 返回：OAuth授权结果和错误
 func (c *Core) OAuthStart(in OAuthStartInput) (*OAuthStartResult, error) {
 	providerName := normalizeProvider(in.Provider)
+	providerImpl, err := c.providers.Get(providerName)
+	if err != nil {
+		return nil, err
+	}
+	oauthStarter, ok := providerImpl.(provider.OAuthStarter)
+	if !ok {
+		return nil, fmt.Errorf("provider %s does not support oauth", providerName)
+	}
 	state := randomState()
 	codeVerifier := randomCodeVerifier(providerName)
 	redirectURI := strings.TrimSpace(in.RedirectURI)
-	if redirectURI == "" {
-		redirectURI = defaultRedirectURI(providerName, strings.TrimSpace(in.OAuthType))
+	meta := map[string]string{}
+	for key, value := range in.Meta {
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if key == "" || value == "" {
+			continue
+		}
+		meta[key] = value
 	}
-	meta := map[string]string{
-		"provider":   providerName,
-		"oauth_type": strings.TrimSpace(in.OAuthType),
-		"project_id": strings.TrimSpace(in.ProjectID),
-		"tier_id":    strings.TrimSpace(in.TierID),
+	meta["provider"] = providerName
+	if value := strings.TrimSpace(in.OAuthType); value != "" {
+		meta["oauth_type"] = value
+	}
+	if value := strings.TrimSpace(in.ProjectID); value != "" {
+		meta["project_id"] = value
+	}
+	if value := strings.TrimSpace(in.TierID); value != "" {
+		meta["tier_id"] = value
+	}
+	if redirectURI == "" {
+		redirectURI = oauthStarter.DefaultOAuthRedirectURI(meta)
 	}
 	metaRaw, _ := json.Marshal(meta)
 	session := &model.OAuthSession{
@@ -1869,7 +1820,12 @@ func (c *Core) OAuthStart(in OAuthStartInput) (*OAuthStartResult, error) {
 	if err := c.db.Create(session).Error; err != nil {
 		return nil, err
 	}
-	authURL, err := c.buildAuthorizationURL(providerName, state, codeVerifier, redirectURI, meta)
+	authURL, err := oauthStarter.BuildOAuthAuthorizationURL(provider.OAuthAuthorizationInput{
+		State:        state,
+		CodeVerifier: codeVerifier,
+		RedirectURI:  redirectURI,
+		Meta:         meta,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -1908,8 +1864,20 @@ func (c *Core) OAuthExchange(ctx context.Context, in OAuthExchangeInput) (*OAuth
 	// 解析元数据
 	meta := map[string]string{}
 	_ = json.Unmarshal([]byte(session.MetadataJSON), &meta)
-	// 交换授权码获取令牌
-	result, err := c.exchangeOAuthCode(ctx, &session, meta, strings.TrimSpace(in.Code))
+	providerImpl, err := c.providers.Get(normalizeProvider(session.Provider))
+	if err != nil {
+		return nil, err
+	}
+	exchanger, ok := providerImpl.(provider.OAuthExchanger)
+	if !ok {
+		return nil, fmt.Errorf("provider %s does not support oauth exchange", session.Provider)
+	}
+	result, err := exchanger.ExchangeOAuthCode(ctx, c.httpClient, provider.OAuthExchangeInput{
+		Code:         strings.TrimSpace(in.Code),
+		CodeVerifier: session.CodeVerifier,
+		RedirectURI:  session.RedirectURI,
+		Meta:         meta,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -2136,94 +2104,25 @@ func (c *Core) refreshOAuthToken(ctx context.Context, account *model.Account, cr
 	lock.Lock()
 	defer lock.Unlock()
 
-	// 构建刷新令牌请求表单
-	form := url.Values{}
-	switch normalizeProvider(account.Provider) {
-	case "openai":
-		form.Set("grant_type", "refresh_token")
-		form.Set("client_id", defaultString(cred.ClientID, c.cfg.OpenAI.ClientID))
-		form.Set("refresh_token", cred.RefreshToken)
-		form.Set("scope", openAIRefreshScopes)
-		cred.TokenURL = openAITokenURL
-	case "claude":
-		form.Set("grant_type", "refresh_token")
-		form.Set("refresh_token", cred.RefreshToken)
-		form.Set("client_id", defaultString(cred.ClientID, c.cfg.Claude.ClientID))
-		if cred.ClientSecret != "" {
-			form.Set("client_secret", cred.ClientSecret)
-		}
-		cred.TokenURL = claudeTokenURL
-	case "gemini":
-		cfg, redirectURI, scopes := c.geminiOAuthConfig(cred.OAuthType)
-		form.Set("grant_type", "refresh_token")
-		form.Set("client_id", cfg.ClientID)
-		if cfg.ClientSecret != "" {
-			form.Set("client_secret", cfg.ClientSecret)
-		}
-		form.Set("refresh_token", cred.RefreshToken)
-		form.Set("scope", scopes)
-		cred.TokenURL = geminiTokenURL
-		if cred.RedirectURI == "" {
-			cred.RedirectURI = redirectURI
-		}
-		cred.ClientID = cfg.ClientID
-		cred.ClientSecret = cfg.ClientSecret
-	case "antigravity":
-		form.Set("grant_type", "refresh_token")
-		form.Set("client_id", antigravityClientID)
-		form.Set("client_secret", c.cfg.Antigravity.ClientSecret)
-		form.Set("refresh_token", cred.RefreshToken)
-		cred.TokenURL = antigravityTokenURL
-	default:
-		return "", fmt.Errorf("unsupported oauth provider %s", account.Provider)
-	}
-	// 发送刷新令牌请求
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cred.TokenURL, strings.NewReader(form.Encode()))
+	providerImpl, err := c.providers.Get(normalizeProvider(account.Provider))
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := c.httpClient.Do(req)
+	refresher, ok := providerImpl.(provider.OAuthRefresher)
+	if !ok {
+		return "", fmt.Errorf("provider %s does not support oauth refresh", account.Provider)
+	}
+	refreshed, err := refresher.RefreshOAuthToken(ctx, c.httpClient, provider.OAuthRefreshInput{
+		Account:     *account,
+		Credentials: cred,
+	})
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
-	// 读取响应
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	// 检查响应状态
-	if resp.StatusCode >= 400 {
-		return "", fmt.Errorf("oauth refresh failed: %s", strings.TrimSpace(string(body)))
-	}
-	// 解析响应
-	var result struct {
-		AccessToken  string `json:"access_token"`
-		RefreshToken string `json:"refresh_token"`
-		ExpiresIn    int64  `json:"expires_in"`
-		IDToken      string `json:"id_token"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return "", err
-	}
-	if result.AccessToken == "" {
+	if refreshed == nil || refreshed.AccessToken == "" {
 		return "", fmt.Errorf("oauth refresh returned empty access token")
 	}
-	// 更新凭证
-	cred.AccessToken = result.AccessToken
-	if result.RefreshToken != "" {
-		cred.RefreshToken = result.RefreshToken
-	}
-	if result.ExpiresIn > 0 {
-		cred.ExpiresAtMS = time.Now().Add(time.Duration(result.ExpiresIn) * time.Second).UnixMilli()
-	}
-	// 处理ID Token
-	if result.IDToken != "" {
-		c.populateOpenAIIDToken(cred, result.IDToken)
-	}
-	// 返回新令牌并保存凭证
-	return cred.AccessToken, c.persistCredentials(account, cred)
+	return refreshed.AccessToken, c.persistCredentials(account, refreshed)
 }
 
 // persistCredentials 持久化账号凭证
@@ -2266,397 +2165,6 @@ func (c *Core) persistCredentials(account *model.Account, cred *AccountCredentia
 //   - meta: 元数据
 //
 // 返回：授权URL和错误
-func (c *Core) buildAuthorizationURL(providerName, state, codeVerifier, redirectURI string, meta map[string]string) (string, error) {
-	// 生成code challenge
-	challenge := pkceChallenge(codeVerifier)
-	switch providerName {
-	case "openai":
-		params := url.Values{}
-		params.Set("response_type", "code")
-		params.Set("client_id", c.cfg.OpenAI.ClientID)
-		params.Set("redirect_uri", redirectURI)
-		params.Set("scope", openAIScopes)
-		params.Set("state", state)
-		params.Set("code_challenge", challenge)
-		params.Set("code_challenge_method", "S256")
-		params.Set("id_token_add_organizations", "true")
-		params.Set("codex_cli_simplified_flow", "true")
-		return openAIAuthorizeURL + "?" + params.Encode(), nil
-	case "claude":
-		return fmt.Sprintf("%s?code=true&client_id=%s&response_type=code&redirect_uri=%s&scope=%s&code_challenge=%s&code_challenge_method=S256&state=%s",
-			claudeAuthorizeURL,
-			url.QueryEscape(c.cfg.Claude.ClientID),
-			url.QueryEscape(redirectURI),
-			strings.ReplaceAll(url.QueryEscape(claudeScopeOAuth), "%20", "+"),
-			url.QueryEscape(challenge),
-			url.QueryEscape(state),
-		), nil
-	case "gemini":
-		cfg, effectiveRedirect, scopes := c.geminiOAuthConfig(meta["oauth_type"])
-		if redirectURI == "" {
-			redirectURI = effectiveRedirect
-		}
-		params := url.Values{}
-		params.Set("response_type", "code")
-		params.Set("client_id", cfg.ClientID)
-		params.Set("redirect_uri", redirectURI)
-		params.Set("scope", scopes)
-		params.Set("state", state)
-		params.Set("code_challenge", challenge)
-		params.Set("code_challenge_method", "S256")
-		if projectID := strings.TrimSpace(meta["project_id"]); projectID != "" {
-			params.Set("project_id", projectID)
-		}
-		return geminiAuthorizeURL + "?" + params.Encode(), nil
-	case "antigravity":
-		params := url.Values{}
-		params.Set("response_type", "code")
-		params.Set("client_id", antigravityClientID)
-		params.Set("redirect_uri", antigravityRedirectURI)
-		params.Set("scope", antigravityScopes)
-		params.Set("state", state)
-		params.Set("code_challenge", challenge)
-		params.Set("code_challenge_method", "S256")
-		params.Set("access_type", "offline")
-		params.Set("prompt", "consent")
-		return antigravityAuthorizeURL + "?" + params.Encode(), nil
-	default:
-		return "", fmt.Errorf("unsupported oauth provider %s", providerName)
-	}
-}
-
-func (c *Core) exchangeOAuthCode(ctx context.Context, session *model.OAuthSession, meta map[string]string, code string) (*AccountCredentials, error) {
-	// 根据Provider类型分发处理
-	providerName := normalizeProvider(session.Provider)
-	switch providerName {
-	case "openai":
-		return c.exchangeOpenAI(ctx, session, code)
-	case "claude":
-		return c.exchangeClaude(ctx, session, code)
-	case "gemini":
-		return c.exchangeGemini(ctx, session, meta, code)
-	case "antigravity":
-		return c.exchangeAntigravity(ctx, session, code)
-	default:
-		return nil, fmt.Errorf("unsupported oauth provider %s", providerName)
-	}
-}
-
-// exchangeOpenAI 交换OpenAI授权码
-// 使用授权码换取访问令牌
-func (c *Core) exchangeOpenAI(ctx context.Context, session *model.OAuthSession, code string) (*AccountCredentials, error) {
-	// 构建令牌请求
-	form := url.Values{}
-	form.Set("grant_type", "authorization_code")
-	form.Set("client_id", c.cfg.OpenAI.ClientID)
-	form.Set("code", code)
-	form.Set("redirect_uri", session.RedirectURI)
-	form.Set("code_verifier", session.CodeVerifier)
-	// 发送请求
-	resp, err := c.oauthFormRequest(ctx, openAITokenURL, form)
-	if err != nil {
-		return nil, err
-	}
-	// 构建凭证
-	cred := &AccountCredentials{
-		AccessToken:  resp["access_token"],
-		RefreshToken: resp["refresh_token"],
-		ClientID:     c.cfg.OpenAI.ClientID,
-		TokenURL:     openAITokenURL,
-		RedirectURI:  session.RedirectURI,
-	}
-	// 设置过期时间
-	if expiresIn := parseExpires(resp["expires_in"]); expiresIn > 0 {
-		cred.ExpiresAtMS = time.Now().Add(time.Duration(expiresIn) * time.Second).UnixMilli()
-	}
-	// 处理ID Token
-	c.populateOpenAIIDToken(cred, resp["id_token"])
-	return cred, nil
-}
-
-// exchangeClaude 交换Claude授权码
-// 使用授权码换取访问令牌
-func (c *Core) exchangeClaude(ctx context.Context, session *model.OAuthSession, code string) (*AccountCredentials, error) {
-	// 构建请求载荷
-	payload := map[string]any{
-		"grant_type":    "authorization_code",
-		"client_id":     c.cfg.Claude.ClientID,
-		"code":          code,
-		"redirect_uri":  session.RedirectURI,
-		"code_verifier": session.CodeVerifier,
-	}
-	raw, _ := json.Marshal(payload)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, claudeTokenURL, bytes.NewReader(raw))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("claude oauth exchange failed: %s", strings.TrimSpace(string(body)))
-	}
-	var result struct {
-		AccessToken  string `json:"access_token"`
-		RefreshToken string `json:"refresh_token"`
-		ExpiresIn    int64  `json:"expires_in"`
-		Scope        string `json:"scope"`
-		Account      struct {
-			UUID         string `json:"uuid"`
-			EmailAddress string `json:"email_address"`
-		} `json:"account"`
-		Organization struct {
-			UUID string `json:"uuid"`
-		} `json:"organization"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
-	}
-	cred := &AccountCredentials{
-		AccessToken:    result.AccessToken,
-		RefreshToken:   result.RefreshToken,
-		ClientID:       c.cfg.Claude.ClientID,
-		TokenURL:       claudeTokenURL,
-		RedirectURI:    session.RedirectURI,
-		Email:          result.Account.EmailAddress,
-		OrganizationID: result.Organization.UUID,
-		AccountID:      result.Account.UUID,
-	}
-	if result.ExpiresIn > 0 {
-		cred.ExpiresAtMS = time.Now().Add(time.Duration(result.ExpiresIn) * time.Second).UnixMilli()
-	}
-	return cred, nil
-}
-
-func (c *Core) exchangeGemini(ctx context.Context, session *model.OAuthSession, meta map[string]string, code string) (*AccountCredentials, error) {
-	cfg, _, scopes := c.geminiOAuthConfig(meta["oauth_type"])
-	form := url.Values{}
-	form.Set("grant_type", "authorization_code")
-	form.Set("client_id", cfg.ClientID)
-	if cfg.ClientSecret != "" {
-		form.Set("client_secret", cfg.ClientSecret)
-	}
-	form.Set("code", code)
-	form.Set("redirect_uri", session.RedirectURI)
-	form.Set("code_verifier", session.CodeVerifier)
-	resp, err := c.oauthFormRequest(ctx, geminiTokenURL, form)
-	if err != nil {
-		return nil, err
-	}
-	// 构建凭证
-	cred := &AccountCredentials{
-		AccessToken:  resp["access_token"],
-		RefreshToken: resp["refresh_token"],
-		ClientID:     cfg.ClientID,
-		ClientSecret: cfg.ClientSecret,
-		TokenURL:     geminiTokenURL,
-		RedirectURI:  session.RedirectURI,
-		OAuthType:    meta["oauth_type"],
-		ProjectID:    meta["project_id"],
-		TierID:       meta["tier_id"],
-	}
-	_ = scopes
-	// 设置过期时间
-	if expiresIn := parseExpires(resp["expires_in"]); expiresIn > 0 {
-		cred.ExpiresAtMS = time.Now().Add(time.Duration(expiresIn) * time.Second).UnixMilli()
-	}
-	return cred, nil
-}
-
-// exchangeAntigravity 交换Antigravity授权码
-// 使用授权码换取访问令牌
-func (c *Core) exchangeAntigravity(ctx context.Context, session *model.OAuthSession, code string) (*AccountCredentials, error) {
-	// 构建令牌请求
-	form := url.Values{}
-	form.Set("client_id", antigravityClientID)
-	form.Set("client_secret", c.cfg.Antigravity.ClientSecret)
-	form.Set("code", code)
-	form.Set("redirect_uri", antigravityRedirectURI)
-	form.Set("grant_type", "authorization_code")
-	form.Set("code_verifier", session.CodeVerifier)
-	// 发送请求
-	resp, err := c.oauthFormRequest(ctx, antigravityTokenURL, form)
-	if err != nil {
-		return nil, err
-	}
-	// 构建凭证
-	cred := &AccountCredentials{
-		AccessToken:  resp["access_token"],
-		RefreshToken: resp["refresh_token"],
-		ClientID:     antigravityClientID,
-		ClientSecret: c.cfg.Antigravity.ClientSecret,
-		TokenURL:     antigravityTokenURL,
-		RedirectURI:  antigravityRedirectURI,
-		UserAgent:    "antigravity/1.21.9 windows/amd64",
-	}
-	// 设置过期时间
-	if expiresIn := parseExpires(resp["expires_in"]); expiresIn > 0 {
-		cred.ExpiresAtMS = time.Now().Add(time.Duration(expiresIn) * time.Second).UnixMilli()
-	}
-	// 获取用户信息
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, antigravityUserInfoURL, nil)
-	if err == nil {
-		req.Header.Set("Authorization", "Bearer "+cred.AccessToken)
-		if userResp, doErr := c.httpClient.Do(req); doErr == nil {
-			defer userResp.Body.Close()
-			if body, readErr := io.ReadAll(userResp.Body); readErr == nil {
-				var info struct {
-					Email string `json:"email"`
-				}
-				if json.Unmarshal(body, &info) == nil {
-					cred.Email = info.Email
-				}
-			}
-		}
-	}
-	return cred, nil
-}
-
-// oauthFormRequest 发送OAuth表单请求
-// 通用方法：发送表单编码的请求并解析JSON响应
-// 参数：
-//   - ctx: 上下文
-//   - endpoint: 请求端点
-//   - form: 表单数据
-//
-// 返回：响应映射和错误
-func (c *Core) oauthFormRequest(ctx context.Context, endpoint string, form url.Values) (map[string]string, error) {
-	// 创建请求
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	// 发送请求
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	// 读取响应
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("oauth request failed: %s", strings.TrimSpace(string(body)))
-	}
-	var data map[string]any
-	if err := json.Unmarshal(body, &data); err != nil {
-		return nil, err
-	}
-	result := map[string]string{}
-	for k, v := range data {
-		switch val := v.(type) {
-		case string:
-			result[k] = val
-		case float64:
-			result[k] = strconv.FormatFloat(val, 'f', -1, 64)
-		default:
-			result[k] = fmt.Sprintf("%v", v)
-		}
-	}
-	return result, nil
-}
-
-// populateOpenAIIDToken 解析OpenAI ID Token
-// 从JWT中提取用户信息和组织信息
-// 参数：
-//   - cred: 账号凭证
-//   - idToken: ID Token字符串
-func (c *Core) populateOpenAIIDToken(cred *AccountCredentials, idToken string) {
-	if idToken == "" {
-		return
-	}
-	// 解析JWT（header.payload.signature）
-	parts := strings.Split(idToken, ".")
-	if len(parts) != 3 {
-		return
-	}
-	// 解码payload
-	payload := parts[1]
-	switch len(payload) % 4 {
-	case 2:
-		payload += "=="
-	case 3:
-		payload += "="
-	}
-	raw, err := base64.URLEncoding.DecodeString(payload)
-	if err != nil {
-		return
-	}
-	// 解析JSON
-	var claims map[string]any
-	if json.Unmarshal(raw, &claims) != nil {
-		return
-	}
-	// 提取邮箱
-	if email, _ := claims["email"].(string); email != "" {
-		cred.Email = email
-	}
-	// 提取API认证声明
-	if authClaims, ok := claims["https://api.openai.com/auth"].(map[string]any); ok {
-		// 提取ChatGPT账号ID
-		if id, _ := authClaims["chatgpt_account_id"].(string); id != "" {
-			cred.AccountID = id
-		}
-		// 提取套餐类型
-		if plan, _ := authClaims["chatgpt_plan_type"].(string); plan != "" {
-			cred.PlanType = plan
-		}
-		// 提取组织ID
-		if oid, _ := authClaims["poid"].(string); oid != "" {
-			cred.OrganizationID = oid
-		}
-	}
-}
-
-// geminiOAuthConfig 获取Gemini OAuth配置
-// 根据OAuth类型返回对应的客户端配置
-// 参数：
-//   - oauthType: OAuth类型
-//
-// 返回：Gemini配置、回调URI和授权范围
-func (c *Core) geminiOAuthConfig(oauthType string) (config.GeminiConfig, string, string) {
-	effective := config.GeminiConfig{
-		ClientID:            strings.TrimSpace(c.cfg.Gemini.ClientID),
-		ClientSecret:        strings.TrimSpace(c.cfg.Gemini.ClientSecret),
-		BuiltinClientSecret: strings.TrimSpace(c.cfg.Gemini.BuiltinClientSecret),
-	}
-	oauthType = strings.TrimSpace(oauthType)
-	if oauthType == "" {
-		oauthType = "code_assist"
-	}
-	isBuiltin := false
-	if effective.ClientID == "" && effective.ClientSecret == "" {
-		effective.ClientID = geminiBuiltinClientID
-		effective.ClientSecret = effective.BuiltinClientSecret
-		isBuiltin = true
-	}
-	redirectURI := geminiAIRedirectURI
-	scopes := geminiCodeAssistScopes
-	switch oauthType {
-	case "ai_studio":
-		if !isBuiltin {
-			scopes = geminiAIStudioScopes
-		}
-	case "google_one", "code_assist":
-		redirectURI = geminiCLIRedirectURI
-	default:
-		redirectURI = geminiCLIRedirectURI
-	}
-	if isBuiltin {
-		redirectURI = geminiCLIRedirectURI
-	}
-	return effective, redirectURI, scopes
-}
 
 // pickAccount 选择一个可用的AI账号
 // 使用负载均衡策略：优先选择优先级高、负载低的账号
@@ -3564,17 +3072,6 @@ func (c *Core) putCachedResponse(key string, statusCode int, header http.Header,
 	c.cacheMu.Unlock()
 }
 
-// parseExpires 解析过期时间字符串
-// 返回秒数
-func parseExpires(raw string) int64 {
-	if raw == "" {
-		return 0
-	}
-	var n int64
-	fmt.Sscanf(raw, "%d", &n)
-	return n
-}
-
 // randomHex 生成随机十六进制字符串
 func randomHex(n int) string {
 	buf := make([]byte, n)
@@ -3605,33 +3102,6 @@ func randomBytes(n int) []byte {
 	buf := make([]byte, n)
 	_, _ = rand.Read(buf)
 	return buf
-}
-
-// pkceChallenge 生成PKCE代码挑战
-// 使用S256方法
-func pkceChallenge(verifier string) string {
-	sum := sha256.Sum256([]byte(verifier))
-	return base64.RawURLEncoding.EncodeToString(sum[:])
-}
-
-// defaultRedirectURI 获取默认回调URI
-// 根据Provider和OAuth类型返回默认回调地址
-func defaultRedirectURI(providerName, oauthType string) string {
-	switch providerName {
-	case "openai":
-		return openAIDefaultRedirect
-	case "claude":
-		return claudeRedirectURI
-	case "gemini":
-		if oauthType == "ai_studio" {
-			return geminiAIRedirectURI
-		}
-		return geminiCLIRedirectURI
-	case "antigravity":
-		return antigravityRedirectURI
-	default:
-		return ""
-	}
 }
 
 // maskSecret 脱敏处理

@@ -58,6 +58,7 @@ export default {
     defaultUser: 'User',
     defaultAdmin: 'Admin',
     balanceRecharge: 'Balance Recharge'
+    ,requiredSuffix: 'is required'
   },
   auth: {
     login: 'Login',

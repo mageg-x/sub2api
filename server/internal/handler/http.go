@@ -65,6 +65,7 @@ func (h *HTTP) Routes() http.Handler {
 	mux.HandleFunc("GET /api/admin/users", h.adminUsers)
 	mux.HandleFunc("PATCH /api/admin/users/", h.adminUpdateUser)
 	mux.HandleFunc("GET /api/admin/accounts", h.adminAccounts)
+	mux.HandleFunc("GET /api/admin/provider-capabilities", h.adminProviderCapabilities)
 	mux.HandleFunc("POST /api/admin/accounts", h.adminCreateAccount)
 	mux.HandleFunc("DELETE /api/admin/accounts/", h.adminDeleteAccount)
 	mux.HandleFunc("PATCH /api/admin/accounts/", h.adminUpdateAccount)
@@ -118,6 +119,13 @@ func (h *HTTP) Routes() http.Handler {
 	mux.HandleFunc("POST /v1/models/", h.proxy)
 	mux.HandleFunc("POST /", h.postRouter)
 	return withCORS(mux)
+}
+
+func (h *HTTP) adminProviderCapabilities(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(w, r) {
+		return
+	}
+	writeJSON(w, http.StatusOK, h.core.ProviderCapabilities())
 }
 
 // postRouter POST路由分发

@@ -204,3 +204,39 @@ export interface AccountCredentials {
   account_id?: string
   plan_type?: string
 }
+
+export interface ProviderCapabilityOption {
+  value: string
+  label: string
+}
+
+export interface ProviderCapabilityField {
+  key: string
+  label: string
+  type: string
+  required: boolean
+  placeholder?: string
+  default_value?: string
+  help?: string
+  storage?: 'credentials' | 'meta'
+  visible_when?: Record<string, string[]>
+  options?: ProviderCapabilityOption[]
+}
+
+export interface ProviderAuthMode {
+  value: string
+  label: string
+}
+
+export interface ProviderCapability {
+  name: string
+  label: string
+  notice: string
+  default_base_url: string
+  base_url_placeholder: string
+  default_auth_mode: string
+  auth_modes: ProviderAuthMode[]
+  api_key_field: ProviderCapabilityField
+  account_fields?: ProviderCapabilityField[]
+  oauth_fields?: ProviderCapabilityField[]
+}
