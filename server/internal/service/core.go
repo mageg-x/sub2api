@@ -147,7 +147,7 @@ func (r *usageTrackingReadCloser) Read(p []byte) (int, error) {
 		_, _ = r.buf.Write(p[:n])
 	}
 	// 读取完成后调用finish
-	if err == io.EOF {
+	if err != nil {
 		r.finish()
 	}
 	return n, err
@@ -1529,23 +1529,26 @@ func (c *Core) HandlePaymentNotify(r *http.Request) error {
 		if err := tx.Where("out_trade_no = ?", notify.OutTradeNo).First(&order).Error; err != nil {
 			return err
 		}
-		// 如果已经支付，则跳过
-		if order.Status == "PAID" {
-			return nil
-		}
 		// 验证回调金额与订单金额一致
 		if notify.Amount > 0 && notify.Amount != order.Amount {
 			return fmt.Errorf("payment amount mismatch: expected %d, got %d", order.Amount, notify.Amount)
 		}
 		// 更新订单状态为已支付
 		now := time.Now().UnixMilli()
-		if err := tx.Model(&order).Updates(map[string]any{
+		result := tx.Model(&model.PaymentOrder{}).
+			Where("id = ? AND status <> ?", order.ID, "PAID").
+			Updates(map[string]any{
 			"status":            "PAID",
 			"provider_trade_no": notify.ProviderTradeNo,
 			"notified_at_ms":    now,
 			"updated_at_ms":     now,
-		}).Error; err != nil {
-			return err
+		})
+		if result.Error != nil {
+			return result.Error
+		}
+		// 幂等：并发回调时只有一个事务能从非 PAID 切换到 PAID
+		if result.RowsAffected == 0 {
+			return nil
 		}
 		// 增加用户余额
 		if err := tx.Model(&model.User{}).Where("id = ?", order.UserID).Updates(map[string]any{
@@ -2666,31 +2669,31 @@ func (c *Core) pickAccount(providerName, modelName, path string) (model.Account,
 	if !providerImpl.SupportsPath(path) {
 		return model.Account{}, fmt.Errorf("provider %s does not support path %s", providerName, path)
 	}
-	for attempt := 0; attempt < 3; attempt++ {
-		bestIndex := -1
-		bestLoad := int64(^uint64(0) >> 1)
-		for i := range accounts {
-			if modelName != "" && !isModelAllowed(accounts[i].ModelScopeJSON, modelName) {
-				continue
-			}
-			limit := accounts[i].ConcurrencyLimit
-			if limit <= 0 {
-				limit = 1
-			}
-			load := c.accountLoadCounter(accounts[i].ID).Load()
-			if load >= int64(limit) {
-				continue
-			}
-			if bestIndex == -1 || load < bestLoad {
-				bestIndex = i
-				bestLoad = load
-			}
+	candidates := make([]int, 0, len(accounts))
+	for i := range accounts {
+		if modelName != "" && !isModelAllowed(accounts[i].ModelScopeJSON, modelName) {
+			continue
 		}
-		if bestIndex == -1 {
-			return model.Account{}, fmt.Errorf("no active %s account available", providerName)
+		candidates = append(candidates, i)
+	}
+	if len(candidates) == 0 {
+		return model.Account{}, fmt.Errorf("no active %s account available", providerName)
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		left := accounts[candidates[i]]
+		right := accounts[candidates[j]]
+		leftLoad := c.accountLoadCounter(left.ID).Load()
+		rightLoad := c.accountLoadCounter(right.ID).Load()
+		if leftLoad != rightLoad {
+			return leftLoad < rightLoad
 		}
-
-		account := accounts[bestIndex]
+		if left.Priority != right.Priority {
+			return left.Priority > right.Priority
+		}
+		return left.ID < right.ID
+	})
+	for _, idx := range candidates {
+		account := accounts[idx]
 		counter := c.accountLoadCounter(account.ID)
 		limit := account.ConcurrencyLimit
 		if limit <= 0 {
@@ -3455,9 +3458,6 @@ func (c *Core) cacheKey(userID uint64, providerName, path, rawQuery string, body
 	if stream || providerName == "antigravity" {
 		return "", false
 	}
-	if bytes.Contains(body, []byte(`"stream":true`)) || bytes.Contains(body, []byte(`"stream": true`)) {
-		return "", false
-	}
 	raw := fmt.Sprintf("%d|%s|%s?%s|", userID, providerName, path, rawQuery)
 	sum := sha256.Sum256(append([]byte(raw), body...))
 	return hex.EncodeToString(sum[:]), true
@@ -4025,6 +4025,11 @@ func (c *Core) flushPendingUsers() {
 func (c *Core) flushPendingLastUsed(table string, pending map[uint64]int64) {
 	const batchSize = 300
 	now := time.Now().UnixMilli()
+	switch table {
+	case "users", "api_keys":
+	default:
+		return
+	}
 
 	ids := make([]uint64, 0, len(pending))
 	for id := range pending {

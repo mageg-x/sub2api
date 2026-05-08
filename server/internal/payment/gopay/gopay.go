@@ -14,8 +14,8 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
-	"strconv"
 	"strings"
+	"strconv"
 
 	"sub2api/server/internal/payment"
 )
@@ -281,9 +281,43 @@ func amountToYuan(amount int64) string {
 }
 
 func yuanToAmount(raw string) (int64, error) {
-	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	text := strings.TrimSpace(raw)
+	if text == "" {
+		return 0, fmt.Errorf("empty amount")
+	}
+	sign := int64(1)
+	if strings.HasPrefix(text, "-") {
+		sign = -1
+		text = strings.TrimPrefix(text, "-")
+	}
+	parts := strings.Split(text, ".")
+	if len(parts) > 2 {
+		return 0, fmt.Errorf("invalid amount")
+	}
+	intPart := parts[0]
+	if intPart == "" {
+		intPart = "0"
+	}
+	whole, err := strconv.ParseInt(intPart, 10, 64)
 	if err != nil {
 		return 0, err
 	}
-	return int64(value*10000 + 0.5), nil
+	frac := ""
+	if len(parts) == 2 {
+		frac = parts[1]
+	}
+	if len(frac) > 4 {
+		frac = frac[:4]
+	}
+	for len(frac) < 4 {
+		frac += "0"
+	}
+	fractional := int64(0)
+	if frac != "" {
+		fractional, err = strconv.ParseInt(frac, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+	}
+	return sign * (whole*10000 + fractional), nil
 }

@@ -110,12 +110,18 @@ func env(key, fallback string) string {
 }
 
 func mustParseInt(raw string) int {
-	value, _ := strconv.Atoi(raw)
+	value, err := strconv.Atoi(raw)
+	if err != nil {
+		panic("invalid int config: " + raw)
+	}
 	return value
 }
 
 func mustParseUint64(raw string) uint64 {
-	value, _ := strconv.ParseUint(raw, 10, 64)
+	value, err := strconv.ParseUint(raw, 10, 64)
+	if err != nil {
+		panic("invalid uint64 config: " + raw)
+	}
 	return value
 }
 
@@ -129,5 +135,7 @@ func derive32(seed string) []byte {
 	}
 	// 否则对种子进行SHA256哈希
 	sum := sha256.Sum256([]byte(seed))
-	return sum[:]
+	out := make([]byte, len(sum))
+	copy(out, sum[:])
+	return out
 }
