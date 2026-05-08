@@ -29,6 +29,7 @@ import (
 	"sub2api/server/internal/payment"
 	"sub2api/server/internal/provider"
 
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -92,6 +93,8 @@ type Core struct {
 	refreshMu    sync.Map                       // OAuth刷新锁（每个账号一个）
 	cacheMu      sync.RWMutex                   // 缓存的读写锁
 	cacheItems   map[string]cachedProxyResponse // 代理响应缓存
+	registerMu   sync.Mutex                     // 注册速率限制锁
+	registerIPs  map[string]int64               // IP -> 最近注册时间戳(ms)
 }
 
 // cachedProxyResponse 缓存的代理响应
@@ -231,9 +234,12 @@ type CreateAccountInput struct {
 }
 
 type UpdateAccountInput struct {
-	Status           string `json:"status"`
-	Priority         int    `json:"priority"`
-	ConcurrencyLimit int    `json:"concurrency_limit"`
+	Status           *string `json:"status"`
+	Priority         *int    `json:"priority"`
+	ConcurrencyLimit *int    `json:"concurrency_limit"`
+	CredentialsJSON  *string `json:"credentials_json"`
+	BaseURL          *string `json:"base_url"`
+	ModelScopeJSON   *string `json:"model_scope_json"`
 }
 
 type CreateModelPriceInput struct {
@@ -270,9 +276,10 @@ type CreatePaymentOrderInput struct {
 
 // RegisterInput 用户注册输入结构
 type RegisterInput struct {
-	Email    string `json:"email"`    // 邮箱
-	Name     string `json:"name"`     // 用户名
-	Password string `json:"password"` // 密码
+	Email    string `json:"email"`
+	Name     string `json:"name"`
+	Password string `json:"password"`
+	ClientIP string `json:"-"`
 }
 
 // LoginInput 用户登录输入结构
@@ -382,6 +389,7 @@ func New(cfg config.Config, db *gorm.DB, providers *provider.Registry, payments 
 		httpClient:   &http.Client{Timeout: 120 * time.Second},
 		accountLoads: map[uint64]int{},
 		cacheItems:   map[string]cachedProxyResponse{},
+		registerIPs:  map[string]int64{},
 	}
 }
 
@@ -535,7 +543,27 @@ func (c *Core) GetUserByID(id uint64) (*model.User, error) {
 //   - in: 注册输入参数
 //
 // 返回：用户认证信息和错误
+const registerCooldownMS int64 = 60_000
+
 func (c *Core) Register(in RegisterInput) (*UserAuth, error) {
+	if ip := strings.TrimSpace(in.ClientIP); ip != "" {
+		c.registerMu.Lock()
+		now := time.Now().UnixMilli()
+		if last, ok := c.registerIPs[ip]; ok && now-last < registerCooldownMS {
+			c.registerMu.Unlock()
+			return nil, fmt.Errorf("registration too frequent, please try again later")
+		}
+		c.registerIPs[ip] = now
+		if len(c.registerIPs) > 10000 {
+			cutoff := now - registerCooldownMS
+			for k, v := range c.registerIPs {
+				if v < cutoff {
+					delete(c.registerIPs, k)
+				}
+			}
+		}
+		c.registerMu.Unlock()
+	}
 	return c.createUserAuth(CreateUserInput{
 		Email:       in.Email,
 		Name:        in.Name,
@@ -907,6 +935,13 @@ func (c *Core) RedeemCoupon(userID uint64, code string) (*model.Coupon, error) {
 		}
 		var usageLog []map[string]any
 		_ = json.Unmarshal([]byte(coupon.UsageLogJSON), &usageLog)
+		for _, entry := range usageLog {
+			if uid, ok := entry["user_id"]; ok {
+				if fmt.Sprintf("%v", uid) == fmt.Sprintf("%v", userID) {
+					return fmt.Errorf("coupon already redeemed by this user")
+				}
+			}
+		}
 		usageLog = append(usageLog, map[string]any{
 			"user_id":        userID,
 			"redeemed_at_ms": now,
@@ -979,7 +1014,7 @@ func (c *Core) CreateAccount(in CreateAccountInput) (*model.Account, error) {
 		CredentialsEncrypted: encrypted,
 		Status:               "active",
 		Priority:             defaultInt(in.Priority, 100),
-		ConcurrencyLimit:     defaultInt(in.ConcurrencyLimit, 4),
+		ConcurrencyLimit:     in.ConcurrencyLimit,
 		MetadataJSON:         normalizeJSON(in.Metadata, "{}"),
 	}
 	return account, c.db.Create(account).Error
@@ -1002,14 +1037,31 @@ func (c *Core) DeleteAccount(id uint64) error {
 // 返回：错误
 func (c *Core) UpdateAccount(id uint64, in UpdateAccountInput) error {
 	updates := map[string]any{}
-	if status := strings.TrimSpace(in.Status); status != "" {
-		updates["status"] = status
+	if in.Status != nil {
+		if status := strings.TrimSpace(*in.Status); status != "" {
+			updates["status"] = status
+		}
 	}
-	if in.Priority > 0 {
-		updates["priority"] = in.Priority
+	if in.Priority != nil && *in.Priority > 0 {
+		updates["priority"] = *in.Priority
 	}
-	if in.ConcurrencyLimit > 0 {
-		updates["concurrency_limit"] = in.ConcurrencyLimit
+	if in.ConcurrencyLimit != nil && *in.ConcurrencyLimit >= 0 {
+		updates["concurrency_limit"] = *in.ConcurrencyLimit
+	}
+	if in.CredentialsJSON != nil {
+		if creds := strings.TrimSpace(*in.CredentialsJSON); creds != "" {
+			updates["credentials_json"] = creds
+		}
+	}
+	if in.BaseURL != nil {
+		if baseURL := strings.TrimSpace(*in.BaseURL); baseURL != "" {
+			updates["base_url"] = baseURL
+		}
+	}
+	if in.ModelScopeJSON != nil {
+		if scope := strings.TrimSpace(*in.ModelScopeJSON); scope != "" {
+			updates["model_scope_json"] = scope
+		}
 	}
 	if len(updates) == 0 {
 		return nil
@@ -1294,6 +1346,10 @@ func (c *Core) HandlePaymentNotify(r *http.Request) error {
 		if order.Status == "PAID" {
 			return nil
 		}
+		// 验证回调金额与订单金额一致
+		if notify.Amount > 0 && notify.Amount != order.Amount {
+			return fmt.Errorf("payment amount mismatch: expected %d, got %d", order.Amount, notify.Amount)
+		}
 		// 更新订单状态为已支付
 		now := time.Now().UnixMilli()
 		if err := tx.Model(&order).Updates(map[string]any{
@@ -1333,6 +1389,11 @@ func (c *Core) RefundPayment(ctx context.Context, outTradeNo string, amount int6
 	// 检查订单是否已支付
 	if order.Status != "PAID" {
 		return fmt.Errorf("payment order is not paid")
+	}
+	// 验证退款金额不超过可退金额
+	refundable := order.CreditedAmount - order.RefundedAmount
+	if amount <= 0 || amount > refundable {
+		return fmt.Errorf("invalid refund amount: %d, refundable: %d", amount, refundable)
 	}
 	// 查找用户
 	var user model.User
@@ -1630,7 +1691,6 @@ func (c *Core) Stats() (map[string]any, error) {
 		name  string
 		model any
 	}
-	// 定义需要统计的模型
 	targets := []target{
 		{"users", &model.User{}},
 		{"accounts", &model.Account{}},
@@ -1639,7 +1699,6 @@ func (c *Core) Stats() (map[string]any, error) {
 		{"announcements", &model.Announcement{}},
 		{"coupons", &model.Coupon{}},
 	}
-	// 统计各模型数量
 	data := map[string]any{}
 	for _, item := range targets {
 		var count int64
@@ -1648,10 +1707,25 @@ func (c *Core) Stats() (map[string]any, error) {
 		}
 		data[item.name] = count
 	}
-	// 获取内存统计
+	var activeAccounts int64
+	c.db.Model(&model.Account{}).Where("status = ?", "active").Count(&activeAccounts)
+	data["active_accounts"] = activeAccounts
+	var activeUsers int64
+	c.db.Model(&model.User{}).Where("status = ?", "active").Count(&activeUsers)
+	data["active_users"] = activeUsers
+	var paidOrders int64
+	c.db.Model(&model.PaymentOrder{}).Where("status = ?", "PAID").Count(&paidOrders)
+	data["paid_orders"] = paidOrders
+	var totalRevenue int64
+	c.db.Model(&model.PaymentOrder{}).Where("status = ?", "PAID").Select("COALESCE(SUM(credited_amount), 0)").Row().Scan(&totalRevenue)
+	data["total_revenue"] = totalRevenue
+	var totalUsage int64
+	c.db.Model(&model.UsageLog{}).Select("COALESCE(SUM(input_tokens + output_tokens), 0)").Row().Scan(&totalUsage)
+	data["total_tokens"] = totalUsage
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
 	data["memory_alloc_mb"] = ms.Alloc / 1024 / 1024
+	data["cache_items"] = len(c.cacheItems)
 	data["timestamp_ms"] = time.Now().UnixMilli()
 	return data, nil
 }
@@ -2345,6 +2419,9 @@ func (c *Core) pickAccount(providerName, modelName, path string) (model.Account,
 	if err != nil {
 		return model.Account{}, err
 	}
+	if !providerImpl.SupportsPath(path) {
+		return model.Account{}, fmt.Errorf("provider %s does not support path %s", providerName, path)
+	}
 	// 加锁以保护负载计数器
 	c.loadMu.Lock()
 	defer c.loadMu.Unlock()
@@ -2352,10 +2429,6 @@ func (c *Core) pickAccount(providerName, modelName, path string) (model.Account,
 	bestIndex := -1
 	bestLoad := int(^uint(0) >> 1) // 取最大int值
 	for i := range accounts {
-		// 检查是否支持该路径
-		if !providerImpl.SupportsPath(path) {
-			continue
-		}
 		// 检查模型是否在账号支持范围内
 		if modelName != "" && !isModelAllowed(accounts[i].ModelScopeJSON, modelName) {
 			continue
@@ -2612,6 +2685,13 @@ func detectRoute(path string, body []byte) (modelName string, stream bool, provi
 	// Antigravity接口
 	case strings.HasPrefix(path, "/v1internal:"):
 		providerName = "antigravity"
+		var payload struct {
+			Model string `json:"model"`
+		}
+		if unmarshalErr := json.Unmarshal(body, &payload); unmarshalErr == nil {
+			modelName = payload.Model
+		}
+		stream = strings.Contains(path, "stream")
 		return
 	default:
 		err = fmt.Errorf("unsupported gateway path %s", path)
@@ -2759,11 +2839,27 @@ func (c *Core) getCachedResponse(key string) (*http.Response, bool) {
 //   - header: 响应头
 //   - body: 响应体
 //   - ttl: 过期时间
+const maxCacheItems = 1000
+
 func (c *Core) putCachedResponse(key string, statusCode int, header http.Header, body []byte, ttl time.Duration) {
 	if key == "" || ttl <= 0 {
 		return
 	}
 	c.cacheMu.Lock()
+	if len(c.cacheItems) >= maxCacheItems {
+		now := time.Now()
+		oldestKey := ""
+		oldestTime := now
+		for k, v := range c.cacheItems {
+			if v.ExpiresAt.Before(oldestTime) {
+				oldestTime = v.ExpiresAt
+				oldestKey = k
+			}
+		}
+		if oldestKey != "" {
+			delete(c.cacheItems, oldestKey)
+		}
+	}
 	c.cacheItems[key] = cachedProxyResponse{
 		StatusCode: statusCode,
 		Header:     cloneHeader(header),
@@ -2877,21 +2973,32 @@ func hashPassword(password string) (string, string, error) {
 	if len(password) < 6 {
 		return "", "", fmt.Errorf("password must be at least 6 characters")
 	}
-	salt := randomHex(16)
-	mac := hmac.New(sha256.New, []byte(salt))
-	mac.Write([]byte(password))
-	return salt, "$hmac$" + hex.EncodeToString(mac.Sum(nil)), nil
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", "", err
+	}
+	return "", "$bcrypt$" + string(hash), nil
 }
 
 func verifyPassword(salt, expectedHash, password string) bool {
-	if salt == "" || expectedHash == "" {
+	if expectedHash == "" {
 		return false
 	}
+	if strings.HasPrefix(expectedHash, "$bcrypt$") {
+		bcryptHash := strings.TrimPrefix(expectedHash, "$bcrypt$")
+		return bcrypt.CompareHashAndPassword([]byte(bcryptHash), []byte(password)) == nil
+	}
 	if strings.HasPrefix(expectedHash, "$hmac$") {
+		if salt == "" {
+			return false
+		}
 		mac := hmac.New(sha256.New, []byte(salt))
 		mac.Write([]byte(password))
 		expected := "$hmac$" + hex.EncodeToString(mac.Sum(nil))
 		return subtle.ConstantTimeCompare([]byte(expectedHash), []byte(expected)) == 1
+	}
+	if salt == "" {
+		return false
 	}
 	sum := sha256.Sum256([]byte(salt + ":" + password))
 	return subtle.ConstantTimeCompare([]byte(expectedHash), []byte(hex.EncodeToString(sum[:]))) == 1
@@ -3028,7 +3135,7 @@ func (c *Core) oauthSessionCleanupLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			expiry := time.Now().Add(-1 * time.Hour).UnixMilli()
-			c.db.Where("status = ? AND created_at_ms < ?", "pending", expiry).Delete(&model.OAuthSession{})
+			c.db.Where("expires_at_ms > 0 AND expires_at_ms < ?", expiry).Delete(&model.OAuthSession{})
 		}
 	}
 }

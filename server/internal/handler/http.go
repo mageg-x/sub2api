@@ -159,6 +159,7 @@ func (h *HTTP) register(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	req.ClientIP = r.RemoteAddr
 	item, err := h.core.Register(req)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -944,8 +945,7 @@ func (h *HTTP) createPaymentOrder(w http.ResponseWriter, r *http.Request) {
 func (h *HTTP) gopayNotify(w http.ResponseWriter, r *http.Request) {
 	// 处理支付回调
 	if err := h.core.HandlePaymentNotify(r); err != nil {
-		// 返回失败状态
-		http.Error(w, "fail", http.StatusOK)
+		http.Error(w, "fail", http.StatusBadRequest)
 		return
 	}
 	// 返回成功状态
@@ -1000,7 +1000,22 @@ func (h *HTTP) proxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 流式响应
-	_, _ = io.Copy(w, resp.Body)
+	flusher, canFlush := w.(http.Flusher)
+	buf := make([]byte, 4096)
+	for {
+		n, readErr := resp.Body.Read(buf)
+		if n > 0 {
+			if _, writeErr := w.Write(buf[:n]); writeErr != nil {
+				return
+			}
+			if canFlush {
+				flusher.Flush()
+			}
+		}
+		if readErr != nil {
+			break
+		}
+	}
 }
 
 // requireAdmin 检查管理员权限
