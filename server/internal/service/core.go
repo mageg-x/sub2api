@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"sub2api/server/internal/config"
@@ -31,6 +32,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -83,18 +85,43 @@ const (
 // Core 核心服务结构体
 // 包含所有业务逻辑：用户管理、API密钥管理、AI账号管理、OAuth认证、代理转发、支付处理等
 type Core struct {
-	cfg          config.Config                  // 应用配置
-	db           *gorm.DB                       // 数据库连接
-	providers    *provider.Registry             // AI Provider注册表
-	payments     *payment.Registry              // 支付Provider注册表
-	httpClient   *http.Client                   // HTTP客户端
-	accountLoads map[uint64]int                 // 账号并发负载计数
-	loadMu       sync.Mutex                     // 负载计数器的互斥锁
-	refreshMu    sync.Map                       // OAuth刷新锁（每个账号一个）
-	cacheMu      sync.RWMutex                   // 缓存的读写锁
-	cacheItems   map[string]cachedProxyResponse // 代理响应缓存
-	registerMu   sync.Mutex                     // 注册速率限制锁
-	registerIPs  map[string]int64               // IP -> 最近注册时间戳(ms)
+	cfg              config.Config                  // 应用配置
+	db               *gorm.DB                       // 数据库连接
+	providers        *provider.Registry             // AI Provider注册表
+	payments         *payment.Registry              // 支付Provider注册表
+	httpClient       *http.Client                   // HTTP客户端
+	accountLoads     sync.Map                       // account_id -> *atomic.Int64
+	refreshMu        sync.Map                       // OAuth刷新锁（每个账号一个）
+	cacheMu          sync.RWMutex                   // 缓存的读写锁
+	cacheItems       map[string]cachedProxyResponse // 代理响应缓存
+	registerMu       sync.Mutex                     // 注册速率限制锁
+	registerIPs      map[string]int64               // IP -> 最近注册时间戳(ms)
+	accountCache     map[string][]model.Account     // provider -> 活跃账号缓存
+	accountCacheMu   sync.RWMutex                   // 账号缓存读写锁
+	priceCache       map[string]model.ModelPrice    // "provider:model" -> 价格缓存
+	priceCacheMu     sync.RWMutex                   // 价格缓存读写锁
+	pendingBalanceMu sync.Mutex                     // 批量余额扣减锁
+	pendingBalances  map[uint64]int64               // user_id -> pending debit
+	pendingKeyMu     sync.Mutex                     // 批量key更新锁
+	pendingKeys      map[uint64]int64               // key_id -> last_used_at_ms 待刷新
+	pendingUserMu    sync.Mutex                     // 批量user更新锁
+	pendingUsers     map[uint64]int64               // user_id -> last_used_at_ms 待刷新
+	usageLogMu       sync.Mutex
+	usageLogQueue    []model.UsageLog
+	dashboardMu      sync.RWMutex
+	dashboardCache   map[uint64]cachedUserDashboard
+	statsMu          sync.RWMutex
+	statsCache       map[string]cachedStats
+}
+
+type cachedUserDashboard struct {
+	data      *UserDashboardData
+	expiresAt time.Time
+}
+
+type cachedStats struct {
+	data      map[string]any
+	expiresAt time.Time
 }
 
 // cachedProxyResponse 缓存的代理响应
@@ -179,8 +206,10 @@ type AccountCredentials struct {
 // ProxyAuth 代理认证结构
 // 用于API代理请求的身份验证
 type ProxyAuth struct {
-	User   model.User   // 用户信息
-	APIKey model.APIKey // API密钥信息
+	User             model.User   // 用户信息
+	APIKey           model.APIKey // API密钥信息
+	UserAllowedSet   map[string]struct{}
+	APIKeyAllowedSet map[string]struct{}
 }
 
 // UserAuth 用户认证结构
@@ -381,16 +410,38 @@ type AccountView struct {
 //   - providers: AI Provider注册表
 //   - payments: 支付Provider注册表
 func New(cfg config.Config, db *gorm.DB, providers *provider.Registry, payments *payment.Registry) *Core {
-	return &Core{
-		cfg:          cfg,
-		db:           db,
-		providers:    providers,
-		payments:     payments,
-		httpClient:   &http.Client{Timeout: 120 * time.Second},
-		accountLoads: map[uint64]int{},
-		cacheItems:   map[string]cachedProxyResponse{},
-		registerIPs:  map[string]int64{},
+	transport := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		MaxIdleConns:          512,
+		MaxIdleConnsPerHost:   128,
+		MaxConnsPerHost:       0,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		ForceAttemptHTTP2:     true,
 	}
+	c := &Core{
+		cfg:       cfg,
+		db:        db,
+		providers: providers,
+		payments:  payments,
+		httpClient: &http.Client{
+			Timeout:   120 * time.Second,
+			Transport: transport,
+		},
+		cacheItems:      map[string]cachedProxyResponse{},
+		registerIPs:     map[string]int64{},
+		accountCache:    map[string][]model.Account{},
+		priceCache:      map[string]model.ModelPrice{},
+		pendingBalances: map[uint64]int64{},
+		pendingKeys:     map[uint64]int64{},
+		pendingUsers:    map[uint64]int64{},
+		dashboardCache:  map[uint64]cachedUserDashboard{},
+		statsCache:      map[string]cachedStats{},
+	}
+	c.reloadAccountCache()
+	c.reloadPriceCache()
+	return c
 }
 
 // Start 启动核心服务
@@ -400,6 +451,12 @@ func (c *Core) Start(ctx context.Context) {
 	go c.snapshotMetricsLoop(ctx)
 	go c.cacheCleanupLoop(ctx)
 	go c.oauthSessionCleanupLoop(ctx)
+	go c.cacheRefreshLoop(ctx)
+	go c.dataCleanupLoop(ctx)
+	go c.flushBalanceDebitsLoop(ctx)
+	go c.flushKeyUpdatesLoop(ctx)
+	go c.flushUserUpdatesLoop(ctx)
+	go c.flushUsageLogsLoop(ctx)
 }
 
 // CheckAdminToken 检查管理员令牌是否有效
@@ -474,7 +531,7 @@ func (c *Core) CreateUser(in CreateUserInput) (*model.User, error) {
 // 返回：用户列表和错误
 func (c *Core) ListUsers() ([]model.User, error) {
 	var items []model.User
-	err := c.db.Order("id asc").Find(&items).Error
+	err := c.db.Order("id asc").Limit(500).Find(&items).Error
 	return items, err
 }
 
@@ -522,6 +579,8 @@ func (c *Core) UpdateUser(id uint64, in UpdateUserInput) (*model.User, error) {
 	if err := c.db.First(&user, id).Error; err != nil {
 		return nil, err
 	}
+	c.invalidateStats()
+	c.invalidateUserDashboard(id)
 	return &user, nil
 }
 
@@ -535,6 +594,7 @@ func (c *Core) GetUserByID(id uint64) (*model.User, error) {
 	if err := c.db.Where("id = ? AND status = ?", id, "active").First(&user).Error; err != nil {
 		return nil, err
 	}
+	user.Balance = effectiveBalance(user.Balance, c.pendingBalance(id))
 	return &user, nil
 }
 
@@ -564,13 +624,17 @@ func (c *Core) Register(in RegisterInput) (*UserAuth, error) {
 		}
 		c.registerMu.Unlock()
 	}
-	return c.createUserAuth(CreateUserInput{
+	auth, err := c.createUserAuth(CreateUserInput{
 		Email:       in.Email,
 		Name:        in.Name,
 		Password:    in.Password,
 		Role:        "user",
 		RatePercent: 100,
 	})
+	if err == nil {
+		c.invalidateStats()
+	}
+	return auth, err
 }
 
 func (c *Core) createUserAuth(in CreateUserInput) (*UserAuth, error) {
@@ -749,7 +813,7 @@ func (c *Core) ListUserUsage(userID uint64, limit int) ([]model.UsageLog, error)
 		limit = 100
 	}
 	var items []model.UsageLog
-	err := c.db.Where("user_id = ?", userID).Order("id desc").Limit(limit).Find(&items).Error
+	err := c.db.Where("user_id = ?", userID).Order("created_at_ms desc").Limit(limit).Find(&items).Error
 	return items, err
 }
 
@@ -763,7 +827,7 @@ func (c *Core) ListUsage(limit int) ([]model.UsageLog, error) {
 		limit = 200
 	}
 	var items []model.UsageLog
-	err := c.db.Order("id desc").Limit(limit).Find(&items).Error
+	err := c.db.Order("created_at_ms desc").Limit(limit).Find(&items).Error
 	return items, err
 }
 
@@ -780,6 +844,9 @@ func (c *Core) ListUserPaymentOrders(userID uint64) ([]model.PaymentOrder, error
 
 // UserDashboard 获取用户首页聚合数据
 func (c *Core) UserDashboard(userID uint64) (*UserDashboardData, error) {
+	if cached, ok := c.getCachedUserDashboard(userID); ok {
+		return cached, nil
+	}
 	user, err := c.GetUserByID(userID)
 	if err != nil {
 		return nil, err
@@ -793,30 +860,31 @@ func (c *Core) UserDashboard(userID uint64) (*UserDashboardData, error) {
 		TotalInput  int64
 		TotalOutput int64
 		Count       int64
-		LastUsedAt  int64
 	}
-	c.db.Model(&model.UsageLog{}).Where("user_id = ?", userID).Select(
+	c.db.Model(&model.UserUsageDay{}).Where("user_id = ?", userID).Select(
 		"COALESCE(SUM(cost),0) as total_cost, COALESCE(SUM(input_tokens),0) as total_input, " +
-			"COALESCE(SUM(output_tokens),0) as total_output, COUNT(*) as count, COALESCE(MAX(created_at_ms),0) as last_used_at",
+			"COALESCE(SUM(output_tokens),0) as total_output, COALESCE(SUM(request_count),0) as count",
 	).Scan(&agg)
 
 	var recentUsageCount int64
-	c.db.Model(&model.UsageLog{}).Where("user_id = ? AND created_at_ms >= ?", userID, sevenDaysAgo).Count(&recentUsageCount)
+	c.db.Model(&model.UserUsageHour{}).Where("user_id = ? AND bucket_start_ms >= ?", userID, alignHourStart(sevenDaysAgo)).Select(
+		"COALESCE(SUM(request_count),0)",
+	).Scan(&recentUsageCount)
 
 	var hourAgg struct {
 		Count  int64
 		Tokens int64
 	}
-	c.db.Model(&model.UsageLog{}).Where("user_id = ? AND created_at_ms >= ?", userID, oneHourAgo).Select(
-		"COUNT(*) as count, COALESCE(SUM(input_tokens+output_tokens),0) as tokens",
+	c.db.Model(&model.UserUsageMinute{}).Where("user_id = ? AND bucket_start_ms >= ?", userID, alignMinuteStart(oneHourAgo)).Select(
+		"COALESCE(SUM(request_count),0) as count, COALESCE(SUM(input_tokens+output_tokens),0) as tokens",
 	).Scan(&hourAgg)
 
 	var topModelResult struct {
 		Model string
 		Cnt   int64
 	}
-	c.db.Model(&model.UsageLog{}).Where("user_id = ?", userID).Select(
-		"model, COUNT(*) as cnt").Group("model").Order("cnt desc").Limit(1).Scan(&topModelResult)
+	c.db.Model(&model.UserUsageDayDimension{}).Where("user_id = ?", userID).Select(
+		"model, COALESCE(SUM(request_count),0) as cnt").Group("model").Order("cnt desc").Limit(1).Scan(&topModelResult)
 	topModel := "-"
 	if topModelResult.Model != "" {
 		topModel = topModelResult.Model
@@ -826,8 +894,8 @@ func (c *Core) UserDashboard(userID uint64) (*UserDashboardData, error) {
 		Provider string
 		Cnt      int64
 	}
-	c.db.Model(&model.UsageLog{}).Where("user_id = ?", userID).Select(
-		"provider, COUNT(*) as cnt").Group("provider").Order("cnt desc").Limit(1).Scan(&topProviderResult)
+	c.db.Model(&model.UserUsageDayDimension{}).Where("user_id = ?", userID).Select(
+		"provider, COALESCE(SUM(request_count),0) as cnt").Group("provider").Order("cnt desc").Limit(1).Scan(&topProviderResult)
 	topProvider := "-"
 	if topProviderResult.Provider != "" {
 		topProvider = topProviderResult.Provider
@@ -842,28 +910,34 @@ func (c *Core) UserDashboard(userID uint64) (*UserDashboardData, error) {
 	var keyCount int64
 	c.db.Model(&model.APIKey{}).Where("user_id = ?", userID).Count(&keyCount)
 
-	var recentUsage []model.UsageLog
-	c.db.Where("user_id = ? AND created_at_ms >= ?", userID, sevenDaysAgo).Find(&recentUsage)
+	var recentUsage []struct {
+		BucketStartMS int64
+		DayCost       int64
+		DayRequests   int64
+		DayTokens     int64
+	}
+	c.db.Model(&model.UserUsageDay{}).Where("user_id = ? AND bucket_start_ms >= ?", userID, alignDayStart(sevenDaysAgo)).Select(
+		"bucket_start_ms, COALESCE(SUM(cost),0) as day_cost, COALESCE(SUM(request_count),0) as day_requests, COALESCE(SUM(input_tokens+output_tokens),0) as day_tokens",
+	).Group("bucket_start_ms").Scan(&recentUsage)
 
 	dayBuckets := 14
 	dailyRequests := make([]int64, dayBuckets)
 	dailyCost := make([]int64, dayBuckets)
 	dailyTokens := make([]int64, dayBuckets)
-	msPerDay := int64(24 * time.Hour / time.Millisecond)
 	for _, item := range recentUsage {
-		idx := int((now - item.CreatedAtMS) / msPerDay)
+		idx := int((alignDayStart(now) - item.BucketStartMS) / int64(24*time.Hour/time.Millisecond))
 		if idx >= 0 && idx < dayBuckets {
-			dailyRequests[dayBuckets-1-idx]++
-			dailyCost[dayBuckets-1-idx] += item.Cost
-			dailyTokens[dayBuckets-1-idx] += item.InputTokens + item.OutputTokens
+			dailyRequests[dayBuckets-1-idx] = item.DayRequests
+			dailyCost[dayBuckets-1-idx] = item.DayCost
+			dailyTokens[dayBuckets-1-idx] = item.DayTokens
 		}
 	}
 
 	var recentUsageLogs []model.UsageLog
-	c.db.Where("user_id = ?", userID).Order("id desc").Limit(20).Find(&recentUsageLogs)
+	c.db.Where("user_id = ?", userID).Order("created_at_ms desc").Limit(20).Find(&recentUsageLogs)
 
 	var recentPaymentOrders []model.PaymentOrder
-	c.db.Where("user_id = ?", userID).Order("id desc").Limit(10).Find(&recentPaymentOrders)
+	c.db.Where("user_id = ?", userID).Order("created_at_ms desc").Limit(10).Find(&recentPaymentOrders)
 
 	avgRPM := "0"
 	avgTPM := "0"
@@ -872,7 +946,7 @@ func (c *Core) UserDashboard(userID uint64) (*UserDashboardData, error) {
 		avgTPM = fmt.Sprintf("%.3f", float64(hourAgg.Tokens)/60.0)
 	}
 
-	return &UserDashboardData{
+	result := &UserDashboardData{
 		Balance:             user.Balance,
 		RatePercent:         user.RatePercent,
 		TotalCost:           agg.TotalCost,
@@ -886,14 +960,16 @@ func (c *Core) UserDashboard(userID uint64) (*UserDashboardData, error) {
 		AvgTPM:              avgTPM,
 		TopModel:            topModel,
 		TopProvider:         topProvider,
-		LastUsageTimeMS:     agg.LastUsedAt,
+		LastUsageTimeMS:     user.LastUsedAtMS,
 		KeyCount:            keyCount,
 		UsageTimeline:       dailyRequests,
 		CostTimeline:        dailyCost,
 		TokenTimeline:       dailyTokens,
 		RecentUsageLogs:     recentUsageLogs,
 		RecentPaymentOrders: recentPaymentOrders,
-	}, nil
+	}
+	c.setCachedUserDashboard(userID, result)
+	return result, nil
 }
 
 // GetUserPaymentOrder 获取用户的指定支付订单
@@ -981,7 +1057,12 @@ func (c *Core) CreateAPIKey(in CreateAPIKeyInput) (*model.APIKey, error) {
 		AllowedModelsJSON: string(allowed),
 		ExpiresAtMS:       in.ExpiresAtMS,
 	}
-	return key, c.db.Create(key).Error
+	if err := c.db.Create(key).Error; err != nil {
+		return nil, err
+	}
+	c.invalidateUserDashboard(in.UserID)
+	c.invalidateStats()
+	return key, nil
 }
 
 // DeleteUserAPIKey 删除用户的API密钥
@@ -991,7 +1072,12 @@ func (c *Core) CreateAPIKey(in CreateAPIKeyInput) (*model.APIKey, error) {
 //
 // 返回：错误
 func (c *Core) DeleteUserAPIKey(userID, keyID uint64) error {
-	return c.db.Where("id = ? AND user_id = ?", keyID, userID).Delete(&model.APIKey{}).Error
+	if err := c.db.Where("id = ? AND user_id = ?", keyID, userID).Delete(&model.APIKey{}).Error; err != nil {
+		return err
+	}
+	c.invalidateUserDashboard(userID)
+	c.invalidateStats()
+	return nil
 }
 
 // CreateAccount 创建AI账号
@@ -1017,16 +1103,21 @@ func (c *Core) CreateAccount(in CreateAccountInput) (*model.Account, error) {
 		ConcurrencyLimit:     in.ConcurrencyLimit,
 		MetadataJSON:         normalizeJSON(in.Metadata, "{}"),
 	}
-	return account, c.db.Create(account).Error
+	if err := c.db.Create(account).Error; err != nil {
+		return nil, err
+	}
+	c.reloadAccountCache()
+	c.invalidateStats()
+	return account, nil
 }
 
-// DeleteAccount 删除AI账号
-// 参数：
-//   - id: 账号ID
-//
-// 返回：错误
 func (c *Core) DeleteAccount(id uint64) error {
-	return c.db.Where("id = ?", id).Delete(&model.Account{}).Error
+	err := c.db.Where("id = ?", id).Delete(&model.Account{}).Error
+	if err == nil {
+		c.reloadAccountCache()
+		c.invalidateStats()
+	}
+	return err
 }
 
 // UpdateAccount 更新AI账号
@@ -1067,10 +1158,14 @@ func (c *Core) UpdateAccount(id uint64, in UpdateAccountInput) error {
 		return nil
 	}
 	updates["updated_at_ms"] = time.Now().UnixMilli()
-	return c.db.Model(&model.Account{}).Where("id = ?", id).Updates(updates).Error
+	if err := c.db.Model(&model.Account{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+		return err
+	}
+	c.reloadAccountCache()
+	c.invalidateStats()
+	return nil
 }
 
-// RefreshAccountOAuth 手动刷新OAuth账号
 // 参数：
 //   - ctx: 上下文
 //   - id: 账号ID
@@ -1092,6 +1187,7 @@ func (c *Core) RefreshAccountOAuth(ctx context.Context, id uint64) (*AccountView
 		c.recordError("account.refresh", "manual oauth refresh failed", err.Error())
 		return nil, err
 	}
+	c.reloadAccountCache()
 	cred, _ = c.accountCredentials(&account)
 	return &AccountView{
 		Account:     account,
@@ -1103,7 +1199,7 @@ func (c *Core) RefreshAccountOAuth(ctx context.Context, id uint64) (*AccountView
 // 返回：账号列表和错误
 func (c *Core) ListAccounts() ([]model.Account, error) {
 	var items []model.Account
-	err := c.db.Order("priority desc, id asc").Find(&items).Error
+	err := c.db.Order("priority desc, id asc").Limit(200).Find(&items).Error
 	return items, err
 }
 
@@ -1141,14 +1237,43 @@ func (c *Core) CreateModelPrice(in CreateModelPriceInput) (*model.ModelPrice, er
 		Currency:         "CNY_1E4",
 		Status:           defaultString(strings.TrimSpace(in.Status), "active"),
 	}
-	return item, c.db.Create(item).Error
+	if err := c.db.Create(item).Error; err != nil {
+		return nil, err
+	}
+	c.reloadPriceCache()
+	c.invalidateStats()
+	return item, nil
+}
+
+func (c *Core) reloadAccountCache() {
+	var accounts []model.Account
+	c.db.Where("status = ?", "active").Order("priority desc, id asc").Find(&accounts)
+	m := map[string][]model.Account{}
+	for _, a := range accounts {
+		m[a.Provider] = append(m[a.Provider], a)
+	}
+	c.accountCacheMu.Lock()
+	c.accountCache = m
+	c.accountCacheMu.Unlock()
+}
+
+func (c *Core) reloadPriceCache() {
+	var prices []model.ModelPrice
+	c.db.Where("status = ?", "active").Find(&prices)
+	m := map[string]model.ModelPrice{}
+	for _, p := range prices {
+		m[p.Provider+":"+p.Model] = p
+	}
+	c.priceCacheMu.Lock()
+	c.priceCache = m
+	c.priceCacheMu.Unlock()
 }
 
 // ListModelPrices 获取所有模型价格列表
 // 返回：价格列表和错误
 func (c *Core) ListModelPrices() ([]model.ModelPrice, error) {
 	var items []model.ModelPrice
-	err := c.db.Order("provider asc, model asc").Find(&items).Error
+	err := c.db.Order("provider asc, model asc").Limit(500).Find(&items).Error
 	return items, err
 }
 
@@ -1164,14 +1289,18 @@ func (c *Core) CreateAnnouncement(in CreateAnnouncementInput) (*model.Announceme
 		Status:        defaultString(in.Status, "published"),
 		PublishedAtMS: defaultInt64(in.PublishedAtMS, time.Now().UnixMilli()),
 	}
-	return item, c.db.Create(item).Error
+	if err := c.db.Create(item).Error; err != nil {
+		return nil, err
+	}
+	c.invalidateStats()
+	return item, nil
 }
 
 // ListAnnouncements 获取所有公告列表
 // 返回：公告列表和错误
 func (c *Core) ListAnnouncements() ([]model.Announcement, error) {
 	var items []model.Announcement
-	err := c.db.Order("published_at_ms desc, id desc").Find(&items).Error
+	err := c.db.Order("published_at_ms desc, id desc").Limit(100).Find(&items).Error
 	return items, err
 }
 
@@ -1190,14 +1319,18 @@ func (c *Core) CreateCoupon(in CreateCouponInput) (*model.Coupon, error) {
 		Status:       "active",
 		UsageLogJSON: "[]",
 	}
-	return item, c.db.Create(item).Error
+	if err := c.db.Create(item).Error; err != nil {
+		return nil, err
+	}
+	c.invalidateStats()
+	return item, nil
 }
 
 // ListCoupons 获取所有优惠券列表
 // 返回：优惠券列表和错误
 func (c *Core) ListCoupons() ([]model.Coupon, error) {
 	var items []model.Coupon
-	err := c.db.Order("id desc").Find(&items).Error
+	err := c.db.Order("id desc").Limit(100).Find(&items).Error
 	return items, err
 }
 
@@ -1317,6 +1450,8 @@ func (c *Core) CreatePaymentOrder(ctx context.Context, in CreatePaymentOrderInpu
 	}
 	order.ProviderTradeNo = result.ProviderTradeNo
 	order.UpdatedAtMS = now
+	c.invalidateUserDashboard(in.UserID)
+	c.invalidateStats()
 	return order, result, nil
 }
 
@@ -1336,7 +1471,8 @@ func (c *Core) HandlePaymentNotify(r *http.Request) error {
 		return fmt.Errorf("payment not completed")
 	}
 	// 事务处理：更新订单状态和用户余额
-	return c.db.Transaction(func(tx *gorm.DB) error {
+	var dashboardUserID uint64
+	err = c.db.Transaction(func(tx *gorm.DB) error {
 		var order model.PaymentOrder
 		// 查找订单
 		if err := tx.Where("out_trade_no = ?", notify.OutTradeNo).First(&order).Error; err != nil {
@@ -1361,11 +1497,20 @@ func (c *Core) HandlePaymentNotify(r *http.Request) error {
 			return err
 		}
 		// 增加用户余额
-		return tx.Model(&model.User{}).Where("id = ?", order.UserID).Updates(map[string]any{
+		if err := tx.Model(&model.User{}).Where("id = ?", order.UserID).Updates(map[string]any{
 			"balance":       gorm.Expr("balance + ?", order.CreditedAmount),
 			"updated_at_ms": now,
-		}).Error
+		}).Error; err != nil {
+			return err
+		}
+		dashboardUserID = order.UserID
+		return nil
 	})
+	if err == nil && dashboardUserID != 0 {
+		c.invalidateUserDashboard(dashboardUserID)
+		c.invalidateStats()
+	}
+	return err
 }
 
 // RefundPayment 退款
@@ -1414,7 +1559,7 @@ func (c *Core) RefundPayment(ctx context.Context, outTradeNo string, amount int6
 	}
 	// 更新订单状态和用户余额
 	now := time.Now().UnixMilli()
-	return c.db.Transaction(func(tx *gorm.DB) error {
+	err = c.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&order).Updates(map[string]any{
 			"status":          "REFUNDED",
 			"refunded_amount": gorm.Expr("refunded_amount + ?", amount),
@@ -1422,11 +1567,19 @@ func (c *Core) RefundPayment(ctx context.Context, outTradeNo string, amount int6
 		}).Error; err != nil {
 			return err
 		}
-		return tx.Model(&user).Updates(map[string]any{
+		if err := tx.Model(&user).Updates(map[string]any{
 			"balance":       gorm.Expr("balance - ?", amount),
 			"updated_at_ms": now,
-		}).Error
+		}).Error; err != nil {
+			return err
+		}
+		return nil
 	})
+	if err == nil {
+		c.invalidateUserDashboard(user.ID)
+		c.invalidateStats()
+	}
+	return err
 }
 
 // AuthenticateAPIKey 验证API密钥
@@ -1435,24 +1588,55 @@ func (c *Core) RefundPayment(ctx context.Context, outTradeNo string, amount int6
 //
 // 返回：代理认证信息和错误
 func (c *Core) AuthenticateAPIKey(secret string) (*ProxyAuth, error) {
-	// 查找API密钥
-	var key model.APIKey
-	if err := c.db.Where("secret = ? AND status = ?", strings.TrimSpace(secret), "active").First(&key).Error; err != nil {
+	trimmedSecret := strings.TrimSpace(secret)
+	var authRow struct {
+		APIKeyID            uint64
+		APIKeyUserID        uint64
+		APIKeyAllowedModels string
+		APIKeyExpiresAtMS   int64
+		UserID              uint64
+		UserBalance         int64
+		UserRatePercent     int
+		UserAllowedModels   string
+	}
+	err := c.db.Table("api_keys").
+		Select(
+			"api_keys.id as api_key_id, api_keys.user_id as api_key_user_id, "+
+				"api_keys.allowed_models_json as api_key_allowed_models, api_keys.expires_at_ms as api_key_expires_at_ms, "+
+				"users.id as user_id, users.balance as user_balance, users.rate_percent as user_rate_percent, "+
+				"users.allowed_models_json as user_allowed_models",
+		).
+		Joins("JOIN users ON users.id = api_keys.user_id").
+		Where("api_keys.secret = ? AND api_keys.status = ? AND users.status = ?", trimmedSecret, "active", "active").
+		Take(&authRow).Error
+	if err != nil {
 		return nil, fmt.Errorf("invalid api key")
 	}
 	// 检查密钥是否过期
-	if key.ExpiresAtMS > 0 && key.ExpiresAtMS < time.Now().UnixMilli() {
+	if authRow.APIKeyExpiresAtMS > 0 && authRow.APIKeyExpiresAtMS < time.Now().UnixMilli() {
 		return nil, fmt.Errorf("api key expired")
 	}
-	// 查找关联的用户
-	var user model.User
-	if err := c.db.Where("id = ? AND status = ?", key.UserID, "active").First(&user).Error; err != nil {
-		return nil, fmt.Errorf("user not available")
-	}
-	// 更新最后使用时间
 	now := time.Now().UnixMilli()
-	_ = c.db.Model(&key).Updates(map[string]any{"last_used_at_ms": now, "updated_at_ms": now}).Error
-	return &ProxyAuth{User: user, APIKey: key}, nil
+	c.pendingKeyMu.Lock()
+	c.pendingKeys[authRow.APIKeyID] = now
+	c.pendingKeyMu.Unlock()
+	effectiveUserBalance := effectiveBalance(authRow.UserBalance, c.pendingBalance(authRow.UserID))
+	return &ProxyAuth{
+		User: model.User{
+			ID:                authRow.UserID,
+			Balance:           effectiveUserBalance,
+			RatePercent:       authRow.UserRatePercent,
+			AllowedModelsJSON: authRow.UserAllowedModels,
+		},
+		APIKey: model.APIKey{
+			ID:                authRow.APIKeyID,
+			UserID:            authRow.APIKeyUserID,
+			AllowedModelsJSON: authRow.APIKeyAllowedModels,
+			ExpiresAtMS:       authRow.APIKeyExpiresAtMS,
+		},
+		UserAllowedSet:   parseAllowedModelsSet(authRow.UserAllowedModels),
+		APIKeyAllowedSet: parseAllowedModelsSet(authRow.APIKeyAllowedModels),
+	}, nil
 }
 
 // Proxy 代理AI请求
@@ -1477,7 +1661,7 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 		return nil, nil, fmt.Errorf("insufficient balance")
 	}
 	// 检查模型是否在允许列表中
-	if modelName != "" && (!isModelAllowed(auth.User.AllowedModelsJSON, modelName) || !isModelAllowed(auth.APIKey.AllowedModelsJSON, modelName)) {
+	if modelName != "" && (!isModelAllowedSet(auth.UserAllowedSet, modelName) || !isModelAllowedSet(auth.APIKeyAllowedSet, modelName)) {
 		return nil, nil, fmt.Errorf("model is not allowed")
 	}
 	// 生成缓存键，检查是否可缓存
@@ -1687,6 +1871,9 @@ func (c *Core) CreateAccountFromOAuth(providerName, name string, modelScope []st
 // Stats 获取系统统计信息
 // 返回：统计数据映射和错误
 func (c *Core) Stats() (map[string]any, error) {
+	if cached, ok := c.getCachedStats(); ok {
+		return cached, nil
+	}
 	type target struct {
 		name  string
 		model any
@@ -1727,6 +1914,7 @@ func (c *Core) Stats() (map[string]any, error) {
 	data["memory_alloc_mb"] = ms.Alloc / 1024 / 1024
 	data["cache_items"] = len(c.cacheItems)
 	data["timestamp_ms"] = time.Now().UnixMilli()
+	c.setCachedStats(data)
 	return data, nil
 }
 
@@ -1734,7 +1922,7 @@ func (c *Core) Stats() (map[string]any, error) {
 // 返回：订单列表和错误
 func (c *Core) ListPaymentOrders() ([]model.PaymentOrder, error) {
 	var items []model.PaymentOrder
-	err := c.db.Order("id desc").Find(&items).Error
+	err := c.db.Order("id desc").Limit(500).Find(&items).Error
 	return items, err
 }
 
@@ -1755,24 +1943,16 @@ func (c *Core) snapshotMetricsLoop(ctx context.Context) {
 			if err != nil {
 				continue
 			}
-			// 单事务批量写入快照，避免每条记录都触发一次 MAX(id) 查询。
 			_ = c.db.Transaction(func(tx *gorm.DB) error {
-				var maxID uint64
-				if err := tx.Model(&model.SystemMetric{}).Select("COALESCE(MAX(id), 9999)").Scan(&maxID).Error; err != nil {
-					return err
-				}
 				now := time.Now().UnixMilli()
 				items := make([]model.SystemMetric, 0, len(stats))
-				nextID := maxID + 1
 				for k, v := range stats {
 					items = append(items, model.SystemMetric{
-						ID:           nextID,
 						MetricKey:    k,
 						MetricValue:  fmt.Sprintf("%v", v),
 						SnapshotAtMS: now,
 						MetadataJSON: "{}",
 					})
-					nextID++
 				}
 				return tx.Create(&items).Error
 			})
@@ -2409,10 +2589,12 @@ func (c *Core) geminiOAuthConfig(oauthType string) (config.GeminiConfig, string,
 //
 // 返回：选中的账号和错误
 func (c *Core) pickAccount(providerName, modelName, path string) (model.Account, error) {
-	// 从数据库获取该Provider的所有活跃账号
-	var accounts []model.Account
-	if err := c.db.Where("provider = ? AND status = ?", providerName, "active").Order("priority desc, id asc").Find(&accounts).Error; err != nil {
-		return model.Account{}, err
+	c.accountCacheMu.RLock()
+	accounts := c.accountCache[providerName]
+	c.accountCacheMu.RUnlock()
+
+	if len(accounts) == 0 {
+		return model.Account{}, fmt.Errorf("no active %s account available", providerName)
 	}
 	// 获取Provider实现
 	providerImpl, err := c.providers.Get(providerName)
@@ -2422,52 +2604,72 @@ func (c *Core) pickAccount(providerName, modelName, path string) (model.Account,
 	if !providerImpl.SupportsPath(path) {
 		return model.Account{}, fmt.Errorf("provider %s does not support path %s", providerName, path)
 	}
-	// 加锁以保护负载计数器
-	c.loadMu.Lock()
-	defer c.loadMu.Unlock()
-	// 遍历账号，找到最合适的
-	bestIndex := -1
-	bestLoad := int(^uint(0) >> 1) // 取最大int值
-	for i := range accounts {
-		// 检查模型是否在账号支持范围内
-		if modelName != "" && !isModelAllowed(accounts[i].ModelScopeJSON, modelName) {
-			continue
+	for attempt := 0; attempt < 3; attempt++ {
+		bestIndex := -1
+		bestLoad := int64(^uint64(0) >> 1)
+		for i := range accounts {
+			if modelName != "" && !isModelAllowed(accounts[i].ModelScopeJSON, modelName) {
+				continue
+			}
+			limit := accounts[i].ConcurrencyLimit
+			if limit <= 0 {
+				limit = 1
+			}
+			load := c.accountLoadCounter(accounts[i].ID).Load()
+			if load >= int64(limit) {
+				continue
+			}
+			if bestIndex == -1 || load < bestLoad {
+				bestIndex = i
+				bestLoad = load
+			}
 		}
-		// 获取当前负载
-		load := c.accountLoads[accounts[i].ID]
-		limit := accounts[i].ConcurrencyLimit
+		if bestIndex == -1 {
+			return model.Account{}, fmt.Errorf("no active %s account available", providerName)
+		}
+
+		account := accounts[bestIndex]
+		counter := c.accountLoadCounter(account.ID)
+		limit := account.ConcurrencyLimit
 		if limit <= 0 {
 			limit = 1
 		}
-		// 检查是否超过并发限制
-		if load >= limit {
-			continue
-		}
-		// 选择负载最低的账号
-		if bestIndex == -1 || load < bestLoad {
-			bestIndex = i
-			bestLoad = load
+		for {
+			current := counter.Load()
+			if current >= int64(limit) {
+				break
+			}
+			if counter.CompareAndSwap(current, current+1) {
+				return account, nil
+			}
 		}
 	}
-	// 如果没有可用账号，返回错误
-	if bestIndex == -1 {
-		return model.Account{}, fmt.Errorf("no active %s account available", providerName)
-	}
-	// 选中账号，负载加1
-	account := accounts[bestIndex]
-	c.accountLoads[account.ID]++
-	return account, nil
+	return model.Account{}, fmt.Errorf("no active %s account available", providerName)
 }
 
 // releaseAccount 释放账号（减少负载计数）
 // 参数：
 //   - accountID: 账号ID
 func (c *Core) releaseAccount(accountID uint64) {
-	c.loadMu.Lock()
-	defer c.loadMu.Unlock()
-	if c.accountLoads[accountID] > 0 {
-		c.accountLoads[accountID]--
+	counter := c.accountLoadCounter(accountID)
+	for {
+		current := counter.Load()
+		if current <= 0 {
+			return
+		}
+		if counter.CompareAndSwap(current, current-1) {
+			return
+		}
 	}
+}
+
+func (c *Core) accountLoadCounter(accountID uint64) *atomic.Int64 {
+	if counter, ok := c.accountLoads.Load(accountID); ok {
+		return counter.(*atomic.Int64)
+	}
+	counter := &atomic.Int64{}
+	actual, _ := c.accountLoads.LoadOrStore(accountID, counter)
+	return actual.(*atomic.Int64)
 }
 
 // recordUsage 记录API使用量
@@ -2486,34 +2688,381 @@ func (c *Core) recordUsage(auth *ProxyAuth, account *model.Account, modelName, e
 	if err != nil {
 		return err
 	}
-	// 事务中记录使用量并扣减余额
+	// 高频路径上只在需要扣费时同步写余额，避免把免费请求也变成用户行热点写
 	now := time.Now().UnixMilli()
-	return c.db.Transaction(func(tx *gorm.DB) error {
-		// 创建使用记录
-		if err := tx.Create(&model.UsageLog{
-			UserID:            auth.User.ID,
-			APIKeyID:          auth.APIKey.ID,
-			AccountID:         account.ID,
-			Provider:          account.Provider,
-			Model:             modelName,
-			Endpoint:          endpoint,
-			InputTokens:       inTokens,
-			OutputTokens:      outTokens,
-			CacheCreateTokens: cacheCreateTokens,
-			CacheReadTokens:   cacheReadTokens,
-			Cost:              cost,
-		}).Error; err != nil {
-			return err
+	entry := model.UsageLog{
+		UserID:            auth.User.ID,
+		APIKeyID:          auth.APIKey.ID,
+		AccountID:         account.ID,
+		Provider:          account.Provider,
+		Model:             modelName,
+		Endpoint:          endpoint,
+		InputTokens:       inTokens,
+		OutputTokens:      outTokens,
+		CacheCreateTokens: cacheCreateTokens,
+		CacheReadTokens:   cacheReadTokens,
+		Cost:              cost,
+		CreatedAtMS:       now,
+	}
+	if cost > 0 {
+		c.enqueueBalanceDebit(auth.User.ID, cost)
+	}
+	c.enqueueUserLastUsed(auth.User.ID, now)
+	c.enqueueUsageLog(entry)
+	return nil
+}
+
+func (c *Core) getCachedUserDashboard(userID uint64) (*UserDashboardData, bool) {
+	c.dashboardMu.RLock()
+	entry, ok := c.dashboardCache[userID]
+	c.dashboardMu.RUnlock()
+	if !ok || time.Now().After(entry.expiresAt) || entry.data == nil {
+		return nil, false
+	}
+	data := *entry.data
+	return &data, true
+}
+
+func (c *Core) setCachedUserDashboard(userID uint64, data *UserDashboardData) {
+	if data == nil {
+		return
+	}
+	copyData := *data
+	c.dashboardMu.Lock()
+	c.dashboardCache[userID] = cachedUserDashboard{
+		data:      &copyData,
+		expiresAt: time.Now().Add(15 * time.Second),
+	}
+	c.dashboardMu.Unlock()
+}
+
+func (c *Core) invalidateUserDashboard(userID uint64) {
+	c.dashboardMu.Lock()
+	delete(c.dashboardCache, userID)
+	c.dashboardMu.Unlock()
+}
+
+func (c *Core) getCachedStats() (map[string]any, bool) {
+	c.statsMu.RLock()
+	entry, ok := c.statsCache["global"]
+	c.statsMu.RUnlock()
+	if !ok || time.Now().After(entry.expiresAt) || entry.data == nil {
+		return nil, false
+	}
+	copyData := make(map[string]any, len(entry.data))
+	for k, v := range entry.data {
+		copyData[k] = v
+	}
+	return copyData, true
+}
+
+func (c *Core) setCachedStats(data map[string]any) {
+	if data == nil {
+		return
+	}
+	copyData := make(map[string]any, len(data))
+	for k, v := range data {
+		copyData[k] = v
+	}
+	c.statsMu.Lock()
+	c.statsCache["global"] = cachedStats{
+		data:      copyData,
+		expiresAt: time.Now().Add(10 * time.Second),
+	}
+	c.statsMu.Unlock()
+}
+
+func (c *Core) invalidateStats() {
+	c.statsMu.Lock()
+	delete(c.statsCache, "global")
+	c.statsMu.Unlock()
+}
+
+func (c *Core) enqueueBalanceDebit(userID uint64, amount int64) {
+	if userID == 0 || amount <= 0 {
+		return
+	}
+	c.pendingBalanceMu.Lock()
+	c.pendingBalances[userID] += amount
+	c.pendingBalanceMu.Unlock()
+}
+
+func (c *Core) pendingBalance(userID uint64) int64 {
+	c.pendingBalanceMu.Lock()
+	defer c.pendingBalanceMu.Unlock()
+	return c.pendingBalances[userID]
+}
+
+func (c *Core) enqueueUserLastUsed(userID uint64, usedAt int64) {
+	c.pendingUserMu.Lock()
+	if prev, ok := c.pendingUsers[userID]; !ok || usedAt > prev {
+		c.pendingUsers[userID] = usedAt
+	}
+	c.pendingUserMu.Unlock()
+}
+
+func (c *Core) enqueueUsageLog(item model.UsageLog) {
+	c.usageLogMu.Lock()
+	c.usageLogQueue = append(c.usageLogQueue, item)
+	c.usageLogMu.Unlock()
+}
+
+func (c *Core) flushUsageLogsLoop(ctx context.Context) {
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			c.flushUsageLogsBatch()
+			return
+		case <-ticker.C:
+			c.flushUsageLogsBatch()
 		}
-		// 扣减用户余额
-		if cost > 0 {
-			return tx.Model(&model.User{}).Where("id = ?", auth.User.ID).Updates(map[string]any{
-				"balance":       gorm.Expr("balance - ?", cost),
-				"updated_at_ms": now,
-			}).Error
-		}
+	}
+}
+
+func (c *Core) flushUsageLogsBatch() {
+	c.usageLogMu.Lock()
+	if len(c.usageLogQueue) == 0 {
+		c.usageLogMu.Unlock()
+		return
+	}
+	batchSize := 200
+	if len(c.usageLogQueue) < batchSize {
+		batchSize = len(c.usageLogQueue)
+	}
+	items := append([]model.UsageLog(nil), c.usageLogQueue[:batchSize]...)
+	c.usageLogQueue = c.usageLogQueue[batchSize:]
+	c.usageLogMu.Unlock()
+
+	if err := c.db.CreateInBatches(items, 100).Error; err != nil {
+		c.recordError("usage.flush", "flush usage logs failed", err.Error())
+		c.usageLogMu.Lock()
+		c.usageLogQueue = append(items, c.usageLogQueue...)
+		c.usageLogMu.Unlock()
+		return
+	}
+	if err := c.upsertUsageAggregates(items); err != nil {
+		c.recordError("usage.aggregate", "upsert usage aggregates failed", err.Error())
+	}
+}
+
+func (c *Core) upsertUsageAggregates(items []model.UsageLog) error {
+	if len(items) == 0 {
 		return nil
-	})
+	}
+	now := time.Now().UnixMilli()
+	minuteAgg := map[string]*model.UserUsageMinute{}
+	hourAgg := map[string]*model.UserUsageHour{}
+	dayAgg := map[string]*model.UserUsageDay{}
+	dayDimensionAgg := map[string]*model.UserUsageDayDimension{}
+
+	for _, item := range items {
+		minuteStart := alignMinuteStart(item.CreatedAtMS)
+		hourStart := alignHourStart(item.CreatedAtMS)
+		dayStart := alignDayStart(item.CreatedAtMS)
+
+		minuteKey := fmt.Sprintf("%d:%d", item.UserID, minuteStart)
+		if minuteAgg[minuteKey] == nil {
+			minuteAgg[minuteKey] = &model.UserUsageMinute{UserID: item.UserID, BucketStartMS: minuteStart, CreatedAtMS: now, UpdatedAtMS: now}
+		}
+		accumulateMinute(minuteAgg[minuteKey], item, now)
+
+		hourKey := fmt.Sprintf("%d:%d", item.UserID, hourStart)
+		if hourAgg[hourKey] == nil {
+			hourAgg[hourKey] = &model.UserUsageHour{UserID: item.UserID, BucketStartMS: hourStart, CreatedAtMS: now, UpdatedAtMS: now}
+		}
+		accumulateHour(hourAgg[hourKey], item, now)
+
+		dayKey := fmt.Sprintf("%d:%d", item.UserID, dayStart)
+		if dayAgg[dayKey] == nil {
+			dayAgg[dayKey] = &model.UserUsageDay{UserID: item.UserID, BucketStartMS: dayStart, CreatedAtMS: now, UpdatedAtMS: now}
+		}
+		accumulateDay(dayAgg[dayKey], item, now)
+
+		dayDimensionKey := fmt.Sprintf("%d:%d:%s:%s", item.UserID, dayStart, item.Provider, item.Model)
+		if dayDimensionAgg[dayDimensionKey] == nil {
+			dayDimensionAgg[dayDimensionKey] = &model.UserUsageDayDimension{
+				UserID:        item.UserID,
+				BucketStartMS: dayStart,
+				Provider:      item.Provider,
+				Model:         item.Model,
+				CreatedAtMS:   now,
+				UpdatedAtMS:   now,
+			}
+		}
+		accumulateDayDimension(dayDimensionAgg[dayDimensionKey], item, now)
+	}
+
+	if err := c.upsertMinuteRows(mapValuesMinute(minuteAgg)); err != nil {
+		return err
+	}
+	if err := c.upsertHourRows(mapValuesHour(hourAgg)); err != nil {
+		return err
+	}
+	if err := c.upsertDayRows(mapValuesDay(dayAgg)); err != nil {
+		return err
+	}
+	return c.upsertDayDimensionRows(mapValuesDayDimension(dayDimensionAgg))
+}
+
+func (c *Core) upsertMinuteRows(rows []model.UserUsageMinute) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	return c.db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "user_id"}, {Name: "bucket_start_ms"}},
+		DoUpdates: clause.Assignments(map[string]any{
+			"request_count":       gorm.Expr("request_count + excluded.request_count"),
+			"input_tokens":        gorm.Expr("input_tokens + excluded.input_tokens"),
+			"output_tokens":       gorm.Expr("output_tokens + excluded.output_tokens"),
+			"cache_create_tokens": gorm.Expr("cache_create_tokens + excluded.cache_create_tokens"),
+			"cache_read_tokens":   gorm.Expr("cache_read_tokens + excluded.cache_read_tokens"),
+			"cost":                gorm.Expr("cost + excluded.cost"),
+			"updated_at_ms":       gorm.Expr("excluded.updated_at_ms"),
+		}),
+	}).Create(&rows).Error
+}
+
+func (c *Core) upsertHourRows(rows []model.UserUsageHour) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	return c.db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "user_id"}, {Name: "bucket_start_ms"}},
+		DoUpdates: clause.Assignments(map[string]any{
+			"request_count":       gorm.Expr("request_count + excluded.request_count"),
+			"input_tokens":        gorm.Expr("input_tokens + excluded.input_tokens"),
+			"output_tokens":       gorm.Expr("output_tokens + excluded.output_tokens"),
+			"cache_create_tokens": gorm.Expr("cache_create_tokens + excluded.cache_create_tokens"),
+			"cache_read_tokens":   gorm.Expr("cache_read_tokens + excluded.cache_read_tokens"),
+			"cost":                gorm.Expr("cost + excluded.cost"),
+			"updated_at_ms":       gorm.Expr("excluded.updated_at_ms"),
+		}),
+	}).Create(&rows).Error
+}
+
+func (c *Core) upsertDayRows(rows []model.UserUsageDay) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	return c.db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "user_id"}, {Name: "bucket_start_ms"}},
+		DoUpdates: clause.Assignments(map[string]any{
+			"request_count":       gorm.Expr("request_count + excluded.request_count"),
+			"input_tokens":        gorm.Expr("input_tokens + excluded.input_tokens"),
+			"output_tokens":       gorm.Expr("output_tokens + excluded.output_tokens"),
+			"cache_create_tokens": gorm.Expr("cache_create_tokens + excluded.cache_create_tokens"),
+			"cache_read_tokens":   gorm.Expr("cache_read_tokens + excluded.cache_read_tokens"),
+			"cost":                gorm.Expr("cost + excluded.cost"),
+			"updated_at_ms":       gorm.Expr("excluded.updated_at_ms"),
+		}),
+	}).Create(&rows).Error
+}
+
+func (c *Core) upsertDayDimensionRows(rows []model.UserUsageDayDimension) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	return c.db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "user_id"}, {Name: "bucket_start_ms"}, {Name: "provider"}, {Name: "model"}},
+		DoUpdates: clause.Assignments(map[string]any{
+			"request_count":       gorm.Expr("request_count + excluded.request_count"),
+			"input_tokens":        gorm.Expr("input_tokens + excluded.input_tokens"),
+			"output_tokens":       gorm.Expr("output_tokens + excluded.output_tokens"),
+			"cache_create_tokens": gorm.Expr("cache_create_tokens + excluded.cache_create_tokens"),
+			"cache_read_tokens":   gorm.Expr("cache_read_tokens + excluded.cache_read_tokens"),
+			"cost":                gorm.Expr("cost + excluded.cost"),
+			"updated_at_ms":       gorm.Expr("excluded.updated_at_ms"),
+		}),
+	}).Create(&rows).Error
+}
+
+func alignMinuteStart(ts int64) int64 {
+	const minuteMS = int64(time.Minute / time.Millisecond)
+	return ts / minuteMS * minuteMS
+}
+
+func alignHourStart(ts int64) int64 {
+	const hourMS = int64(time.Hour / time.Millisecond)
+	return ts / hourMS * hourMS
+}
+
+func alignDayStart(ts int64) int64 {
+	const dayMS = int64(24 * time.Hour / time.Millisecond)
+	return ts / dayMS * dayMS
+}
+
+func accumulateMinute(dst *model.UserUsageMinute, item model.UsageLog, now int64) {
+	dst.RequestCount++
+	dst.InputTokens += item.InputTokens
+	dst.OutputTokens += item.OutputTokens
+	dst.CacheCreateTokens += item.CacheCreateTokens
+	dst.CacheReadTokens += item.CacheReadTokens
+	dst.Cost += item.Cost
+	dst.UpdatedAtMS = now
+}
+
+func accumulateHour(dst *model.UserUsageHour, item model.UsageLog, now int64) {
+	dst.RequestCount++
+	dst.InputTokens += item.InputTokens
+	dst.OutputTokens += item.OutputTokens
+	dst.CacheCreateTokens += item.CacheCreateTokens
+	dst.CacheReadTokens += item.CacheReadTokens
+	dst.Cost += item.Cost
+	dst.UpdatedAtMS = now
+}
+
+func accumulateDay(dst *model.UserUsageDay, item model.UsageLog, now int64) {
+	dst.RequestCount++
+	dst.InputTokens += item.InputTokens
+	dst.OutputTokens += item.OutputTokens
+	dst.CacheCreateTokens += item.CacheCreateTokens
+	dst.CacheReadTokens += item.CacheReadTokens
+	dst.Cost += item.Cost
+	dst.UpdatedAtMS = now
+}
+
+func accumulateDayDimension(dst *model.UserUsageDayDimension, item model.UsageLog, now int64) {
+	dst.RequestCount++
+	dst.InputTokens += item.InputTokens
+	dst.OutputTokens += item.OutputTokens
+	dst.CacheCreateTokens += item.CacheCreateTokens
+	dst.CacheReadTokens += item.CacheReadTokens
+	dst.Cost += item.Cost
+	dst.UpdatedAtMS = now
+}
+
+func mapValuesMinute(src map[string]*model.UserUsageMinute) []model.UserUsageMinute {
+	rows := make([]model.UserUsageMinute, 0, len(src))
+	for _, item := range src {
+		rows = append(rows, *item)
+	}
+	return rows
+}
+
+func mapValuesHour(src map[string]*model.UserUsageHour) []model.UserUsageHour {
+	rows := make([]model.UserUsageHour, 0, len(src))
+	for _, item := range src {
+		rows = append(rows, *item)
+	}
+	return rows
+}
+
+func mapValuesDay(src map[string]*model.UserUsageDay) []model.UserUsageDay {
+	rows := make([]model.UserUsageDay, 0, len(src))
+	for _, item := range src {
+		rows = append(rows, *item)
+	}
+	return rows
+}
+
+func mapValuesDayDimension(src map[string]*model.UserUsageDayDimension) []model.UserUsageDayDimension {
+	rows := make([]model.UserUsageDayDimension, 0, len(src))
+	for _, item := range src {
+		rows = append(rows, *item)
+	}
+	return rows
 }
 
 // calculateCost 计算费用
@@ -2527,13 +3076,12 @@ func (c *Core) recordUsage(auth *ProxyAuth, account *model.Account, modelName, e
 //
 // 返回：计算出的费用和错误
 func (c *Core) calculateCost(providerName, modelName string, ratePercent int, inTokens, outTokens, cacheCreateTokens, cacheReadTokens int64) (int64, error) {
-	// 查找模型价格
-	var price model.ModelPrice
-	if err := c.db.Where("provider = ? AND model = ? AND status = ?", providerName, modelName, "active").First(&price).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return 0, nil // 没找到价格则免费
-		}
-		return 0, err
+	c.priceCacheMu.RLock()
+	price, ok := c.priceCache[providerName+":"+modelName]
+	c.priceCacheMu.RUnlock()
+
+	if !ok {
+		return 0, nil
 	}
 	// 计算基础费用：输入价格*输入token + 输出价格*输出token + 缓存价格，结果除以1000（因为价格单位是CNY_1E4，即万分之）
 	base := (inTokens*price.InputPrice + outTokens*price.OutputPrice + cacheCreateTokens*price.CacheCreatePrice + cacheReadTokens*price.CacheReadPrice + 999) / 1000
@@ -2742,6 +3290,36 @@ func isModelAllowed(raw, modelName string) bool {
 		return true
 	}
 	return slices.Contains(items, "*") || slices.Contains(items, modelName)
+}
+
+func parseAllowedModelsSet(raw string) map[string]struct{} {
+	var items []string
+	if err := json.Unmarshal([]byte(raw), &items); err != nil || len(items) == 0 {
+		return nil
+	}
+	set := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		set[item] = struct{}{}
+	}
+	if len(set) == 0 {
+		return nil
+	}
+	return set
+}
+
+func isModelAllowedSet(allowed map[string]struct{}, modelName string) bool {
+	if modelName == "" || len(allowed) == 0 {
+		return true
+	}
+	if _, ok := allowed["*"]; ok {
+		return true
+	}
+	_, ok := allowed[modelName]
+	return ok
 }
 
 // copyHeaders 复制HTTP请求头
@@ -3179,7 +3757,11 @@ func (c *Core) ListPublishedAnnouncements() ([]model.Announcement, error) {
 }
 
 func (c *Core) DeleteModelPrice(id uint64) error {
-	return c.db.Delete(&model.ModelPrice{}, id).Error
+	err := c.db.Delete(&model.ModelPrice{}, id).Error
+	if err == nil {
+		c.reloadPriceCache()
+	}
+	return err
 }
 
 func (c *Core) UpdateModelPrice(id uint64, in UpdateModelPriceInput) error {
@@ -3205,6 +3787,9 @@ func (c *Core) UpdateModelPrice(id uint64, in UpdateModelPriceInput) error {
 	result := c.db.Model(&model.ModelPrice{}).Where("id = ?", id).Updates(updates)
 	if result.RowsAffected == 0 {
 		return fmt.Errorf("model price not found")
+	}
+	if result.Error == nil {
+		c.reloadPriceCache()
 	}
 	return result.Error
 }
@@ -3264,4 +3849,147 @@ func (c *Core) UpdateCoupon(id uint64, in UpdateCouponInput) error {
 
 func (c *Core) DeleteErrorLog(id uint64) error {
 	return c.db.Delete(&model.ErrorLog{}, id).Error
+}
+
+func (c *Core) cacheRefreshLoop(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			c.reloadAccountCache()
+			c.reloadPriceCache()
+		}
+	}
+}
+
+func (c *Core) dataCleanupLoop(ctx context.Context) {
+	ticker := time.NewTicker(1 * time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			cutoff := time.Now().Add(-30 * 24 * time.Hour).UnixMilli()
+			c.db.Where("created_at_ms < ?", cutoff).Delete(&model.UsageLog{})
+			c.db.Where("snapshot_at_ms < ?", cutoff).Delete(&model.SystemMetric{})
+			minuteCutoff := time.Now().Add(-24 * time.Hour).UnixMilli()
+			hourCutoff := time.Now().Add(-90 * 24 * time.Hour).UnixMilli()
+			dayCutoff := time.Now().Add(-365 * 24 * time.Hour).UnixMilli()
+			c.db.Where("bucket_start_ms < ?", minuteCutoff).Delete(&model.UserUsageMinute{})
+			c.db.Where("bucket_start_ms < ?", hourCutoff).Delete(&model.UserUsageHour{})
+			c.db.Where("bucket_start_ms < ?", dayCutoff).Delete(&model.UserUsageDay{})
+			c.db.Where("bucket_start_ms < ?", dayCutoff).Delete(&model.UserUsageDayDimension{})
+		}
+	}
+}
+
+func (c *Core) flushKeyUpdatesLoop(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			c.flushPendingKeys()
+			return
+		case <-ticker.C:
+			c.flushPendingKeys()
+		}
+	}
+}
+
+func (c *Core) flushBalanceDebitsLoop(ctx context.Context) {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			c.flushPendingBalanceDebits()
+			return
+		case <-ticker.C:
+			c.flushPendingBalanceDebits()
+		}
+	}
+}
+
+func (c *Core) flushUserUpdatesLoop(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			c.flushPendingUsers()
+			return
+		case <-ticker.C:
+			c.flushPendingUsers()
+		}
+	}
+}
+
+func (c *Core) flushPendingBalanceDebits() {
+	c.pendingBalanceMu.Lock()
+	pending := c.pendingBalances
+	c.pendingBalances = map[uint64]int64{}
+	c.pendingBalanceMu.Unlock()
+
+	if len(pending) == 0 {
+		return
+	}
+
+	for userID, amount := range pending {
+		if amount <= 0 {
+			continue
+		}
+		if err := c.db.Model(&model.User{}).Where("id = ?", userID).Update("balance", gorm.Expr("balance - ?", amount)).Error; err != nil {
+			c.recordError("usage.balance_flush", "flush pending balance debit failed", err.Error())
+			c.pendingBalanceMu.Lock()
+			c.pendingBalances[userID] += amount
+			c.pendingBalanceMu.Unlock()
+		}
+	}
+}
+
+func (c *Core) flushPendingKeys() {
+	c.pendingKeyMu.Lock()
+	pending := c.pendingKeys
+	c.pendingKeys = map[uint64]int64{}
+	c.pendingKeyMu.Unlock()
+
+	if len(pending) == 0 {
+		return
+	}
+
+	now := time.Now().UnixMilli()
+	for keyID, usedAt := range pending {
+		_ = c.db.Model(&model.APIKey{}).Where("id = ?", keyID).Updates(map[string]any{
+			"last_used_at_ms": usedAt,
+			"updated_at_ms":   now,
+		}).Error
+	}
+}
+
+func effectiveBalance(balance, pending int64) int64 {
+	return balance - pending
+}
+
+func (c *Core) flushPendingUsers() {
+	c.pendingUserMu.Lock()
+	pending := c.pendingUsers
+	c.pendingUsers = map[uint64]int64{}
+	c.pendingUserMu.Unlock()
+
+	if len(pending) == 0 {
+		return
+	}
+
+	now := time.Now().UnixMilli()
+	for userID, usedAt := range pending {
+		_ = c.db.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]any{
+			"last_used_at_ms": usedAt,
+			"updated_at_ms":   now,
+		}).Error
+	}
 }

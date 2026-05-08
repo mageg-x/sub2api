@@ -1,7 +1,10 @@
 # sub2api lite
 
-当前目标不是复制旧项目全部能力，而是优先保住最核心闭环：
+[English](./README_EN.md)
 
+声明 ：本项目不是https://github.com/Wei-Shaw/sub2api 的 二次开发版本，只是借用 sub2api 这个名字；其他毫无关系； Wei-Shaw/sub2api 有 60w+行代码，70+个数据库表； 我这个 只有2W行代码 16个表； 做过开发都知道无论如何裁剪也是无法做到。代码是完全重新开发； 借鉴了 Wei-Shaw/sub2api 和 one api的一些思路
+
+当前目标不是复制其他项目的全部能力，而是优先保住最核心闭环：
 - 多用户 + API Key
 - 账号池 + Provider 插件化
 - OpenAI 兼容协议转发

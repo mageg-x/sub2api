@@ -256,9 +256,8 @@ function goToLogin() {
 }
 
 .hero-logo {
-  width: 86px;
-  height: 86px;
-  margin: 0 auto 14px;
+  width: 40px; 
+  margin: auto;  
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.12);
@@ -271,8 +270,8 @@ function goToLogin() {
 }
 
 .hero-logo img {
-  width: 56px;
-  height: 56px;
+  width: 40px;
+  height: 40px;
   display: block;
   object-fit: contain;
 }
@@ -545,8 +544,8 @@ function goToLogin() {
   }
 
   .hero-logo img {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
   }
 
   .hero-title {
