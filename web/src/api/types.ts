@@ -26,10 +26,10 @@ export interface UserUpdatePayload {
 export interface APIKey {
   id: number
   user_id: number
+  provider: string
   name: string
   secret: string
   status: string
-  allowed_models_json: string
   expires_at_ms: number
   last_used_at_ms: number
 }

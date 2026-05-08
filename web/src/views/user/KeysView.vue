@@ -14,9 +14,9 @@
               <el-form-item :label="t('keys.keyName')" class="form-item">
                 <el-input v-model="form.name" :placeholder="t('keys.keyNamePlaceholder')" size="large" />
               </el-form-item>
-              <el-form-item :label="t('keys.allowedModels')" class="form-item">
-                <ElSelect v-model="form.models" multiple filterable clearable size="large" style="width: 100%" :placeholder="t('keys.selectAllowedModels')">
-                  <ElOption v-for="model in modelOptions" :key="model.value" :label="model.label" :value="model.value" />
+              <el-form-item :label="t('keys.provider')" class="form-item">
+                <ElSelect v-model="form.provider" filterable clearable size="large" style="width: 100%" :placeholder="t('keys.selectProvider')">
+                  <ElOption v-for="provider in providerOptions" :key="provider.value" :label="provider.label" :value="provider.value" />
                 </ElSelect>
               </el-form-item>
             </div>
@@ -101,14 +101,9 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="allowed_models_json" :label="t('keys.allowedModelsHeader')" width="120">
+            <el-table-column prop="provider" :label="t('keys.provider')" width="120">
               <template #default="{ row }">
-                <div v-if="parseAllowedModels(row.allowed_models_json).length" class="models-list">
-                  <el-tag v-for="model in parseAllowedModels(row.allowed_models_json)" :key="model" size="small" type="info" effect="plain">
-                    {{ model }}
-                  </el-tag>
-                </div>
-                <span v-else class="models-text">{{ t('keys.all') }}</span>
+                <el-tag size="small" type="info" effect="plain">{{ row.provider }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column :label="t('keys.lastUsed')" width="130">
@@ -137,26 +132,21 @@ const keys = ref<APIKey[]>([]);
 const catalog = ref<ModelCatalogChannel[]>([]);
 const lastCreatedKey = ref<APIKey | null>(null);
 const revealed = reactive<Record<number, boolean>>({});
+const supportedProviders = ["openai", "claude", "gemini", "antigravity"] as const;
 const form = reactive({
   name: "",
-  models: [] as string[],
+  provider: "",
 });
 
-const modelOptions = computed(() => {
-  const seen = new Set<string>();
-  const options: Array<{ label: string; value: string }> = [];
-  for (const channel of catalog.value) {
-    for (const model of channel.models || []) {
-      if (!model.model || seen.has(model.model)) continue;
-      seen.add(model.model);
-      options.push({
-        label: `${model.model} · ${channel.name}`,
-        value: model.model,
-      });
-    }
-  }
-  return options.sort((a, b) => a.label.localeCompare(b.label));
-});
+const providerOptions = computed(() =>
+  supportedProviders.map((key) => {
+    const matched = catalog.value.find((item) => item.key === key);
+    return {
+      value: key,
+      label: matched?.name || key,
+    };
+  }),
+);
 
 async function load() {
   keys.value = await userAPI.keys();
@@ -170,32 +160,16 @@ async function loadCatalog() {
   }
 }
 
-function parseAllowedModels(raw: string): string[] {
-  const text = String(raw || "").trim();
-  if (!text) return [];
-  try {
-    const parsed = JSON.parse(text);
-    if (Array.isArray(parsed)) {
-      return parsed.map((item) => String(item).trim()).filter(Boolean);
-    }
-  } catch {
-    // fall through to plain text parsing
-  }
-  return text
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
 async function create() {
+  if (!form.provider) return;
   const item = await userAPI.createKey({
+    provider: form.provider,
     name: form.name,
-    allowed_models: form.models,
   });
   lastCreatedKey.value = item;
   revealed[item.id] = true;
   form.name = "";
-  form.models = [];
+  form.provider = "";
   await load();
 }
 

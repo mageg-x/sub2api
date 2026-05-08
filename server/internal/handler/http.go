@@ -825,16 +825,16 @@ func (h *HTTP) userCreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 	// 解析请求
 	var req struct {
-		Name          string   `json:"name"`
-		AllowedModels []string `json:"allowed_models"`
-		ExpiresAtMS   int64    `json:"expires_at_ms"`
+		Provider    string `json:"provider"`
+		Name        string `json:"name"`
+		ExpiresAtMS int64  `json:"expires_at_ms"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 	// 创建API密钥
-	item, err := h.core.CreateUserAPIKey(user.ID, req.Name, req.AllowedModels, req.ExpiresAtMS)
+	item, err := h.core.CreateUserAPIKey(user.ID, req.Provider, req.Name, req.ExpiresAtMS)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return

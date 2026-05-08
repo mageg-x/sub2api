@@ -264,8 +264,8 @@ export default {
     createNewApiKey: '创建新的 API Key',
     keyName: 'Key 名称',
     keyNamePlaceholder: '如 default-client',
-    allowedModels: '允许模型',
-    selectAllowedModels: '选择允许的模型，留空表示继承用户权限',
+    provider: '供应商',
+    selectProvider: '选择此 Key 允许使用的供应商',
     createKey: '创建 Key',
     keyCreatedSuccess: 'Key 创建成功',
     keyCreatedWarning: '请立即复制并妥善保管，关闭后将无法再次查看完整 Secret',
@@ -277,7 +277,6 @@ export default {
     show: '显示',
     hide: '隐藏',
     status: '状态',
-    allowedModelsHeader: '允许模型',
     lastUsed: '最后使用',
     all: '全部'
   },

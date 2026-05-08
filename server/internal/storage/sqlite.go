@@ -62,6 +62,11 @@ func Open(path string) (*gorm.DB, error) {
 	); err != nil {
 		return nil, err
 	}
+	if db.Migrator().HasColumn(&model.APIKey{}, "allowed_models_json") {
+		if err := db.Migrator().DropColumn(&model.APIKey{}, "allowed_models_json"); err != nil {
+			return nil, err
+		}
+	}
 
 	// 配置连接池：SQLite单文件写入，限制连接数避免锁竞争
 	sqlDB, err := db.DB()

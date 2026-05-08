@@ -28,16 +28,16 @@ type User struct {
 
 // APIKey API密钥表
 type APIKey struct {
-	ID                uint64 `gorm:"primaryKey;autoIncrement" json:"id"`                         // 密钥ID，自增主键
-	UserID            uint64 `gorm:"index;not null" json:"user_id"`                              // 所属用户ID
-	Name              string `gorm:"size:100;not null" json:"name"`                              // 密钥名称
-	Secret            string `gorm:"uniqueIndex;size:120;not null" json:"secret"`                // 密钥字符串，唯一索引
-	Status            string `gorm:"size:20;not null;default:active" json:"status"`              // 状态（active/disabled）
-	AllowedModelsJSON string `gorm:"type:text;not null;default:'[]'" json:"allowed_models_json"` // 允许使用的模型列表JSON
-	ExpiresAtMS       int64  `gorm:"not null;default:0" json:"expires_at_ms"`                    // 过期时间（毫秒，0=永不过期）
-	LastUsedAtMS      int64  `gorm:"not null;default:0" json:"last_used_at_ms"`                  // 最后使用时间（毫秒）
-	CreatedAtMS       int64  `gorm:"not null" json:"created_at_ms"`                              // 创建时间（毫秒）
-	UpdatedAtMS       int64  `gorm:"not null" json:"updated_at_ms"`                              // 更新时间（毫秒）
+	ID           uint64 `gorm:"primaryKey;autoIncrement" json:"id"`                    // 密钥ID，自增主键
+	UserID       uint64 `gorm:"index;not null" json:"user_id"`                         // 所属用户ID
+	Provider     string `gorm:"size:40;not null;default:''" json:"provider"`           // 所属AI提供商
+	Name         string `gorm:"size:100;not null" json:"name"`                         // 密钥名称
+	Secret       string `gorm:"uniqueIndex;size:120;not null" json:"secret"`           // 密钥字符串，唯一索引
+	Status       string `gorm:"size:20;not null;default:active" json:"status"`         // 状态（active/disabled）
+	ExpiresAtMS  int64  `gorm:"not null;default:0" json:"expires_at_ms"`               // 过期时间（毫秒，0=永不过期）
+	LastUsedAtMS int64  `gorm:"not null;default:0" json:"last_used_at_ms"`             // 最后使用时间（毫秒）
+	CreatedAtMS  int64  `gorm:"not null" json:"created_at_ms"`                         // 创建时间（毫秒）
+	UpdatedAtMS  int64  `gorm:"not null" json:"updated_at_ms"`                         // 更新时间（毫秒）
 }
 
 // Account AI账号表

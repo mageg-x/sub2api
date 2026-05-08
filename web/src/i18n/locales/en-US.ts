@@ -264,8 +264,8 @@ export default {
     createNewApiKey: 'Create New API Key',
     keyName: 'Key Name',
     keyNamePlaceholder: 'e.g. default-client',
-    allowedModels: 'Allowed Models',
-    selectAllowedModels: 'Select allowed models, leave empty to inherit user permissions',
+    provider: 'Provider',
+    selectProvider: 'Select the provider this key can access',
     createKey: 'Create Key',
     keyCreatedSuccess: 'Key created successfully',
     keyCreatedWarning: 'Please copy and keep it safe, you will not be able to view the full Secret again after closing',
@@ -277,7 +277,6 @@ export default {
     show: 'Show',
     hide: 'Hide',
     status: 'Status',
-    allowedModelsHeader: 'Allowed Models',
     lastUsed: 'Last Used',
     all: 'All'
   },

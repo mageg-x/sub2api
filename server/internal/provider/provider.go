@@ -3,6 +3,7 @@ package provider
 import (
 	"fmt"
 	"net/http"
+	"sort"
 
 	"sub2api/server/internal/model"
 )
@@ -59,4 +60,13 @@ func (r *Registry) Get(name string) (Provider, error) {
 		return nil, fmt.Errorf("provider %s not registered", name)
 	}
 	return p, nil
+}
+
+func (r *Registry) Names() []string {
+	names := make([]string, 0, len(r.items))
+	for name := range r.items {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }

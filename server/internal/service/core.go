@@ -204,10 +204,9 @@ type AccountCredentials struct {
 // ProxyAuth 代理认证结构
 // 用于API代理请求的身份验证
 type ProxyAuth struct {
-	User             model.User   // 用户信息
-	APIKey           model.APIKey // API密钥信息
-	UserAllowedSet   map[string]struct{}
-	APIKeyAllowedSet map[string]struct{}
+	User           model.User   // 用户信息
+	APIKey         model.APIKey // API密钥信息
+	UserAllowedSet map[string]struct{}
 }
 
 // UserAuth 用户认证结构
@@ -242,10 +241,10 @@ type UpdateUserInput struct {
 }
 
 type CreateAPIKeyInput struct {
-	UserID        uint64   `json:"user_id"`
-	Name          string   `json:"name"`
-	AllowedModels []string `json:"allowed_models"`
-	ExpiresAtMS   int64    `json:"expires_at_ms"`
+	UserID      uint64 `json:"user_id"`
+	Provider    string `json:"provider"`
+	Name        string `json:"name"`
+	ExpiresAtMS int64  `json:"expires_at_ms"`
 }
 
 type CreateAccountInput struct {
@@ -786,12 +785,12 @@ func (c *Core) ListUserAPIKeys(userID uint64) ([]model.APIKey, error) {
 //   - expiresAtMS: 过期时间（毫秒）
 //
 // 返回：创建的API密钥和错误
-func (c *Core) CreateUserAPIKey(userID uint64, name string, allowedModels []string, expiresAtMS int64) (*model.APIKey, error) {
+func (c *Core) CreateUserAPIKey(userID uint64, provider, name string, expiresAtMS int64) (*model.APIKey, error) {
 	return c.CreateAPIKey(CreateAPIKeyInput{
-		UserID:        userID,
-		Name:          name,
-		AllowedModels: allowedModels,
-		ExpiresAtMS:   expiresAtMS,
+		UserID:      userID,
+		Provider:    provider,
+		Name:        name,
+		ExpiresAtMS: expiresAtMS,
 	})
 }
 
@@ -1041,14 +1040,20 @@ func (c *Core) RedeemCoupon(userID uint64, code string) (*model.Coupon, error) {
 //
 // 返回：创建的API密钥和错误
 func (c *Core) CreateAPIKey(in CreateAPIKeyInput) (*model.APIKey, error) {
-	allowed, _ := json.Marshal(normalizeStrings(in.AllowedModels))
+	providerName := strings.TrimSpace(in.Provider)
+	if providerName == "" {
+		return nil, fmt.Errorf("provider is required")
+	}
+	if _, err := c.providers.Get(providerName); err != nil {
+		return nil, err
+	}
 	key := &model.APIKey{
-		UserID:            in.UserID,
-		Name:              strings.TrimSpace(in.Name),
-		Secret:            "sk-" + randomHex(24),
-		Status:            "active",
-		AllowedModelsJSON: string(allowed),
-		ExpiresAtMS:       in.ExpiresAtMS,
+		UserID:      in.UserID,
+		Provider:    providerName,
+		Name:        strings.TrimSpace(in.Name),
+		Secret:      "sk-" + randomHex(24),
+		Status:      "active",
+		ExpiresAtMS: in.ExpiresAtMS,
 	}
 	if err := c.db.Create(key).Error; err != nil {
 		return nil, err
@@ -1594,19 +1599,19 @@ func (c *Core) RefundPayment(ctx context.Context, outTradeNo string, amount int6
 func (c *Core) AuthenticateAPIKey(secret string) (*ProxyAuth, error) {
 	trimmedSecret := strings.TrimSpace(secret)
 	var authRow struct {
-		APIKeyID            uint64
-		APIKeyUserID        uint64
-		APIKeyAllowedModels string
-		APIKeyExpiresAtMS   int64
-		UserID              uint64
-		UserBalance         int64
-		UserRatePercent     int
-		UserAllowedModels   string
+		APIKeyID          uint64
+		APIKeyUserID      uint64
+		APIKeyProvider    string
+		APIKeyExpiresAtMS int64
+		UserID            uint64
+		UserBalance       int64
+		UserRatePercent   int
+		UserAllowedModels string
 	}
 	err := c.db.Table("api_keys").
 		Select(
 			"api_keys.id as api_key_id, api_keys.user_id as api_key_user_id, "+
-				"api_keys.allowed_models_json as api_key_allowed_models, api_keys.expires_at_ms as api_key_expires_at_ms, "+
+				"api_keys.provider as api_key_provider, api_keys.expires_at_ms as api_key_expires_at_ms, "+
 				"users.id as user_id, users.balance as user_balance, users.rate_percent as user_rate_percent, "+
 				"users.allowed_models_json as user_allowed_models",
 		).
@@ -1632,13 +1637,12 @@ func (c *Core) AuthenticateAPIKey(secret string) (*ProxyAuth, error) {
 			AllowedModelsJSON: authRow.UserAllowedModels,
 		},
 		APIKey: model.APIKey{
-			ID:                authRow.APIKeyID,
-			UserID:            authRow.APIKeyUserID,
-			AllowedModelsJSON: authRow.APIKeyAllowedModels,
-			ExpiresAtMS:       authRow.APIKeyExpiresAtMS,
+			ID:           authRow.APIKeyID,
+			UserID:       authRow.APIKeyUserID,
+			Provider:     authRow.APIKeyProvider,
+			ExpiresAtMS:  authRow.APIKeyExpiresAtMS,
 		},
-		UserAllowedSet:   parseAllowedModelsSet(authRow.UserAllowedModels),
-		APIKeyAllowedSet: parseAllowedModelsSet(authRow.APIKeyAllowedModels),
+		UserAllowedSet: parseAllowedModelsSet(authRow.UserAllowedModels),
 	}, nil
 }
 
@@ -1663,8 +1667,12 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 	if auth.User.Balance <= 0 {
 		return nil, nil, fmt.Errorf("insufficient balance")
 	}
-	// 检查模型是否在允许列表中
-	if modelName != "" && (!isModelAllowedSet(auth.UserAllowedSet, modelName) || !isModelAllowedSet(auth.APIKeyAllowedSet, modelName)) {
+	// API Key 只允许在自身绑定的 provider 下使用
+	if auth.APIKey.Provider == "" || auth.APIKey.Provider != providerName {
+		return nil, nil, fmt.Errorf("api key provider mismatch")
+	}
+	// 用户级模型权限仍然生效
+	if modelName != "" && !isModelAllowedSet(auth.UserAllowedSet, modelName) {
 		return nil, nil, fmt.Errorf("model is not allowed")
 	}
 	// 生成缓存键，检查是否可缓存
