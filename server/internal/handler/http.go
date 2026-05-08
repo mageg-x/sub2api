@@ -27,6 +27,8 @@ type HTTP struct {
 	web  fs.FS
 }
 
+const maxProxyBodyBytes = 8 << 20
+
 // New 创建HTTP处理器
 // 参数：
 //   - cfg: 应用配置
@@ -985,10 +987,14 @@ func (h *HTTP) proxy(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, err)
 		return
 	}
-	// 读取请求体
-	body, err := io.ReadAll(r.Body)
+	// 读取请求体，限制最大体积避免恶意大包耗尽内存
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxProxyBodyBytes+1))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if len(body) > maxProxyBodyBytes {
+		writeError(w, http.StatusRequestEntityTooLarge, fmt.Errorf("request body too large"))
 		return
 	}
 	// 执行代理请求
@@ -1023,6 +1029,7 @@ func (h *HTTP) proxy(w http.ResponseWriter, r *http.Request) {
 		n, readErr := resp.Body.Read(buf)
 		if n > 0 {
 			if _, writeErr := w.Write(buf[:n]); writeErr != nil {
+				_ = resp.Body.Close()
 				return
 			}
 			if canFlush {
@@ -1147,18 +1154,47 @@ func (h *HTTP) serveWebApp(w http.ResponseWriter, _ *http.Request) bool {
 }
 
 // clientIP 获取客户端IP地址
-// 优先使用X-Forwarded-For头
+// 仅在请求来自可信内网/本机代理时信任 X-Forwarded-For
 func clientIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
 	// 优先使用代理头
-	if raw := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); raw != "" {
-		return strings.TrimSpace(strings.Split(raw, ",")[0])
+	if isTrustedProxyIP(host) {
+		if raw := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); raw != "" {
+			return strings.TrimSpace(strings.Split(raw, ",")[0])
+		}
 	}
 	// 从RemoteAddr解析
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err == nil {
 		return host
 	}
 	return r.RemoteAddr
+}
+
+func isTrustedProxyIP(raw string) bool {
+	ip := net.ParseIP(strings.TrimSpace(raw))
+	if ip == nil {
+		return false
+	}
+	if ip.IsLoopback() {
+		return true
+	}
+	if private := ip.To4(); private != nil {
+		switch {
+		case private[0] == 10:
+			return true
+		case private[0] == 172 && private[1] >= 16 && private[1] <= 31:
+			return true
+		case private[0] == 192 && private[1] == 168:
+			return true
+		}
+	}
+	if ip.IsPrivate() {
+		return true
+	}
+	return false
 }
 
 // parseIntDefault 解析整数并提供默认值

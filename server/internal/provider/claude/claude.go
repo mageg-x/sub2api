@@ -42,8 +42,14 @@ func (p *Provider) BuildUpstreamURL(account model.Account, path, rawQuery string
 func (p *Provider) ApplyRequest(req *http.Request, account model.Account, token string) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("anthropic-version", "2023-06-01")
-	req.Header.Set("x-api-key", token)
-	req.Header.Del("Authorization")
+	switch strings.TrimSpace(account.AuthType) {
+	case "oauth":
+		req.Header.Del("x-api-key")
+		req.Header.Set("Authorization", "Bearer "+token)
+	default:
+		req.Header.Set("x-api-key", token)
+		req.Header.Del("Authorization")
+	}
 	return nil
 }
 

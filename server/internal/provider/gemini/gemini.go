@@ -40,7 +40,14 @@ func (p *Provider) BuildUpstreamURL(account model.Account, path, rawQuery string
 // ApplyRequest 为请求添加Gemini所需的认证头
 func (p *Provider) ApplyRequest(req *http.Request, account model.Account, token string) error {
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
+	if strings.TrimSpace(account.AuthType) == "oauth" {
+		req.Header.Set("Authorization", "Bearer "+token)
+		return nil
+	}
+	req.Header.Del("Authorization")
+	query := req.URL.Query()
+	query.Set("key", token)
+	req.URL.RawQuery = query.Encode()
 	return nil
 }
 

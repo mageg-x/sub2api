@@ -16,6 +16,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"runtime"
 	"slices"
 	"sort"
@@ -499,7 +500,7 @@ func (c *Core) BootstrapAdmin(name, email, password string) (*UserAuth, error) {
 //
 // 返回：创建的用户和错误
 func (c *Core) CreateUser(in CreateUserInput) (*model.User, error) {
-	email := strings.TrimSpace(in.Email)
+	email := strings.TrimSpace(strings.ToLower(in.Email))
 	if email != "" && !isValidEmail(email) {
 		return nil, fmt.Errorf("invalid email format")
 	}
@@ -601,6 +602,7 @@ func (c *Core) GetUserByID(id uint64) (*model.User, error) {
 // 返回：用户认证信息和错误
 const registerCooldownMS int64 = 60_000
 const maxRegisterIPEntries = 10000
+const maxUsageLogQueueSize = 20000
 
 func (c *Core) Register(in RegisterInput) (*UserAuth, error) {
 	if ip := strings.TrimSpace(in.ClientIP); ip != "" {
@@ -928,7 +930,7 @@ func (c *Core) UserDashboard(userID uint64) (*UserDashboardData, error) {
 		"bucket_start_ms, COALESCE(SUM(cost),0) as day_cost, COALESCE(SUM(request_count),0) as day_requests, COALESCE(SUM(input_tokens+output_tokens),0) as day_tokens",
 	).Group("bucket_start_ms").Scan(&recentUsage)
 
-	dayBuckets := 14
+	dayBuckets := 7
 	dailyRequests := make([]int64, dayBuckets)
 	dailyCost := make([]int64, dayBuckets)
 	dailyTokens := make([]int64, dayBuckets)
@@ -1061,7 +1063,9 @@ func (c *Core) RedeemCoupon(userID uint64, code string) (*model.Coupon, error) {
 	if err != nil {
 		return nil, err
 	}
-	coupon.UsedCount++
+	if err := c.db.First(&coupon, coupon.ID).Error; err != nil {
+		return nil, err
+	}
 	return &coupon, nil
 }
 
@@ -1529,8 +1533,8 @@ func (c *Core) HandlePaymentNotify(r *http.Request) error {
 		if err := tx.Where("out_trade_no = ?", notify.OutTradeNo).First(&order).Error; err != nil {
 			return err
 		}
-		// 验证回调金额与订单金额一致
-		if notify.Amount > 0 && notify.Amount != order.Amount {
+		// 回调金额必须严格匹配订单金额，0 或负数均视为非法
+		if notify.Amount <= 0 || notify.Amount != order.Amount {
 			return fmt.Errorf("payment amount mismatch: expected %d, got %d", order.Amount, notify.Amount)
 		}
 		// 更新订单状态为已支付
@@ -1634,6 +1638,9 @@ func (c *Core) RefundPayment(ctx context.Context, outTradeNo string, amount int6
 		}
 		return nil
 	})
+	if err != nil {
+		c.recordError("payment.refund", "refund local transaction failed after upstream refund", err.Error())
+	}
 	if err == nil {
 		c.invalidateUserDashboard(user.ID)
 		c.invalidateStats()
@@ -1713,10 +1720,6 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 	if err != nil {
 		return nil, nil, err
 	}
-	// 检查用户余额是否充足
-	if auth.User.Balance <= 0 {
-		return nil, nil, fmt.Errorf("insufficient balance")
-	}
 	// API Key 只允许在自身绑定的 provider 下使用
 	if auth.APIKey.Provider == "" || auth.APIKey.Provider != providerName {
 		return nil, nil, fmt.Errorf("api key provider mismatch")
@@ -1755,6 +1758,10 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 	providerImpl, err := c.providers.Get(account.Provider)
 	if err != nil {
 		return nil, nil, err
+	}
+	// 仅在模型已知会收费时做余额预检，避免免费模型被错误拦截
+	if !c.isFreeModel(account.Provider, modelName, auth.User.RatePercent) && auth.User.Balance <= 0 {
+		return nil, nil, fmt.Errorf("insufficient balance")
 	}
 	// 构建上游URL
 	upstreamURL := providerImpl.BuildUpstreamURL(account, path, rawQuery)
@@ -1881,9 +1888,13 @@ func (c *Core) OAuthStart(in OAuthStartInput) (*OAuthStartResult, error) {
 //
 // 返回：OAuth令牌交换结果和错误
 func (c *Core) OAuthExchange(ctx context.Context, in OAuthExchangeInput) (*OAuthExchangeResult, error) {
+	sessionID, err := strconv.ParseUint(strings.TrimSpace(in.SessionID), 10, 64)
+	if err != nil || sessionID == 0 {
+		return nil, fmt.Errorf("invalid oauth session id")
+	}
 	// 查找OAuth会话
 	var session model.OAuthSession
-	if err := c.db.Where("id = ?", in.SessionID).First(&session).Error; err != nil {
+	if err := c.db.Where("id = ?", sessionID).First(&session).Error; err != nil {
 		return nil, fmt.Errorf("oauth session not found")
 	}
 	// 检查会话是否过期
@@ -2546,6 +2557,8 @@ func (c *Core) oauthFormRequest(ctx context.Context, endpoint string, form url.V
 		switch val := v.(type) {
 		case string:
 			result[k] = val
+		case float64:
+			result[k] = strconv.FormatFloat(val, 'f', -1, 64)
 		default:
 			result[k] = fmt.Sprintf("%v", v)
 		}
@@ -2863,9 +2876,20 @@ func (c *Core) enqueueUserLastUsed(userID uint64, usedAt int64) {
 }
 
 func (c *Core) enqueueUsageLog(item model.UsageLog) {
+	var dropped int
 	c.usageLogMu.Lock()
+	if len(c.usageLogQueue) >= maxUsageLogQueueSize {
+		dropped = len(c.usageLogQueue) - maxUsageLogQueueSize + 1
+		if dropped > len(c.usageLogQueue) {
+			dropped = len(c.usageLogQueue)
+		}
+		c.usageLogQueue = append([]model.UsageLog(nil), c.usageLogQueue[dropped:]...)
+	}
 	c.usageLogQueue = append(c.usageLogQueue, item)
 	c.usageLogMu.Unlock()
+	if dropped > 0 {
+		c.recordError("usage.queue", "usage log queue overflow", fmt.Sprintf("dropped=%d", dropped))
+	}
 }
 
 func (c *Core) flushUsageLogsLoop(ctx context.Context) {
@@ -3305,12 +3329,13 @@ func detectRoute(path string, body []byte) (modelName string, stream bool, provi
 	case strings.HasPrefix(path, "/v1/messages"), strings.HasPrefix(path, "/v1/messages/count_tokens"):
 		providerName = "claude"
 		var payload struct {
-			Model string `json:"model"`
+			Model  string `json:"model"`
+			Stream bool   `json:"stream"`
 		}
 		if unmarshalErr := json.Unmarshal(body, &payload); unmarshalErr == nil {
 			modelName = payload.Model
+			stream = payload.Stream
 		}
-		stream = bytes.Contains(body, []byte(`"stream":true`))
 		return
 	// Gemini兼容接口
 	case strings.HasPrefix(path, "/v1beta/models/"), strings.HasPrefix(path, "/v1/models/"):
@@ -3327,7 +3352,7 @@ func detectRoute(path string, body []byte) (modelName string, stream bool, provi
 		if unmarshalErr := json.Unmarshal(body, &payload); unmarshalErr == nil {
 			modelName = payload.Model
 		}
-		stream = strings.Contains(path, "stream")
+		stream = strings.Contains(path, ":stream")
 		return
 	default:
 		err = fmt.Errorf("unsupported gateway path %s", path)
@@ -3408,6 +3433,14 @@ func isModelAllowedSet(allowed map[string]struct{}, modelName string) bool {
 	}
 	_, ok := allowed[modelName]
 	return ok
+}
+
+func (c *Core) isFreeModel(providerName, modelName string, ratePercent int) bool {
+	if strings.TrimSpace(modelName) == "" {
+		return false
+	}
+	cost, err := c.calculateCost(providerName, modelName, ratePercent, 1, 1, 0, 0)
+	return err == nil && cost == 0
 }
 
 // copyHeaders 复制HTTP请求头
@@ -4064,6 +4097,6 @@ func (c *Core) flushPendingLastUsed(table string, pending map[uint64]int64) {
 		}
 		sql.WriteString(")")
 
-		_ = c.db.Exec(sql.String(), args...).Error
+		_ = c.db.Table(table).Exec(sql.String(), args...).Error
 	}
 }
