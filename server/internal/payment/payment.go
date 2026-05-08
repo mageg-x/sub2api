@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 )
 
 // CreateOrderRequest 创建支付订单的请求参数
@@ -75,4 +76,13 @@ func (r *Registry) Get(name string) (Provider, error) {
 		return nil, fmt.Errorf("payment provider %s not registered", name)
 	}
 	return item, nil
+}
+
+func (r *Registry) Names() []string {
+	names := make([]string, 0, len(r.items))
+	for name := range r.items {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }

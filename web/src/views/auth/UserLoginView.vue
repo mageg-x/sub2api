@@ -122,7 +122,7 @@ import { ElAlert, ElButton, ElForm, ElFormItem, ElInput, ElLink } from "element-
 import type { FormInstance, FormRules } from "element-plus";
 import logoUrl from "@/assets/logo.svg";
 import { login, register } from "@/api/auth";
-import { saveAuth, saveAdminToken } from "@/store/session";
+import { saveAuth } from "@/store/session";
 
 const router = useRouter();
 const { t } = useI18n();

@@ -14,8 +14,8 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
-	"strings"
 	"strconv"
+	"strings"
 
 	"sub2api/server/internal/payment"
 )
@@ -165,6 +165,7 @@ func (p *Provider) VerifyNotify(r *http.Request) (*payment.NotifyResult, error) 
 		"status":       strings.TrimSpace(r.FormValue("status")),
 		"money":        strings.TrimSpace(r.FormValue("money")),
 		"realmoney":    strings.TrimSpace(r.FormValue("realmoney")),
+		"sign_type":    strings.TrimSpace(r.FormValue("sign_type")),
 	}
 	// 验证签名
 	provided := strings.ToLower(strings.TrimSpace(r.FormValue("sign")))
@@ -277,7 +278,14 @@ func sign(params map[string]string, key string) string {
 }
 
 func amountToYuan(amount int64) string {
-	return strconv.FormatFloat(float64(amount)/10000, 'f', 2, 64)
+	sign := ""
+	if amount < 0 {
+		sign = "-"
+		amount = -amount
+	}
+	whole := amount / 10000
+	fractional := amount % 10000
+	return fmt.Sprintf("%s%d.%04d", sign, whole, fractional)
 }
 
 func yuanToAmount(raw string) (int64, error) {
@@ -307,7 +315,23 @@ func yuanToAmount(raw string) (int64, error) {
 		frac = parts[1]
 	}
 	if len(frac) > 4 {
+		roundDigit := frac[4]
 		frac = frac[:4]
+		for len(frac) < 4 {
+			frac += "0"
+		}
+		fractional, err := strconv.ParseInt(frac, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		if roundDigit >= '5' {
+			fractional++
+			if fractional >= 10000 {
+				whole++
+				fractional = 0
+			}
+		}
+		return sign * (whole*10000 + fractional), nil
 	}
 	for len(frac) < 4 {
 		frac += "0"

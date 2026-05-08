@@ -14,10 +14,8 @@ function loadStoredUser(): User | null {
 
 export const session = reactive<{
   user: User | null
-  adminToken: string
 }>({
-  user: loadStoredUser(),
-  adminToken: localStorage.getItem('sub2api_admin_token') || ''
+  user: loadStoredUser()
 })
 
 export function saveAuth(accessToken: string, refreshToken: string, user: User) {
@@ -32,14 +30,4 @@ export function clearAuth() {
   localStorage.removeItem('sub2api_refresh_token')
   localStorage.removeItem('sub2api_user')
   session.user = null
-}
-
-export function saveAdminToken(token: string) {
-  localStorage.setItem('sub2api_admin_token', token)
-  session.adminToken = token
-}
-
-export function clearAdminToken() {
-  localStorage.removeItem('sub2api_admin_token')
-  session.adminToken = ''
 }

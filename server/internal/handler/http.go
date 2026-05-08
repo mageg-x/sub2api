@@ -55,12 +55,12 @@ func (h *HTTP) Routes() http.Handler {
 	mux.HandleFunc("GET /healthz", h.healthz)
 	// 认证相关
 	mux.HandleFunc("POST /api/auth/register", h.register)
+	mux.HandleFunc("POST /api/auth/register-admin", h.registerAdmin)
 	mux.HandleFunc("POST /api/auth/login", h.login)
 	mux.HandleFunc("POST /api/auth/refresh", h.refreshToken)
 	mux.HandleFunc("POST /api/auth/logout", h.logout)
 	mux.HandleFunc("GET /api/auth/me", h.me)
 	// 管理后台
-	mux.HandleFunc("POST /api/admin/bootstrap", h.bootstrapAdmin)
 	mux.HandleFunc("GET /api/admin/dashboard", h.adminDashboard)
 	mux.HandleFunc("GET /api/admin/users", h.adminUsers)
 	mux.HandleFunc("PATCH /api/admin/users/", h.adminUpdateUser)
@@ -108,7 +108,7 @@ func (h *HTTP) Routes() http.Handler {
 	mux.HandleFunc("GET /api/payment/orders/", h.userPaymentOrderByID)
 	// 支付相关
 	mux.HandleFunc("POST /api/payments/orders", h.createPaymentOrder)
-	mux.HandleFunc("POST /api/payments/notify/gopay", h.gopayNotify)
+	mux.HandleFunc("POST /api/payments/notify/", h.paymentNotify)
 	// AI代理
 	mux.HandleFunc("POST /v1/chat/completions", h.proxy)
 	mux.HandleFunc("POST /v1/responses", h.proxy)
@@ -179,6 +179,21 @@ func (h *HTTP) register(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, item)
 }
 
+func (h *HTTP) registerAdmin(w http.ResponseWriter, r *http.Request) {
+	var req service.RegisterInput
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	req.ClientIP = clientIP(r)
+	item, err := h.core.RegisterAdmin(req)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
+}
+
 // login 用户登录
 func (h *HTTP) login(w http.ResponseWriter, r *http.Request) {
 	var req service.LoginInput
@@ -230,34 +245,6 @@ func (h *HTTP) me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, user)
-}
-
-// bootstrapAdmin 引导创建管理员
-// 如果系统没有管理员，则创建第一个管理员
-func (h *HTTP) bootstrapAdmin(w http.ResponseWriter, r *http.Request) {
-	if !h.cfg.AllowBootstrap {
-		writeError(w, http.StatusForbidden, fmt.Errorf("bootstrap is disabled"))
-		return
-	}
-	// 解析请求体
-	var req struct {
-		Name     string `json:"name"`
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-	// 解析JSON请求
-	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	// 调用核心服务创建管理员
-	item, err := h.core.BootstrapAdmin(req.Name, req.Email, req.Password)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	// 返回结果
-	writeJSON(w, http.StatusOK, item)
 }
 
 // adminDashboard 管理后台仪表盘
@@ -967,9 +954,9 @@ func (h *HTTP) createPaymentOrder(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"order": order, "paying": result})
 }
 
-// gopayNotify Gopay支付回调
+// paymentNotify 支付回调
 // 处理支付成功后的异步通知
-func (h *HTTP) gopayNotify(w http.ResponseWriter, r *http.Request) {
+func (h *HTTP) paymentNotify(w http.ResponseWriter, r *http.Request) {
 	// 处理支付回调
 	if err := h.core.HandlePaymentNotify(r); err != nil {
 		http.Error(w, "fail", http.StatusBadRequest)
@@ -1051,15 +1038,17 @@ func (h *HTTP) proxy(w http.ResponseWriter, r *http.Request) {
 }
 
 // requireAdmin 检查管理员权限
-// 使用X-Admin-Token头进行验证
+// 使用普通 Bearer 登录态并校验 role=admin
 func (h *HTTP) requireAdmin(w http.ResponseWriter, r *http.Request) bool {
-	// 检查管理员令牌
-	if h.core.CheckAdminToken(strings.TrimSpace(r.Header.Get("X-Admin-Token"))) {
-		return true
+	user, ok := h.requireUser(w, r)
+	if !ok {
+		return false
 	}
-	// 返回未授权错误
-	writeError(w, http.StatusUnauthorized, fmt.Errorf("invalid admin token"))
-	return false
+	if strings.TrimSpace(user.Role) != "admin" {
+		writeError(w, http.StatusForbidden, fmt.Errorf("admin permission required"))
+		return false
+	}
+	return true
 }
 
 // requireUser 检查用户身份
@@ -1107,7 +1096,7 @@ func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 添加CORS头
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Admin-Token")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
 		// 处理预检请求
 		if r.Method == http.MethodOptions {

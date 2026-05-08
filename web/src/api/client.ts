@@ -40,6 +40,7 @@ function canRefresh(path: string): boolean {
   return ![
     '/api/auth/login',
     '/api/auth/register',
+    '/api/auth/register-admin',
     '/api/auth/refresh',
     '/api/auth/logout'
   ].includes(path)
@@ -100,6 +101,5 @@ export async function request<T>(path: string, method: HttpMethod = 'GET', body?
 }
 
 export async function adminRequest<T>(path: string, method: HttpMethod = 'GET', body?: unknown): Promise<T> {
-  const token = localStorage.getItem('sub2api_admin_token') || ''
-  return request<T>(path, method, body, { 'X-Admin-Token': token })
+  return request<T>(path, method, body)
 }

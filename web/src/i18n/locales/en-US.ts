@@ -84,9 +84,7 @@ export default {
     email: 'Email',
     enterConsole: 'Enter Console',
     returnHome: 'Back to Home',
-    createAccount: 'Create Account',
-    adminToken: 'Admin Token',
-    pleaseInputAdminToken: 'Please enter admin token'
+    createAccount: 'Create Account'
   },
   user: {
     profile: 'Profile',
@@ -169,7 +167,6 @@ export default {
     setAdminPassword: 'Set Admin Password',
     registerAndEnter: 'Register & Enter Console',
     enterConsole: 'Enter Console',
-    initTokenTip: 'Enter the initialization token on first deployment, afterwards it is still used to access admin endpoints',
     loginFailed: 'Login failed',
     initFailed: 'Initialization failed'
   },

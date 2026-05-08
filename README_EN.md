@@ -35,21 +35,9 @@ The current goal is not to replicate all the capabilities of other projects, but
 ## Administrator Account Notes
 
 - The system **does not have a built-in default admin account or default password**.
-- The first admin account must be created after the initial deployment via `POST /api/admin/bootstrap` or through the front-end "Initialize First Admin" page.
-- **The admin password is the one you submit during initialization**.
-- Admin APIs additionally require the request header `X-Admin-Token`.
-
-If you do not explicitly pass `-admin-token` or set `SUB2API_ADMIN_TOKEN`, the default value is:
-
-```text
-sub2api-admin-change-me
-```
-
-Note:
-
-- `X-Admin-Token` is **not** the admin login password.
-- It is only used to allow access to admin APIs.
-- Whether an admin can enter the backend also requires successful email and password login.
+- The first admin account must be created after the initial deployment via `POST /api/auth/register-admin` or directly from the front-end admin login page in register mode.
+- **The admin password is the one you submit during registration**.
+- Admin APIs use the normal authenticated session; a logged-in user with role `admin` can access the admin console.
 
 ## Startup
 
@@ -88,7 +76,6 @@ The front-end dev setup is configured with a proxy that forwards requests to `/a
 ```bash
 cd server
 go run ./cmd/sub2api \
-  -admin-token your-admin-token \
   -public-base-url http://127.0.0.1:8080 \
   -gopay-url http://127.0.0.1:8081 \
   -gopay-pid 10000 \
@@ -98,7 +85,6 @@ go run ./cmd/sub2api \
 You can also use environment variables:
 
 ```bash
-export SUB2API_ADMIN_TOKEN=your-admin-token
 export SUB2API_PUBLIC_BASE_URL=http://127.0.0.1:8080
 export SUB2API_GOPAY_URL=http://127.0.0.1:8081
 export SUB2API_GOPAY_PID=10000
@@ -124,21 +110,20 @@ VITE_PROXY_TARGET=http://127.0.0.1:18080 npm run dev
 
 1. Start the backend service
 2. Open `http://127.0.0.1:8080/`, or the front-end dev version `http://127.0.0.1:5173/`
-3. Go to the "Admin Login" page and click "Initialize First Admin"
-4. Fill in the admin email, password, and the `X-Admin-Token` corresponding admin token
-5. After successful initialization, enter the admin dashboard
+3. Go to the "Admin Login" page and switch to register mode
+4. Fill in the admin name, email, and password
+5. After successful registration, enter the admin dashboard
 6. In the admin dashboard, create upstream accounts, model prices, regular users, and API Keys
 7. After users log in, they can manage API Keys, view usage, and initiate top-ups from the user interface
 8. Use the user API Key to call proxy endpoints such as `/v1/chat/completions`
 
-If you prefer to skip the UI, you can call the bootstrap endpoint directly:
+If you prefer to skip the UI, you can call the admin registration endpoint directly:
 
 Example:
 
 ```bash
-curl -X POST http://127.0.0.1:8080/api/admin/bootstrap \
+curl -X POST http://127.0.0.1:8080/api/auth/register-admin \
   -H 'Content-Type: application/json' \
-  -H 'X-Admin-Token: your-admin-token' \
   -d '{
     "name": "admin",
     "email": "admin@example.com",
@@ -149,5 +134,5 @@ curl -X POST http://127.0.0.1:8080/api/admin/bootstrap \
 Explanation:
 
 - The `password` field here is the admin login password.
-- Upon successful bootstrap, the response directly returns the admin's `access_token` and `refresh_token`.
+- Upon successful registration, the response directly returns the admin's `access_token` and `refresh_token`.
 - Afterwards, you can use that email and password to log in from the front-end login page.

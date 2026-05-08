@@ -35,21 +35,9 @@
 ## 管理员账号说明
 
 - 系统**没有内置默认管理员账号和默认密码**
-- 首个管理员账号需要在首次部署后通过 `POST /api/admin/bootstrap` 或前端"初始化首个管理员"页面创建
-- **管理员密码就是你初始化时自己提交的密码**
-- 管理接口额外需要请求头 `X-Admin-Token`
-
-如果你没有显式传入 `-admin-token` 或 `SUB2API_ADMIN_TOKEN`，默认值是：
-
-```text
-sub2api-admin-change-me
-```
-
-注意：
-
-- `X-Admin-Token` 不是管理员登录密码
-- 它只用于放行管理接口
-- 管理员是否能进入后台，还要同时满足邮箱和密码登录成功
+- 首个管理员账号需要在首次部署后通过 `POST /api/auth/register-admin` 或前端“管理员登录”页直接注册创建
+- **管理员密码就是你注册时自己提交的密码**
+- 管理接口使用普通登录态鉴权，登录用户角色为 `admin` 时即可访问管理后台
 
 ## 启动
 
@@ -88,7 +76,6 @@ sub2api-admin-change-me
 ```bash
 cd server
 go run ./cmd/sub2api \
-  -admin-token your-admin-token \
   -public-base-url http://127.0.0.1:8080 \
   -gopay-url http://127.0.0.1:8081 \
   -gopay-pid 10000 \
@@ -98,7 +85,6 @@ go run ./cmd/sub2api \
 也可以用环境变量：
 
 ```bash
-export SUB2API_ADMIN_TOKEN=your-admin-token
 export SUB2API_PUBLIC_BASE_URL=http://127.0.0.1:8080
 export SUB2API_GOPAY_URL=http://127.0.0.1:8081
 export SUB2API_GOPAY_PID=10000
@@ -124,21 +110,20 @@ VITE_PROXY_TARGET=http://127.0.0.1:18080 npm run dev
 
 1. 启动后端服务
 2. 打开 `http://127.0.0.1:8080/`，或前端开发态 `http://127.0.0.1:5173/`
-3. 进入"管理员登录"页，点击"初始化首个管理员"
-4. 填写管理员邮箱、密码，以及 `X-Admin-Token` 对应的管理令牌
-5. 初始化成功后进入管理后台
+3. 进入“管理员登录”页，切换到注册模式
+4. 填写管理员名称、邮箱、密码
+5. 注册成功后进入管理后台
 6. 在管理后台创建上游账户、模型价格、普通用户和 API Key
 7. 用户登录后即可在用户界面完成 Key 管理、查看用量、发起充值
 8. 用用户 API Key 调 `/v1/chat/completions` 等代理接口
 
-如果你不想走界面，也可以直接调用 bootstrap 接口：
+如果你不想走界面，也可以直接调用管理员注册接口：
 
 示例：
 
 ```bash
-curl -X POST http://127.0.0.1:8080/api/admin/bootstrap \
+curl -X POST http://127.0.0.1:8080/api/auth/register-admin \
   -H 'Content-Type: application/json' \
-  -H 'X-Admin-Token: your-admin-token' \
   -d '{
     "name": "admin",
     "email": "admin@example.com",
@@ -149,5 +134,5 @@ curl -X POST http://127.0.0.1:8080/api/admin/bootstrap \
 说明：
 
 - 这里的 `password` 就是管理员登录密码
-- bootstrap 成功后会直接返回该管理员的 `access_token` 和 `refresh_token`
+- 注册成功后会直接返回该管理员的 `access_token` 和 `refresh_token`
 - 之后可用该邮箱和密码从前端登录页进入系统

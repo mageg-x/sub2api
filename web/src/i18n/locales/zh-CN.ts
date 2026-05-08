@@ -84,9 +84,7 @@ export default {
     email: '邮箱',
     enterConsole: '进入控制台',
     returnHome: '返回首页',
-    createAccount: '创建账户',
-    adminToken: '管理员 Token',
-    pleaseInputAdminToken: '请输入管理员 Token'
+    createAccount: '创建账户'
   },
   user: {
     profile: '个人中心',
@@ -169,7 +167,6 @@ export default {
     setAdminPassword: '设置管理员密码',
     registerAndEnter: '注册并进入控制台',
     enterConsole: '进入控制台',
-    initTokenTip: '首次部署时填写初始化 Token，之后仍用于访问管理接口',
     loginFailed: '登录失败',
     initFailed: '初始化失败'
   },

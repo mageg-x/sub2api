@@ -24,7 +24,7 @@ func main() {
 	server, cleanup, err := app.New(cfg)
 	if err != nil {
 		// 如果初始化失败，记录错误并退出
-		log.Fatalf("bootstrap failed: %v", err)
+		log.Fatalf("startup failed: %v", err)
 	}
 	// 确保程序退出前执行清理操作
 	defer cleanup()

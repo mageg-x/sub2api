@@ -1,7 +1,14 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 function hasAdminAccess(): boolean {
-  return Boolean(localStorage.getItem('sub2api_admin_token'))
+  try {
+    const raw = localStorage.getItem('sub2api_user')
+    if (!raw) return false
+    const user = JSON.parse(raw) as { role?: string }
+    return user.role === 'admin'
+  } catch {
+    return false
+  }
 }
 
 const router = createRouter({

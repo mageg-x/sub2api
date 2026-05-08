@@ -387,43 +387,6 @@ func (c *Core) Start(ctx context.Context) {
 	go c.flushUsageLogsLoop(ctx)
 }
 
-// CheckAdminToken 检查管理员令牌是否有效
-// 参数：
-//   - token: 待验证的令牌
-//
-// 返回：令牌是否有效
-func (c *Core) CheckAdminToken(token string) bool {
-	if token == "" {
-		return false
-	}
-	return subtle.ConstantTimeCompare([]byte(token), []byte(c.cfg.AdminToken)) == 1
-}
-
-// BootstrapAdmin 引导创建管理员账号
-// 如果系统中不存在管理员，则创建第一个管理员
-// 参数：
-//   - name: 管理员名称
-//   - email: 管理员邮箱
-//   - password: 管理员密码
-//
-// 返回：用户认证信息和错误
-func (c *Core) BootstrapAdmin(name, email, password string) (*UserAuth, error) {
-	var count int64
-	if err := c.db.Model(&model.User{}).Where("role = ?", "admin").Count(&count).Error; err != nil {
-		return nil, err
-	}
-	if count > 0 {
-		return nil, fmt.Errorf("admin already exists")
-	}
-	return c.createUserAuth(CreateUserInput{
-		Email:       email,
-		Name:        name,
-		Password:    password,
-		Role:        "admin",
-		RatePercent: 100,
-	})
-}
-
 // CreateUser 创建用户
 // 参数：
 //   - in: 创建用户输入参数
@@ -535,34 +498,8 @@ const maxRegisterIPEntries = 10000
 const maxUsageLogQueueSize = 20000
 
 func (c *Core) Register(in RegisterInput) (*UserAuth, error) {
-	if ip := strings.TrimSpace(in.ClientIP); ip != "" {
-		c.registerMu.Lock()
-		now := time.Now().UnixMilli()
-		cutoff := now - registerCooldownMS
-		for k, v := range c.registerIPs {
-			if v < cutoff {
-				delete(c.registerIPs, k)
-			}
-		}
-		if len(c.registerIPs) >= maxRegisterIPEntries {
-			oldestIP := ""
-			var oldestAt int64
-			for k, v := range c.registerIPs {
-				if oldestIP == "" || v < oldestAt {
-					oldestIP = k
-					oldestAt = v
-				}
-			}
-			if oldestIP != "" {
-				delete(c.registerIPs, oldestIP)
-			}
-		}
-		if last, ok := c.registerIPs[ip]; ok && now-last < registerCooldownMS {
-			c.registerMu.Unlock()
-			return nil, fmt.Errorf("registration too frequent, please try again later")
-		}
-		c.registerIPs[ip] = now
-		c.registerMu.Unlock()
+	if err := c.checkRegisterCooldown(in.ClientIP); err != nil {
+		return nil, err
 	}
 	auth, err := c.createUserAuth(CreateUserInput{
 		Email:       in.Email,
@@ -575,6 +512,64 @@ func (c *Core) Register(in RegisterInput) (*UserAuth, error) {
 		c.invalidateStats()
 	}
 	return auth, err
+}
+
+func (c *Core) RegisterAdmin(in RegisterInput) (*UserAuth, error) {
+	if err := c.checkRegisterCooldown(in.ClientIP); err != nil {
+		return nil, err
+	}
+	var count int64
+	if err := c.db.Model(&model.User{}).Where("role = ?", "admin").Count(&count).Error; err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, fmt.Errorf("admin already exists")
+	}
+	auth, err := c.createUserAuth(CreateUserInput{
+		Email:       in.Email,
+		Name:        in.Name,
+		Password:    in.Password,
+		Role:        "admin",
+		RatePercent: 100,
+	})
+	if err == nil {
+		c.invalidateStats()
+	}
+	return auth, err
+}
+
+func (c *Core) checkRegisterCooldown(ip string) error {
+	ip = strings.TrimSpace(ip)
+	if ip == "" {
+		return nil
+	}
+	c.registerMu.Lock()
+	defer c.registerMu.Unlock()
+	now := time.Now().UnixMilli()
+	cutoff := now - registerCooldownMS
+	for k, v := range c.registerIPs {
+		if v < cutoff {
+			delete(c.registerIPs, k)
+		}
+	}
+	if len(c.registerIPs) >= maxRegisterIPEntries {
+		oldestIP := ""
+		var oldestAt int64
+		for k, v := range c.registerIPs {
+			if oldestIP == "" || v < oldestAt {
+				oldestIP = k
+				oldestAt = v
+			}
+		}
+		if oldestIP != "" {
+			delete(c.registerIPs, oldestIP)
+		}
+	}
+	if last, ok := c.registerIPs[ip]; ok && now-last < registerCooldownMS {
+		return fmt.Errorf("registration too frequent, please try again later")
+	}
+	c.registerIPs[ip] = now
+	return nil
 }
 
 func (c *Core) createUserAuth(in CreateUserInput) (*UserAuth, error) {
@@ -874,10 +869,14 @@ func (c *Core) UserDashboard(userID uint64) (*UserDashboardData, error) {
 	}
 
 	var recentUsageLogs []model.UsageLog
-	c.db.Where("user_id = ?", userID).Order("created_at_ms desc").Limit(20).Find(&recentUsageLogs)
+	if err := c.db.Where("user_id = ?", userID).Order("created_at_ms desc").Limit(20).Find(&recentUsageLogs).Error; err != nil {
+		return nil, err
+	}
 
 	var recentPaymentOrders []model.PaymentOrder
-	c.db.Where("user_id = ?", userID).Order("created_at_ms desc").Limit(10).Find(&recentPaymentOrders)
+	if err := c.db.Where("user_id = ?", userID).Order("created_at_ms desc").Limit(10).Find(&recentPaymentOrders).Error; err != nil {
+		return nil, err
+	}
 
 	avgRPM := "0"
 	avgTPM := "0"
@@ -1005,23 +1004,34 @@ func (c *Core) RedeemCoupon(userID uint64, code string) (*model.Coupon, error) {
 //
 // 返回：创建的API密钥和错误
 func (c *Core) CreateAPIKey(in CreateAPIKeyInput) (*model.APIKey, error) {
-	providerName := strings.TrimSpace(in.Provider)
+	providerName := normalizeProvider(in.Provider)
 	if providerName == "" {
 		return nil, fmt.Errorf("provider is required")
 	}
 	if _, err := c.providers.Get(providerName); err != nil {
 		return nil, err
 	}
-	key := &model.APIKey{
-		UserID:      in.UserID,
-		Provider:    providerName,
-		Name:        strings.TrimSpace(in.Name),
-		Secret:      "sk-" + randomHex(24),
-		Status:      "active",
-		ExpiresAtMS: in.ExpiresAtMS,
+	var key *model.APIKey
+	for attempt := 0; attempt < 3; attempt++ {
+		item := &model.APIKey{
+			UserID:      in.UserID,
+			Provider:    providerName,
+			Name:        strings.TrimSpace(in.Name),
+			Secret:      "sk-" + randomHex(24),
+			Status:      "active",
+			ExpiresAtMS: in.ExpiresAtMS,
+		}
+		if err := c.db.Create(item).Error; err != nil {
+			if strings.Contains(strings.ToLower(err.Error()), "unique") {
+				continue
+			}
+			return nil, err
+		}
+		key = item
+		break
 	}
-	if err := c.db.Create(key).Error; err != nil {
-		return nil, err
+	if key == nil {
+		return nil, fmt.Errorf("failed to allocate unique api key")
 	}
 	c.invalidateUserDashboard(in.UserID)
 	c.invalidateStats()
@@ -1049,13 +1059,20 @@ func (c *Core) DeleteUserAPIKey(userID, keyID uint64) error {
 //
 // 返回：创建的账号和错误
 func (c *Core) CreateAccount(in CreateAccountInput) (*model.Account, error) {
+	providerName := normalizeProvider(in.Provider)
+	if providerName == "" {
+		return nil, fmt.Errorf("provider is required")
+	}
+	if _, err := c.providers.Get(providerName); err != nil {
+		return nil, err
+	}
 	models, _ := json.Marshal(normalizeStrings(in.ModelScope))
 	encrypted, err := cryptoext.Encrypt(c.cfg.AESKey, normalizeJSON(in.Credentials, "{}"))
 	if err != nil {
 		return nil, err
 	}
 	account := &model.Account{
-		Provider:             strings.TrimSpace(in.Provider),
+		Provider:             providerName,
 		Name:                 strings.TrimSpace(in.Name),
 		AuthType:             strings.TrimSpace(in.AuthType),
 		BaseURL:              strings.TrimSpace(in.BaseURL),
@@ -1216,7 +1233,10 @@ func (c *Core) CreateModelPrice(in CreateModelPriceInput) (*model.ModelPrice, er
 
 func (c *Core) reloadAccountCache() {
 	var accounts []model.Account
-	c.db.Where("status = ?", "active").Order("priority desc, id asc").Find(&accounts)
+	if err := c.db.Where("status = ?", "active").Order("priority desc, id asc").Find(&accounts).Error; err != nil {
+		c.recordError("cache.accounts", "reload account cache failed", err.Error())
+		return
+	}
 	m := map[string][]model.Account{}
 	for _, a := range accounts {
 		m[a.Provider] = append(m[a.Provider], a)
@@ -1228,10 +1248,13 @@ func (c *Core) reloadAccountCache() {
 
 func (c *Core) reloadPriceCache() {
 	var prices []model.ModelPrice
-	c.db.Where("status = ?", "active").Find(&prices)
+	if err := c.db.Where("status = ?", "active").Find(&prices).Error; err != nil {
+		c.recordError("cache.prices", "reload price cache failed", err.Error())
+		return
+	}
 	m := map[string]model.ModelPrice{}
 	for _, p := range prices {
-		m[p.Provider+":"+p.Model] = p
+		m[normalizeProvider(p.Provider)+":"+strings.TrimSpace(strings.ToLower(p.Model))] = p
 	}
 	c.priceCacheMu.Lock()
 	c.priceCache = m
@@ -1376,8 +1399,12 @@ func (c *Core) Dashboard() (*DashboardData, error) {
 }
 
 func (c *Core) CreatePaymentOrder(ctx context.Context, in CreatePaymentOrderInput, clientIP, device, baseURL string) (*model.PaymentOrder, *payment.CreateOrderResponse, error) {
-	// 获取支付提供商（GoPay）
-	providerImpl, err := c.payments.Get("gopay")
+	providerNames := c.payments.Names()
+	if len(providerNames) == 0 {
+		return nil, nil, fmt.Errorf("no payment provider registered")
+	}
+	providerName := providerNames[0]
+	providerImpl, err := c.payments.Get(providerName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1399,7 +1426,7 @@ func (c *Core) CreatePaymentOrder(ctx context.Context, in CreatePaymentOrderInpu
 	// 创建支付订单记录
 	order := &model.PaymentOrder{
 		UserID:         in.UserID,
-		Provider:       "gopay",
+		Provider:       providerName,
 		OutTradeNo:     "pay_" + randomHex(12), // 生成唯一订单号
 		Subject:        defaultString(strings.TrimSpace(in.Subject), "Balance Recharge"),
 		Status:         "PENDING", // 初始状态为待支付
@@ -1416,13 +1443,13 @@ func (c *Core) CreatePaymentOrder(ctx context.Context, in CreatePaymentOrderInpu
 		OutTradeNo: order.OutTradeNo,
 		Subject:    order.Subject,
 		Amount:     order.Amount,
-		NotifyURL:  strings.TrimRight(baseURL, "/") + "/api/payments/notify/gopay",
+		NotifyURL:  strings.TrimRight(baseURL, "/") + "/api/payments/notify/" + providerName,
 		ReturnURL:  in.ReturnURL,
 		ClientIP:   clientIP,
 		Device:     device,
 	})
 	if err != nil {
-		c.recordError("payment.create", "gopay create order failed", err.Error())
+		c.recordError("payment.create", providerName+" create order failed", err.Error())
 		return nil, nil, err
 	}
 	// 更新订单的交易号
@@ -1441,14 +1468,18 @@ func (c *Core) CreatePaymentOrder(ctx context.Context, in CreatePaymentOrderInpu
 }
 
 func (c *Core) HandlePaymentNotify(r *http.Request) error {
-	providerImpl, err := c.payments.Get("gopay")
+	providerName := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/payments/notify/"), "/")
+	if providerName == "" {
+		return fmt.Errorf("payment provider is required")
+	}
+	providerImpl, err := c.payments.Get(providerName)
 	if err != nil {
 		return err
 	}
 	// 验证支付通知
 	notify, err := providerImpl.VerifyNotify(r)
 	if err != nil {
-		c.recordError("payment.notify", "gopay notify verify failed", err.Error())
+		c.recordError("payment.notify", providerName+" notify verify failed", err.Error())
 		return err
 	}
 	// 检查支付是否完成
@@ -1460,7 +1491,7 @@ func (c *Core) HandlePaymentNotify(r *http.Request) error {
 	err = c.db.Transaction(func(tx *gorm.DB) error {
 		var order model.PaymentOrder
 		// 查找订单
-		if err := tx.Where("out_trade_no = ?", notify.OutTradeNo).First(&order).Error; err != nil {
+		if err := tx.Where("out_trade_no = ? AND provider = ?", notify.OutTradeNo, providerName).First(&order).Error; err != nil {
 			return err
 		}
 		// 回调金额必须严格匹配订单金额，0 或负数均视为非法
@@ -1509,14 +1540,13 @@ func (c *Core) HandlePaymentNotify(r *http.Request) error {
 //
 // 返回：错误
 func (c *Core) RefundPayment(ctx context.Context, outTradeNo string, amount int64) error {
-	// 获取支付提供商
-	providerImpl, err := c.payments.Get("gopay")
-	if err != nil {
-		return err
-	}
 	// 查找原订单
 	var order model.PaymentOrder
 	if err := c.db.Where("out_trade_no = ?", outTradeNo).First(&order).Error; err != nil {
+		return err
+	}
+	providerImpl, err := c.payments.Get(strings.TrimSpace(order.Provider))
+	if err != nil {
 		return err
 	}
 	// 检查订单是否已支付
@@ -1537,30 +1567,58 @@ func (c *Core) RefundPayment(ctx context.Context, outTradeNo string, amount int6
 	if user.Balance < amount {
 		return fmt.Errorf("user balance is insufficient for refund")
 	}
+	now := time.Now().UnixMilli()
+	if err := c.db.Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&model.PaymentOrder{}).
+			Where("id = ? AND status = ? AND refunded_amount = ?", order.ID, "PAID", order.RefundedAmount).
+			Updates(map[string]any{
+				"status":        "REFUNDING",
+				"updated_at_ms": now,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return fmt.Errorf("payment order refund state changed")
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
 	// 调用支付提供商退款
 	if err := providerImpl.Refund(ctx, payment.RefundRequest{
 		ProviderTradeNo: order.ProviderTradeNo,
 		Amount:          amount,
 	}); err != nil {
-		c.recordError("payment.refund", "gopay refund failed", err.Error())
+		_ = c.db.Model(&model.PaymentOrder{}).Where("id = ? AND status = ?", order.ID, "REFUNDING").Updates(map[string]any{
+			"status":        "PAID",
+			"updated_at_ms": time.Now().UnixMilli(),
+		}).Error
+		c.recordError("payment.refund", order.Provider+" refund failed", err.Error())
 		return err
 	}
 	// 更新订单状态和用户余额
-	now := time.Now().UnixMilli()
+	now = time.Now().UnixMilli()
 	nextRefunded := order.RefundedAmount + amount
 	nextStatus := "PAID"
 	if nextRefunded >= order.CreditedAmount {
 		nextStatus = "REFUNDED"
 	}
 	err = c.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&order).Updates(map[string]any{
-			"status":          nextStatus,
-			"refunded_amount": gorm.Expr("refunded_amount + ?", amount),
-			"updated_at_ms":   now,
-		}).Error; err != nil {
-			return err
+		result := tx.Model(&model.PaymentOrder{}).
+			Where("id = ? AND status = ?", order.ID, "REFUNDING").
+			Updates(map[string]any{
+				"status":          nextStatus,
+				"refunded_amount": gorm.Expr("refunded_amount + ?", amount),
+				"updated_at_ms":   now,
+			})
+		if result.Error != nil {
+			return result.Error
 		}
-		if err := tx.Model(&user).Updates(map[string]any{
+		if result.RowsAffected != 1 {
+			return fmt.Errorf("payment order refund finalize failed")
+		}
+		if err := tx.Model(&user).Where("id = ? AND balance >= ?", user.ID, amount).Updates(map[string]any{
 			"balance":       gorm.Expr("balance - ?", amount),
 			"updated_at_ms": now,
 		}).Error; err != nil {
@@ -1951,7 +2009,7 @@ func (c *Core) Stats() (map[string]any, error) {
 	c.db.Model(&model.PaymentOrder{}).Where("status = ?", "PAID").Select("COALESCE(SUM(credited_amount), 0)").Row().Scan(&totalRevenue)
 	data["total_revenue"] = totalRevenue
 	var totalUsage int64
-	c.db.Model(&model.UsageLog{}).Select("COALESCE(SUM(input_tokens + output_tokens), 0)").Row().Scan(&totalUsage)
+	c.db.Model(&model.UserUsageDay{}).Select("COALESCE(SUM(input_tokens + output_tokens), 0)").Row().Scan(&totalUsage)
 	data["total_tokens"] = totalUsage
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
@@ -2178,6 +2236,7 @@ func (c *Core) pickAccount(providerName, modelName, path string) (model.Account,
 	c.accountCacheMu.RLock()
 	accounts := c.accountCache[providerName]
 	c.accountCacheMu.RUnlock()
+	now := time.Now().UnixMilli()
 
 	if len(accounts) == 0 {
 		return model.Account{}, fmt.Errorf("no active %s account available", providerName)
@@ -2192,6 +2251,9 @@ func (c *Core) pickAccount(providerName, modelName, path string) (model.Account,
 	}
 	candidates := make([]int, 0, len(accounts))
 	for i := range accounts {
+		if accounts[i].ExpiresAtMS > 0 && accounts[i].ExpiresAtMS <= now && accounts[i].AuthType != "oauth" {
+			continue
+		}
 		if modelName != "" && !isModelAllowed(accounts[i].ModelScopeJSON, modelName) {
 			continue
 		}
@@ -2436,7 +2498,10 @@ func (c *Core) flushUsageLogsBatch() {
 	}); err != nil {
 		c.recordError("usage.flush", "flush usage logs failed", err.Error())
 		c.usageLogMu.Lock()
-		c.usageLogQueue = append(items, c.usageLogQueue...)
+		c.usageLogQueue = append(c.usageLogQueue, items...)
+		if len(c.usageLogQueue) > maxUsageLogQueueSize {
+			c.usageLogQueue = c.usageLogQueue[len(c.usageLogQueue)-maxUsageLogQueueSize:]
+		}
 		c.usageLogMu.Unlock()
 	}
 }
@@ -2690,6 +2755,8 @@ func mapValuesDayDimension(src map[string]*model.UserUsageDayDimension) []model.
 //
 // 返回：计算出的费用和错误
 func (c *Core) calculateCost(providerName, modelName string, ratePercent int, inTokens, outTokens, cacheCreateTokens, cacheReadTokens int64) (int64, error) {
+	providerName = normalizeProvider(providerName)
+	modelName = strings.TrimSpace(strings.ToLower(modelName))
 	c.priceCacheMu.RLock()
 	price, ok := c.priceCache[providerName+":"+modelName]
 	c.priceCacheMu.RUnlock()
@@ -2834,7 +2901,7 @@ func detectRoute(path string, body []byte) (modelName string, stream bool, provi
 		}
 		return
 	// Claude兼容接口
-	case strings.HasPrefix(path, "/v1/messages"), strings.HasPrefix(path, "/v1/messages/count_tokens"):
+	case path == "/v1/messages" || path == "/v1/messages/count_tokens":
 		providerName = "claude"
 		var payload struct {
 			Model  string `json:"model"`
@@ -3138,11 +3205,12 @@ func hashPassword(password string) (string, string, error) {
 	if len(password) < 6 {
 		return "", "", fmt.Errorf("password must be at least 6 characters")
 	}
+	salt := randomHex(16)
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return "", "", err
 	}
-	return "", "$bcrypt$" + string(hash), nil
+	return salt, "$bcrypt$" + string(hash), nil
 }
 
 func verifyPassword(salt, expectedHash, password string) bool {

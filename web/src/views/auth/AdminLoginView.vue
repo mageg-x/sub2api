@@ -15,7 +15,7 @@
           <el-button :type="setupMode ? 'primary' : 'default'" plain @click="setupMode = true">{{ t("adminLogin.register") }}</el-button>
         </div>
 
-        <el-form ref="formRef" :model="formData" :rules="rules" @submit.prevent="setupMode ? handleBootstrap() : handleLogin()">
+        <el-form ref="formRef" :model="formData" :rules="rules" @submit.prevent="setupMode ? handleRegisterAdmin() : handleLogin()">
           <el-form-item v-if="setupMode" prop="name">
             <el-input v-model="formData.name" :placeholder="t('adminLogin.adminName')" size="large" :prefix-icon="User" />
           </el-form-item>
@@ -26,16 +26,6 @@
 
           <el-form-item prop="password">
             <el-input v-model="formData.password" type="password" :placeholder="setupMode ? t('adminLogin.setAdminPassword') : t('auth.password')" size="large" show-password :prefix-icon="Lock" />
-          </el-form-item>
-
-          <el-form-item prop="adminToken">
-            <el-input v-model="formData.adminToken" :placeholder="t('auth.adminToken')" size="large" :prefix-icon="Key">
-              <template #append>
-                <el-tooltip :content="t('adminLogin.initTokenTip')">
-                  <el-button><HelpCircle /></el-button>
-                </el-tooltip>
-              </template>
-            </el-input>
           </el-form-item>
 
           <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon class="error-alert" />
@@ -115,14 +105,13 @@
 import { ref, reactive, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
-import { Mail, Lock, HelpCircle, ArrowLeft, Users, Boxes, Banknote, CreditCard, User, Key } from "lucide-vue-next";
-import { ElAlert, ElButton, ElForm, ElFormItem, ElInput, ElLink, ElTooltip } from "element-plus";
+import { Mail, Lock, ArrowLeft, Users, Boxes, Banknote, CreditCard, User } from "lucide-vue-next";
+import { ElAlert, ElButton, ElForm, ElFormItem, ElInput, ElLink } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
 import logoUrl from "@/assets/logo.svg";
 import { adminAPI } from "@/api/admin";
-import { login } from "@/api/auth";
-import { apiURL } from "@/api/client";
-import { clearAdminToken, saveAuth, saveAdminToken } from "@/store/session";
+import { login, registerAdmin } from "@/api/auth";
+import { saveAuth } from "@/store/session";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -135,7 +124,6 @@ const formData = reactive({
   name: "",
   email: "",
   password: "",
-  adminToken: localStorage.getItem("sub2api_admin_token") || "",
 });
 
 const rules = computed<FormRules>(() => ({
@@ -148,7 +136,6 @@ const rules = computed<FormRules>(() => ({
     { required: true, message: t("auth.pleaseInputPassword"), trigger: "blur" },
     { min: 6, message: t("auth.passwordMinLength"), trigger: "blur" },
   ],
-  adminToken: [{ required: true, message: t("auth.pleaseInputAdminToken"), trigger: "blur" }],
 }));
 
 async function handleLogin() {
@@ -163,11 +150,9 @@ async function handleLogin() {
     try {
       const result = await login(formData.email, formData.password);
       saveAuth(result.access_token, result.refresh_token, result.user);
-      saveAdminToken(formData.adminToken);
       await adminAPI.dashboard();
       await router.replace("/admin/dashboard");
     } catch (err) {
-      clearAdminToken();
       error.value = err instanceof Error ? err.message : t("adminLogin.loginFailed");
     } finally {
       loading.value = false;
@@ -175,7 +160,7 @@ async function handleLogin() {
   });
 }
 
-async function handleBootstrap() {
+async function handleRegisterAdmin() {
   if (!formRef.value) return;
 
   await formRef.value.validate(async (valid) => {
@@ -185,24 +170,8 @@ async function handleBootstrap() {
     error.value = "";
 
     try {
-      const res = await fetch(apiURL("/api/admin/bootstrap"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Admin-Token": formData.adminToken,
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-        }),
-      });
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(payload?.error || t("adminLogin.initFailed"));
-      }
-      saveAuth(payload.access_token, payload.refresh_token, payload.user);
-      saveAdminToken(formData.adminToken);
+      const result = await registerAdmin(formData.name, formData.email, formData.password);
+      saveAuth(result.access_token, result.refresh_token, result.user);
       await router.replace("/admin/dashboard");
     } catch (err) {
       error.value = err instanceof Error ? err.message : t("adminLogin.initFailed");

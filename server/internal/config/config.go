@@ -13,20 +13,18 @@ import (
 // Config 应用程序的完整配置结构
 // 包含服务器配置、数据库配置、加密配置、支付配置和各AI Provider的配置
 type Config struct {
-	Addr           string            // HTTP服务器监听地址
-	DBPath         string            // SQLite数据库文件路径
-	AdminToken     string            // 管理员认证Token
-	AllowBootstrap bool              // 是否允许引导模式
-	AESKey         []byte            // AES加密密钥（32字节）
-	PublicBaseURL  string            // 公共访问的基础URL（用于支付回调等）
-	GopayURL       string            // Gopay支付网关URL
-	GopayPID       uint64            // Gopay商户ID
-	GopayKey       string            // Gopay商户密钥
-	GopayType      int               // Gopay支付类型
-	OpenAI         OpenAIConfig      // OpenAI Provider配置
-	Claude         ClaudeConfig      // Claude Provider配置
-	Gemini         GeminiConfig      // Gemini Provider配置
-	Antigravity    AntigravityConfig // Antigravity Provider配置
+	Addr          string            // HTTP服务器监听地址
+	DBPath        string            // SQLite数据库文件路径
+	AESKey        []byte            // AES加密密钥（32字节）
+	PublicBaseURL string            // 公共访问的基础URL（用于支付回调等）
+	GopayURL      string            // Gopay支付网关URL
+	GopayPID      uint64            // Gopay商户ID
+	GopayKey      string            // Gopay商户密钥
+	GopayType     int               // Gopay支付类型
+	OpenAI        OpenAIConfig      // OpenAI Provider配置
+	Claude        ClaudeConfig      // Claude Provider配置
+	Gemini        GeminiConfig      // Gemini Provider配置
+	Antigravity   AntigravityConfig // Antigravity Provider配置
 }
 
 // OpenAIConfig OpenAI Provider的配置
@@ -57,7 +55,6 @@ type AntigravityConfig struct {
 func Load() Config {
 	addr := flag.String("addr", env("SUB2API_ADDR", ":8080"), "")
 	dbPath := flag.String("db", env("SUB2API_DB", filepath.Join("data", "sub2api.db")), "")
-	adminToken := flag.String("admin-token", env("SUB2API_ADMIN_TOKEN", "sub2api-admin-change-me"), "")
 	publicBase := flag.String("public-base-url", env("SUB2API_PUBLIC_BASE_URL", ""), "")
 	gopayURL := flag.String("gopay-url", env("SUB2API_GOPAY_URL", ""), "")
 	gopayPID := flag.Uint64("gopay-pid", mustParseUint64(env("SUB2API_GOPAY_PID", "0")), "")
@@ -69,16 +66,14 @@ func Load() Config {
 
 	// 返回完整配置
 	return Config{
-		Addr:           *addr,
-		DBPath:         *dbPath,
-		AdminToken:     *adminToken,
-		AllowBootstrap: env("SUB2API_ALLOW_BOOTSTRAP", "false") == "true",
-		AESKey:         derive32(*aesSeed),                  // 从种子派生32字节密钥
-		PublicBaseURL:  strings.TrimRight(*publicBase, "/"), // 移除尾部斜杠
-		GopayURL:       strings.TrimRight(*gopayURL, "/"),
-		GopayPID:       *gopayPID,
-		GopayKey:       *gopayKey,
-		GopayType:      *gopayType,
+		Addr:          *addr,
+		DBPath:        *dbPath,
+		AESKey:        derive32(*aesSeed),                  // 从种子派生32字节密钥
+		PublicBaseURL: strings.TrimRight(*publicBase, "/"), // 移除尾部斜杠
+		GopayURL:      strings.TrimRight(*gopayURL, "/"),
+		GopayPID:      *gopayPID,
+		GopayKey:      *gopayKey,
+		GopayType:     *gopayType,
 		// OpenAI配置
 		OpenAI: OpenAIConfig{
 			ClientID: env("SUB2API_OPENAI_CLIENT_ID", "app_EMoamEEZ73f0CkXaXp7hrann"),
