@@ -12,6 +12,19 @@
 - SQLite + GORM 单机部署
 - `gopay` 充值支付接入
 
+## Provider 开发规范
+
+新增上游 provider 时，不要自由发挥目录和职责边界，直接参考：
+
+- `docs/provider-template.md`
+- `server/internal/provider/template/`
+
+当前约束是：
+
+- 每个 provider 默认只有两个主文件：`<provider>.go` 与 `openai_compat.go`
+- 每个 provider 必须实现 `Contract()` 明确能力边界
+- provider 注册阶段会自动校验是否满足必需接口，半成品实现会直接启动失败
+
 ## 产品截图
 
 <table>
@@ -69,7 +82,7 @@
    - `http://127.0.0.1:5173/login/user` 用户登录
    - `http://127.0.0.1:5173/login/admin` 管理员登录
 
-前端开发态已配置代理，默认会把 `/api`、`/v1`、`/v1beta`、`/v1internal:` 请求转发到 `http://127.0.0.1:8080`。
+前端开发态已配置代理，默认会把 `/api`、`/v1`、`/v1beta` 请求转发到 `http://127.0.0.1:8080`。
 
 ## 后端启动
 

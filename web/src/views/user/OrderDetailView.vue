@@ -92,7 +92,7 @@ function copyText(value: string) {
 async function load() {
   const id = Number(route.params.id);
   if (!id || Number.isNaN(id)) {
-    router.replace("/user/payment");
+    router.replace({ name: 'user-payment' });
     return;
   }
   loading.value = true;

@@ -21,6 +21,18 @@ type Provider struct {
 	clientID string
 }
 
+// 编译期断言：OpenAI provider 必须持续满足核心契约。
+var (
+	_ provider.Provider                  = (*Provider)(nil)
+	_ provider.ContractProvider          = (*Provider)(nil)
+	_ provider.AccountCapabilityProvider = (*Provider)(nil)
+	_ provider.CacheUsageParser          = (*Provider)(nil)
+	_ provider.StreamUsageParser         = (*Provider)(nil)
+	_ provider.OAuthStarter              = (*Provider)(nil)
+	_ provider.OAuthExchanger            = (*Provider)(nil)
+	_ provider.OAuthRefresher            = (*Provider)(nil)
+)
+
 // New 创建OpenAI Provider实例
 func New(cfg config.Config) *Provider {
 	return &Provider{clientID: cfg.OpenAI.ClientID}
@@ -32,6 +44,8 @@ const (
 	defaultRedirect = "http://localhost:1455/auth/callback"
 	scopes          = "openid profile email offline_access"
 	refreshScopes   = "openid profile email"
+	chatGPTBaseURL  = "https://chatgpt.com"
+	platformBaseURL = "https://api.openai.com"
 )
 
 // Name 返回Provider名称
@@ -39,13 +53,52 @@ func (p *Provider) Name() string {
 	return "openai"
 }
 
+// Contract 返回 OpenAI provider 的能力契约。
+// OpenAI 原生就是公开协议主实现，因此不需要插件内额外响应协议回写。
+func (p *Provider) Contract() provider.Contract {
+	return provider.Contract{
+		Name:                           p.Name(),
+		RequiresGatewayResponseAdapter: false,
+		RequiresStreamUsageParser:      true,
+		RequiresCacheUsageParser:       true,
+		SupportsOAuth:                  true,
+	}
+}
+
+func (p *Provider) NormalizeGateway(account model.Account, cred *provider.AccountCredentials, req provider.GatewayRequest) (provider.GatewayRequest, error) {
+	req.Provider = p.Name()
+	req.UpstreamMethod = req.Method
+	if req.UpstreamMethod == "" {
+		req.UpstreamMethod = http.MethodPost
+	}
+	req.InternalPath = strings.TrimSpace(req.InternalPath)
+	req.Model, req.Stream = provider.ExtractModelAndStream(req.PublicPath, req.Body)
+	if strings.TrimSpace(account.AuthType) == "oauth" && strings.HasPrefix(req.InternalPath, "/v1/responses") {
+		req.InternalPath = strings.Replace(req.InternalPath, "/v1/responses", "/backend-api/codex/responses", 1)
+	}
+	if strings.TrimSpace(account.AuthType) == "oauth" && req.InternalPath == "/backend-api/codex/responses" {
+		_ = cred
+	}
+	if req.InternalPath == "/v1/models" {
+		req.UpstreamMethod = http.MethodGet
+	}
+	if req.InternalPath == "" {
+		req.InternalPath = req.PublicPath
+	}
+	return req, nil
+}
+
 // BuildUpstreamURL 构建OpenAI API的完整URL
 // 如果账号配置了自定义BaseURL则使用，否则使用默认的api.openai.com
 func (p *Provider) BuildUpstreamURL(account model.Account, path, rawQuery string) string {
-	base := strings.TrimRight(account.BaseURL, "/")
-	if base == "" {
-		// 默认使用OpenAI官方API
-		base = "https://api.openai.com"
+	base := strings.TrimRight(strings.TrimSpace(account.BaseURL), "/")
+	if strings.TrimSpace(account.AuthType) == "oauth" {
+		base = chatGPTBaseURL
+	} else if base == "" {
+		base = platformBaseURL
+	}
+	if strings.Contains(path, "/responses") {
+		base = buildResponsesBaseURL(base)
 	}
 	url := base + path
 	if rawQuery != "" {
@@ -59,6 +112,9 @@ func (p *Provider) BuildUpstreamURL(account model.Account, path, rawQuery string
 func (p *Provider) ApplyRequest(req *http.Request, account model.Account, token string) error {
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
+	if strings.TrimSpace(account.AuthType) == "oauth" {
+		req.Host = "chatgpt.com"
+	}
 	return nil
 }
 
@@ -92,11 +148,28 @@ func (p *Provider) ParseUsage(body []byte) (int64, int64) {
 // SupportsPath 判断OpenAI Provider支持的API路径
 func (p *Provider) SupportsPath(path string) bool {
 	switch path {
-	case "/v1/chat/completions", "/v1/responses", "/v1/embeddings":
+	case "/v1/chat/completions", "/v1/responses", "/v1/embeddings", "/v1/models", "/backend-api/codex/responses", "/v1/images/generations", "/v1/images/edits":
 		return true
 	default:
-		return false
+		return strings.HasPrefix(path, "/v1/responses/") || strings.HasPrefix(path, "/backend-api/codex/responses/")
 	}
+}
+
+func buildResponsesBaseURL(base string) string {
+	normalized := strings.TrimRight(strings.TrimSpace(base), "/")
+	if strings.HasSuffix(normalized, "/backend-api/codex") {
+		return normalized
+	}
+	if strings.HasSuffix(normalized, "/backend-api/codex/responses") {
+		return strings.TrimSuffix(normalized, "/responses")
+	}
+	if strings.HasSuffix(normalized, "/responses") {
+		return strings.TrimSuffix(normalized, "/responses")
+	}
+	if strings.HasSuffix(normalized, "/v1") {
+		return strings.TrimSuffix(normalized, "/v1")
+	}
+	return normalized
 }
 
 // ParseStreamUsage 解析流式响应中的使用量

@@ -174,43 +174,47 @@ function goHome() {
 async function handleSubmit() {
   if (!formRef.value) return;
 
-  await formRef.value.validate(async (valid) => {
-    if (!valid) return;
+  try {
+    await formRef.value.validate();
+  } catch {
+    return;
+  }
 
-    loading.value = true;
-    error.value = "";
+  loading.value = true;
+  error.value = "";
 
-    try {
-      const result = await register(formData.name, formData.email, formData.password);
-      saveAuth(result.access_token, result.refresh_token, result.user);
-      await router.replace("/user/dashboard");
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : t("auth.registerFailed");
-    } finally {
-      loading.value = false;
-    }
-  });
+  try {
+    const result = await register(formData.name, formData.email, formData.password);
+    saveAuth(result.access_token, result.refresh_token, result.user);
+    await router.replace("/user/dashboard");
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : t("auth.registerFailed");
+  } finally {
+    loading.value = false;
+  }
 }
 
 async function handleLogin() {
   if (!loginFormRef.value) return;
 
-  await loginFormRef.value.validate(async (valid) => {
-    if (!valid) return;
+  try {
+    await loginFormRef.value.validate();
+  } catch {
+    return;
+  }
 
-    loading.value = true;
-    error.value = "";
+  loading.value = true;
+  error.value = "";
 
-    try {
-      const result = await login(loginData.email, loginData.password);
-      saveAuth(result.access_token, result.refresh_token, result.user);
-      await router.replace("/user/dashboard");
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : t("auth.loginFailed");
-    } finally {
-      loading.value = false;
-    }
-  });
+  try {
+    const result = await login(loginData.email, loginData.password);
+    saveAuth(result.access_token, result.refresh_token, result.user);
+    await router.replace("/user/dashboard");
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : t("auth.loginFailed");
+  } finally {
+    loading.value = false;
+  }
 }
 </script>
 

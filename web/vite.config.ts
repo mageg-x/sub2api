@@ -29,10 +29,6 @@ export default defineConfig(({ mode }) => {
           target: proxyTarget,
           changeOrigin: true
         },
-        '/v1internal:': {
-          target: proxyTarget,
-          changeOrigin: true
-        },
         '/healthz': {
           target: proxyTarget,
           changeOrigin: true

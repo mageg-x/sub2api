@@ -82,7 +82,7 @@
                     {{ revealed[row.id] ? row.secret : maskSecret(row.secret) }}
                   </code>
                   <div class="secret-actions-inline">
-                    <el-button text size="small" @click="revealed[row.id] = !revealed[row.id]">
+                    <el-button text size="small" @click="toggleReveal(row.id)">
                       <component :is="revealed[row.id] ? EyeOff : Eye" :size="14" />
                       {{ revealed[row.id] ? t('keys.hide') : t('keys.show') }}
                     </el-button>
@@ -121,7 +121,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { Copy, Eye, EyeOff, KeyRound, ShieldCheck, X } from "lucide-vue-next";
-import { ElButton, ElForm, ElFormItem, ElInput, ElOption, ElSelect, ElTable, ElTableColumn, ElTag } from "element-plus";
+import { ElButton, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElSelect, ElTable, ElTableColumn, ElTag } from "element-plus";
 import { userAPI } from "@/api/user";
 import type { APIKey, ModelCatalogChannel } from "@/api/types";
 import { formatTime, isActiveStatus, maskSecret, copyToClipboard } from "@/utils";
@@ -133,6 +133,14 @@ const catalog = ref<ModelCatalogChannel[]>([]);
 const providers = ref<string[]>([]);
 const lastCreatedKey = ref<APIKey | null>(null);
 const revealed = reactive<Record<number, boolean>>({});
+
+function toggleReveal(id: number) {
+  if (revealed[id]) {
+    delete revealed[id];
+  } else {
+    revealed[id] = true;
+  }
+}
 const form = reactive({
   name: "",
   provider: "",
@@ -185,7 +193,8 @@ async function create() {
     form.name = "";
     form.provider = "";
     await load();
-  } catch {
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : t('common.operationFailed'));
   }
 }
 

@@ -208,6 +208,8 @@ async function loadAnnouncements() {
   announcementLoading.value = true;
   try {
     announcements.value = await userAPI.announcements();
+  } catch {
+    announcements.value = [];
   } finally {
     announcementLoading.value = false;
   }

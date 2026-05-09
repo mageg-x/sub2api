@@ -10,7 +10,6 @@ import (
 	"sub2api/server/internal/payment"
 	gopayimpl "sub2api/server/internal/payment/gopay"
 	"sub2api/server/internal/provider"
-	antigravity "sub2api/server/internal/provider/antigravity"
 	claude "sub2api/server/internal/provider/claude"
 	gemini "sub2api/server/internal/provider/gemini"
 	openai "sub2api/server/internal/provider/openai"
@@ -32,12 +31,17 @@ func New(cfg config.Config) (*http.Server, func(), error) {
 	}
 
 	// 创建AI Provider注册表并注册支持的Provider
-	// 支持: OpenAI, Claude, Gemini, Antigravity
+	// 支持: OpenAI, Claude, Gemini
 	providers := provider.NewRegistry()
-	providers.Register(openai.New(cfg))
-	providers.Register(claude.New(cfg))
-	providers.Register(gemini.New(cfg))
-	providers.Register(antigravity.New(cfg))
+	if err := providers.Register(openai.New(cfg)); err != nil {
+		return nil, nil, err
+	}
+	if err := providers.Register(claude.New(cfg)); err != nil {
+		return nil, nil, err
+	}
+	if err := providers.Register(gemini.New(cfg)); err != nil {
+		return nil, nil, err
+	}
 
 	// 创建支付Provider注册表
 	payments := payment.NewRegistry()

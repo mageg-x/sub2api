@@ -157,17 +157,15 @@ const error = ref("");
 interface MetricCard {
   label: string;
   value: string | number;
-  helper: string;
   icon: unknown;
-  trend: number | null;
 }
 
 const metricCards = computed<MetricCard[]>(() => {
   if (!data.value) {
     return [
-      { label: t('adminDashboard.userCount'), value: "-", helper: t('adminDashboard.platformUsers'), icon: Users, trend: null },
-      { label: t('adminDashboard.upstreamAccountPool'), value: "-", helper: t('adminDashboard.oauthStaticKey'), icon: Boxes, trend: null },
-      { label: t('adminDashboard.latestPayments'), value: "-", helper: t('adminDashboard.gopayOnly'), icon: ListOrdered, trend: null },
+      { label: t('adminDashboard.userCount'), value: "-", icon: Users },
+      { label: t('adminDashboard.upstreamAccountPool'), value: "-", icon: Boxes },
+      { label: t('adminDashboard.latestPayments'), value: "-", icon: ListOrdered },
     ];
   }
 
@@ -175,23 +173,17 @@ const metricCards = computed<MetricCard[]>(() => {
     {
       label: t('adminDashboard.userCount'),
       value: data.value.users.length,
-      helper: t('adminDashboard.platformUsers'),
       icon: Users,
-      trend: null,
     },
     {
       label: t('adminDashboard.upstreamAccountPool'),
       value: data.value.accounts.length,
-      helper: t('adminDashboard.oauthStaticKey'),
       icon: Boxes,
-      trend: null,
     },
     {
       label: t('adminDashboard.latestPayments'),
       value: data.value.orders.length,
-      helper: t('adminDashboard.gopayOnly'),
       icon: ListOrdered,
-      trend: null,
     },
   ];
 });

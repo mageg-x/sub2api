@@ -110,14 +110,26 @@ func (h *HTTP) Routes() http.Handler {
 	mux.HandleFunc("POST /api/payments/orders", h.createPaymentOrder)
 	mux.HandleFunc("POST /api/payments/notify/", h.paymentNotify)
 	// AI代理
+	mux.HandleFunc("GET /v1/models", h.proxy)
 	mux.HandleFunc("POST /v1/chat/completions", h.proxy)
 	mux.HandleFunc("POST /v1/responses", h.proxy)
+	mux.HandleFunc("POST /v1/responses/", h.proxy)
+	mux.HandleFunc("POST /responses", h.proxy)
+	mux.HandleFunc("POST /responses/", h.proxy)
+	mux.HandleFunc("POST /backend-api/codex/responses", h.proxy)
+	mux.HandleFunc("POST /backend-api/codex/responses/", h.proxy)
 	mux.HandleFunc("POST /v1/embeddings", h.proxy)
+	mux.HandleFunc("POST /v1/images/generations", h.proxy)
+	mux.HandleFunc("POST /v1/images/edits", h.proxy)
+	mux.HandleFunc("POST /images/generations", h.proxy)
+	mux.HandleFunc("POST /images/edits", h.proxy)
 	mux.HandleFunc("POST /v1/messages", h.proxy)
 	mux.HandleFunc("POST /v1/messages/count_tokens", h.proxy)
+	mux.HandleFunc("POST /v1/messages/batches", h.proxy)
+	mux.HandleFunc("POST /v1/messages/batches/", h.proxy)
+	mux.HandleFunc("GET /v1beta/models", h.proxy)
+	mux.HandleFunc("GET /v1beta/models/", h.proxy)
 	mux.HandleFunc("POST /v1beta/models/", h.proxy)
-	mux.HandleFunc("POST /v1/models/", h.proxy)
-	mux.HandleFunc("POST /", h.postRouter)
 	return withCORS(mux)
 }
 
@@ -126,17 +138,6 @@ func (h *HTTP) adminProviderCapabilities(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	writeJSON(w, http.StatusOK, h.core.ProviderCapabilities())
-}
-
-// postRouter POST路由分发
-// 处理无法通过路径前缀匹配的请求
-func (h *HTTP) postRouter(w http.ResponseWriter, r *http.Request) {
-	switch {
-	case strings.HasPrefix(r.URL.Path, "/v1internal:"):
-		h.proxy(w, r)
-	default:
-		http.NotFound(w, r)
-	}
 }
 
 // home 处理首页请求
@@ -993,7 +994,7 @@ func (h *HTTP) proxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 执行代理请求
-	resp, respBody, err := h.core.Proxy(r.Context(), auth, r.URL.Path, r.URL.RawQuery, r.Header, body)
+	resp, respBody, err := h.core.Proxy(r.Context(), auth, r.Method, r.URL.Path, r.URL.RawQuery, r.Header, body)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return

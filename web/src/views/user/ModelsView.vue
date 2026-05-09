@@ -51,7 +51,7 @@
                 <td>
                   <span class="price-tag cache-read">{{ model.currency === 'CNY' ? '¥' : '$' }}{{ model.cache_read_price.toFixed(2) }}{{ t('common.perMillion') }}</span>
                 </td>
-                <td><span class="status-badge" :class="isActiveStatus(model.status) ? 'active' : ''">{{ t('models.available') }}</span></td>
+                <td><span class="status-badge" :class="isActiveStatus(model.status) ? 'active' : ''">{{ isActiveStatus(model.status) ? t('models.available') : model.status }}</span></td>
               </tr>
             </tbody>
           </table>

@@ -69,7 +69,7 @@ The backend listens on `8080`, the front-end dev server listens on `5173`.
    - `http://127.0.0.1:5173/login/user` – User login
    - `http://127.0.0.1:5173/login/admin` – Admin login
 
-The front-end dev setup is configured with a proxy that forwards requests to `/api`, `/v1`, `/v1beta`, and `/v1internal:` to `http://127.0.0.1:8080` by default.
+The front-end dev setup is configured with a proxy that forwards requests to `/api`, `/v1`, and `/v1beta` to `http://127.0.0.1:8080` by default.
 
 ## Backend Startup
 

@@ -579,10 +579,6 @@ async function handleDelete(id: number) {
   background: linear-gradient(135deg, #4285f4, #667eea);
 }
 
-.provider-badge.antigravity {
-  background: linear-gradient(135deg, #111827, #4b5563);
-}
-
 .name-cell {
   display: flex;
   align-items: center;

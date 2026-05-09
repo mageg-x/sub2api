@@ -173,7 +173,7 @@ async function createOrder() {
   submitting.value = true;
   try {
     result.value = await userAPI.createPayment({
-      amount: Number(form.amount || 0),
+      amount: Math.round(Number(form.amount || 0) * 10000),
       subject: form.subject || t('common.balanceRecharge'),
     });
     await load();
@@ -185,7 +185,7 @@ async function createOrder() {
 }
 
 function goDetail(id: number) {
-  void router.push(`/user/orders/${id}`);
+  void router.push({ name: 'user-order-detail', params: { id } });
 }
 
 onMounted(() => {

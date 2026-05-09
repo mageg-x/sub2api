@@ -69,7 +69,7 @@
 import { reactive, ref, watch } from "vue";
 import { Check, KeyRound, Lock, LockKeyhole, Mail, ShieldCheck, User, UserCog } from "lucide-vue-next";
 import { ElAlert, ElButton, ElForm, ElFormItem, ElInput } from "element-plus";
-import { session } from "@/store/session";
+import { session, saveAuth } from "@/store/session";
 import { userAPI } from "@/api/user";
 import { useI18n } from "vue-i18n";
 
@@ -95,7 +95,9 @@ async function saveProfile() {
   error.value = "";
   try {
     const user = await userAPI.updateProfile({ name: profileForm.name });
-    session.user = user;
+    const accessToken = localStorage.getItem('sub2api_access_token') || '';
+    const refreshToken = localStorage.getItem('sub2api_refresh_token') || '';
+    saveAuth(accessToken, refreshToken, user);
     message.value = t('profile.profileUpdated');
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('profile.updateFailed');

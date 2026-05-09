@@ -137,7 +137,7 @@ const credentialSections = computed(() => {
   return sections
     .map((section) => ({
       ...section,
-      rows: section.rows.filter((item) => item.value),
+      rows: section.rows.filter((item) => item.value != null && item.value !== ""),
     }))
     .filter((section) => section.rows.length > 0);
 });

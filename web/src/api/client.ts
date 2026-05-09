@@ -25,10 +25,11 @@ export function publicAPIOrigin(): string {
   return window.location.origin
 }
 
-function authHeaders(extra?: HeadersInit): HeadersInit {
+function authHeaders(method: HttpMethod, extra?: HeadersInit): HeadersInit {
   const token = localStorage.getItem('sub2api_access_token')
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
+  const headers: Record<string, string> = {}
+  if (method !== 'GET' && method !== 'DELETE') {
+    headers['Content-Type'] = 'application/json'
   }
   if (token) {
     headers.Authorization = `Bearer ${token}`
@@ -76,7 +77,7 @@ async function refreshAccessToken(): Promise<boolean> {
 export async function request<T>(path: string, method: HttpMethod = 'GET', body?: unknown, extraHeaders?: HeadersInit, retry = true): Promise<T> {
   const res = await fetch(apiURL(path), {
     method,
-    headers: authHeaders(extraHeaders),
+    headers: authHeaders(method, extraHeaders),
     body: body === undefined ? undefined : JSON.stringify(body)
   })
   const text = await res.text()
@@ -85,7 +86,7 @@ export async function request<T>(path: string, method: HttpMethod = 'GET', body?
     data = text ? JSON.parse(text) : null
   } catch {
     if (!res.ok) {
-      throw new Error(`request failed: ${res.status}`)
+      throw new Error(text || `request failed: ${res.status}`)
     }
   }
   if (res.status === 401 && retry && canRefresh(path) && localStorage.getItem('sub2api_access_token')) {

@@ -24,7 +24,7 @@
     <!-- 特性卡片区域 -->
     <section class="features-section">
       <div class="features-grid">
-        <div v-for="feature in features" :key="feature.title.value" class="feature-card">
+        <div v-for="(feature, idx) in features" :key="idx" class="feature-card">
           <div class="feature-header">
             <div class="feature-icon">
               <component :is="feature.icon" :size="18" :stroke-width="2" />
@@ -40,7 +40,7 @@
 
 <script setup lang="ts">
 import { useRouter } from "vue-router";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { ShieldCheck, Layers, KeyRound, Zap, DollarSign, WalletCards } from "lucide-vue-next";
 import { ElButton } from "element-plus";
@@ -50,7 +50,7 @@ import LanguageSwitcher from "@/components/LanguageSwitcher.vue";
 const router = useRouter();
 const { t } = useI18n();
 
-const features = [
+const features = ref([
   {
     icon: ShieldCheck,
     title: computed(() => t("home.unifiedInterface")),
@@ -81,7 +81,7 @@ const features = [
     title: computed(() => t("home.convenientPayment")),
     desc: computed(() => t("home.convenientPaymentDesc")),
   },
-];
+]);
 
 function goToLogin() {
   router.push("/login/user");

@@ -13,7 +13,7 @@ export function formatCurrency(value: number): string {
     currency: locale === 'zh-CN' ? 'CNY' : 'USD',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format((value || 0) / 100)
+  }).format((value || 0) / 10000)
 }
 
 export function isActiveStatus(status: string): boolean {
@@ -37,8 +37,8 @@ export function prettyJSON(value: unknown): string {
 export function formatNumber(value: number): string {
   const t = i18n.global.t.bind(i18n.global)
   if (value >= 1e8) return (value / 1e8).toFixed(2) + t('common.hundredMillion')
-  if (value >= 1e4) return (value / 1e4).toFixed(2) + t('common.tenThousand')
   if (value >= 1e6) return (value / 1e6).toFixed(1) + t('common.million')
+  if (value >= 1e4) return (value / 1e4).toFixed(2) + t('common.tenThousand')
   if (value >= 1e3) return (value / 1e3).toFixed(1) + t('common.thousand')
   return value.toLocaleString()
 }

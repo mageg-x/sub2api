@@ -45,6 +45,8 @@ import { ref } from "vue";
 import { CheckCircle2, Gift, Info, Ticket } from "lucide-vue-next";
 import { ElAlert, ElButton, ElForm, ElFormItem, ElInput } from "element-plus";
 import { userAPI } from "@/api/user";
+import { me } from "@/api/auth";
+import { session, saveAuth } from "@/store/session";
 import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
@@ -62,6 +64,12 @@ async function submit() {
     await userAPI.redeem({ code: code.value });
     message.value = t('redeem.redeemSuccess');
     code.value = "";
+    try {
+      const user = await me();
+      const accessToken = localStorage.getItem('sub2api_access_token') || '';
+      const refreshToken = localStorage.getItem('sub2api_refresh_token') || '';
+      saveAuth(accessToken, refreshToken, user);
+    } catch { /* ignore refresh failure */ }
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('redeem.redeemFailed');
   } finally {

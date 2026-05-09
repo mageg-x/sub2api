@@ -150,7 +150,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { ArrowDownToLine, ArrowUpFromLine, Bot, CircleDollarSign, Coins, Database, DatabaseZap, Layers, Plus, Server } from "lucide-vue-next";
-import { ElButton, ElForm, ElFormItem, ElInput, ElTable, ElTableColumn, ElTag } from "element-plus";
+import { ElButton, ElForm, ElFormItem, ElInput, ElMessage, ElTable, ElTableColumn, ElTag } from "element-plus";
 import { adminAPI } from "@/api/admin";
 import type { ModelPrice } from "@/api/types";
 import { isActiveStatus } from "@/utils";
@@ -194,7 +194,8 @@ async function create() {
     form.cache_create_price = 0;
     form.cache_read_price = 0;
     await load();
-  } catch {
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : t('common.operationFailed'));
   }
 }
 
@@ -248,10 +249,6 @@ onMounted(() => {
 
 .provider-badge.gemini {
   background: linear-gradient(135deg, #4285f4, #667eea);
-}
-
-.provider-badge.antigravity {
-  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
 }
 
 .model-name {

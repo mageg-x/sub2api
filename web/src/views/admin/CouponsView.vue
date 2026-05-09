@@ -64,9 +64,13 @@
               </el-input>
             </el-form-item>
             <el-form-item :label="t('adminCoupons.expirationTime')">
-              <el-input v-model.number="form.expires_at_ms" type="number" :placeholder="t('adminCoupons.zeroNoExpiry')">
-                <template #prefix><Clock :size="16" /></template>
-              </el-input>
+              <el-date-picker
+                v-model="expiresAtDate"
+                type="datetime"
+                :placeholder="t('adminCoupons.zeroNoExpiry')"
+                clearable
+                style="width: 100%"
+              />
             </el-form-item>
           </div>
           <el-button type="primary" @click="create">
@@ -130,9 +134,9 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { CheckCircle, CircleDollarSign, Clock, Gift, Hash, Ticket } from "lucide-vue-next";
-import { ElButton, ElForm, ElFormItem, ElInput, ElTable, ElTableColumn, ElTag } from "element-plus";
+import { ElButton, ElDatePicker, ElForm, ElFormItem, ElInput, ElMessage, ElTable, ElTableColumn, ElTag } from "element-plus";
 import { adminAPI } from "@/api/admin";
 import type { Coupon } from "@/api/types";
 import { formatCurrency, formatTime } from "@/utils";
@@ -148,6 +152,11 @@ const form = reactive({
   expires_at_ms: 0,
 });
 
+const expiresAtDate = computed({
+  get: () => form.expires_at_ms ? new Date(form.expires_at_ms) : null,
+  set: (val: Date | null) => { form.expires_at_ms = val ? val.getTime() : 0; }
+});
+
 async function load() {
   try {
     items.value = await adminAPI.coupons();
@@ -159,10 +168,11 @@ async function load() {
 async function create() {
   if (!form.amount || form.amount <= 0) return;
   try {
-    await adminAPI.createCoupon(form);
+    await adminAPI.createCoupon({ ...form });
     form.code = "";
     await load();
-  } catch {
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : t('common.operationFailed'));
   }
 }
 

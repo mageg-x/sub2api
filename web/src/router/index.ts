@@ -68,7 +68,13 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('sub2api_access_token')
+
   if (to.path.startsWith('/login')) {
+    if (token && session.user) {
+      next(session.user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard')
+      return
+    }
     next()
     return
   }
@@ -77,8 +83,6 @@ router.beforeEach((to, from, next) => {
     next()
     return
   }
-  
-  const token = localStorage.getItem('sub2api_access_token')
   
   if (!token) {
     next('/login/user')

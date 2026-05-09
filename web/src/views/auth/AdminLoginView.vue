@@ -141,49 +141,53 @@ const rules = computed<FormRules>(() => ({
 async function handleLogin() {
   if (!formRef.value) return;
 
-  await formRef.value.validate(async (valid) => {
-    if (!valid) return;
+  try {
+    await formRef.value.validate();
+  } catch {
+    return;
+  }
 
-    loading.value = true;
-    error.value = "";
+  loading.value = true;
+  error.value = "";
 
+  try {
+    const result = await login(formData.email, formData.password);
+    saveAuth(result.access_token, result.refresh_token, result.user);
     try {
-      const result = await login(formData.email, formData.password);
-      saveAuth(result.access_token, result.refresh_token, result.user);
-      try {
-        await adminAPI.dashboard();
-      } catch {
-        clearAuth();
-        throw new Error(t("adminLogin.loginFailed"));
-      }
-      await router.replace("/admin/dashboard");
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : t("adminLogin.loginFailed");
-    } finally {
-      loading.value = false;
+      await adminAPI.dashboard();
+    } catch {
+      clearAuth();
+      throw new Error(t("adminLogin.loginFailed"));
     }
-  });
+    await router.replace("/admin/dashboard");
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : t("adminLogin.loginFailed");
+  } finally {
+    loading.value = false;
+  }
 }
 
 async function handleRegisterAdmin() {
   if (!formRef.value) return;
 
-  await formRef.value.validate(async (valid) => {
-    if (!valid) return;
+  try {
+    await formRef.value.validate();
+  } catch {
+    return;
+  }
 
-    loading.value = true;
-    error.value = "";
+  loading.value = true;
+  error.value = "";
 
-    try {
-      const result = await registerAdmin(formData.name, formData.email, formData.password);
-      saveAuth(result.access_token, result.refresh_token, result.user);
-      await router.replace("/admin/dashboard");
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : t("adminLogin.initFailed");
-    } finally {
-      loading.value = false;
-    }
-  });
+  try {
+    const result = await registerAdmin(formData.name, formData.email, formData.password);
+    saveAuth(result.access_token, result.refresh_token, result.user);
+    await router.replace("/admin/dashboard");
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : t("adminLogin.initFailed");
+  } finally {
+    loading.value = false;
+  }
 }
 
 function goToHome() {

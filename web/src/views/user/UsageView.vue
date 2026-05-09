@@ -282,7 +282,7 @@ const modelStats = computed((): ModelStat[] => {
   for (const item of filteredUsage.value) {
     const key = item.model;
     if (!map.has(key)) {
-      map.set(key, { model: item.model, provider: item.provider, input: 0, output: 0, count: 0, inputMax: 200000, outputMax: 80000, inputPct: 0, outputPct: 0 });
+      map.set(key, { model: item.model, provider: item.provider, input: 0, output: 0, count: 0, inputMax: 0, outputMax: 0, inputPct: 0, outputPct: 0 });
     }
     const s = map.get(key)!;
     s.input += item.input_tokens;
@@ -291,6 +291,8 @@ const modelStats = computed((): ModelStat[] => {
   }
   const result = Array.from(map.values());
   result.forEach((s) => {
+    s.inputMax = s.inputMax || s.input * 1.5 || 1;
+    s.outputMax = s.outputMax || s.output * 1.5 || 1;
     s.inputPct = Math.min(100, (s.input / s.inputMax) * 100);
     s.outputPct = Math.min(100, (s.output / s.outputMax) * 100);
   });

@@ -21,6 +21,19 @@ type Provider struct {
 	clientID string
 }
 
+// 编译期断言：Claude provider 必须持续满足核心契约。
+var (
+	_ provider.Provider                  = (*Provider)(nil)
+	_ provider.ContractProvider          = (*Provider)(nil)
+	_ provider.AccountCapabilityProvider = (*Provider)(nil)
+	_ provider.GatewayResponseAdapter    = (*Provider)(nil)
+	_ provider.CacheUsageParser          = (*Provider)(nil)
+	_ provider.StreamUsageParser         = (*Provider)(nil)
+	_ provider.OAuthStarter              = (*Provider)(nil)
+	_ provider.OAuthExchanger            = (*Provider)(nil)
+	_ provider.OAuthRefresher            = (*Provider)(nil)
+)
+
 // New 创建Claude Provider实例
 func New(cfg config.Config) *Provider {
 	return &Provider{clientID: cfg.Claude.ClientID}
@@ -36,6 +49,51 @@ const (
 // Name 返回Provider名称
 func (p *Provider) Name() string {
 	return "claude"
+}
+
+// Contract 返回 Claude provider 的能力契约。
+// Claude 需要在插件内部完成 OpenAI 协议到 Anthropic 原生协议的双向转换。
+func (p *Provider) Contract() provider.Contract {
+	return provider.Contract{
+		Name:                           p.Name(),
+		RequiresGatewayResponseAdapter: true,
+		RequiresStreamUsageParser:      true,
+		RequiresCacheUsageParser:       true,
+		SupportsOAuth:                  true,
+	}
+}
+
+func (p *Provider) NormalizeGateway(account model.Account, cred *provider.AccountCredentials, req provider.GatewayRequest) (provider.GatewayRequest, error) {
+	req.Provider = p.Name()
+	req.UpstreamMethod = req.Method
+	if req.UpstreamMethod == "" {
+		req.UpstreamMethod = http.MethodPost
+	}
+	req.InternalPath = strings.TrimSpace(req.InternalPath)
+	req.Model, req.Stream = provider.ExtractModelAndStream(req.PublicPath, req.Body)
+	_ = account
+	_ = cred
+	if req.InternalPath == "" {
+		req.InternalPath = req.PublicPath
+	}
+	switch normalizeOpenAIPath(req.PublicPath) {
+	case "/v1/chat/completions", "/v1/responses", "/backend-api/codex/responses":
+		converted, modelName, stream, includeUsage, err := convertOpenAIRequest(req.PublicPath, req.Body)
+		if err != nil {
+			return req, err
+		}
+		req.Body = converted
+		req.Model = modelName
+		req.Stream = stream
+		req.IncludeUsage = includeUsage
+		req.InternalPath = "/v1/messages"
+		req.UpstreamMethod = http.MethodPost
+		req.UpstreamStream = stream
+	}
+	if req.PublicPath == "/v1/models" {
+		req.UpstreamMethod = http.MethodGet
+	}
+	return req, nil
 }
 
 // BuildUpstreamURL 构建Claude API的完整URL
@@ -85,10 +143,14 @@ func (p *Provider) ParseUsage(body []byte) (int64, int64) {
 // SupportsPath 判断Claude Provider支持的API路径
 func (p *Provider) SupportsPath(path string) bool {
 	switch path {
-	case "/v1/messages", "/v1/messages/count_tokens":
+	case "/v1/messages", "/v1/messages/count_tokens", "/v1/messages/batches", "/v1/models",
+		"/v1/chat/completions", "/chat/completions", "/v1/responses", "/responses", "/backend-api/codex/responses":
 		return true
 	default:
-		return false
+		return strings.HasPrefix(path, "/v1/messages/batches/") ||
+			strings.HasPrefix(path, "/v1/responses/") ||
+			strings.HasPrefix(path, "/responses/") ||
+			strings.HasPrefix(path, "/backend-api/codex/responses/")
 	}
 }
 

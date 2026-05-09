@@ -1702,22 +1702,41 @@ func (c *Core) AuthenticateAPIKey(secret string) (*ProxyAuth, error) {
 //   - body: 请求体
 //
 // 返回：上游响应、响应体和错误
-func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string, hdr http.Header, body []byte) (*http.Response, []byte, error) {
-	// 检测请求路由：模型名、是否流式、Provider名称
-	modelName, stream, providerName, err := detectRoute(path, body)
+func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, method, path, rawQuery string, hdr http.Header, body []byte) (*http.Response, []byte, error) {
+	if auth.APIKey.Provider == "" {
+		return nil, nil, fmt.Errorf("api key provider is empty")
+	}
+	providerName := normalizeProvider(auth.APIKey.Provider)
+	meta, err := provider.ParseGatewayPath(path)
 	if err != nil {
 		return nil, nil, err
 	}
-	// API Key 只允许在自身绑定的 provider 下使用
-	if auth.APIKey.Provider == "" || auth.APIKey.Provider != providerName {
+	if meta.Provider != "" && meta.Provider != providerName {
 		return nil, nil, fmt.Errorf("api key provider mismatch")
 	}
+	providerImpl, err := c.providers.Get(providerName)
+	if err != nil {
+		return nil, nil, err
+	}
+	if meta.Method != "" && method != "" && meta.Method != method {
+		return nil, nil, fmt.Errorf("method not allowed")
+	}
+	gatewayReq := provider.GatewayRequest{
+		Method:        method,
+		Provider:      providerName,
+		PublicPath:    meta.PublicPath,
+		InternalPath:  meta.InternalPath,
+		RawQuery:      rawQuery,
+		Body:          body,
+		UsageEndpoint: meta.UsageEndpoint,
+	}
+	modelName, stream := provider.ExtractModelAndStream(meta.PublicPath, body)
 	// 用户级模型权限仍然生效
 	if modelName != "" && !isModelAllowedSet(auth.UserAllowedSet, modelName) {
 		return nil, nil, fmt.Errorf("model is not allowed")
 	}
 	// 生成缓存键，检查是否可缓存
-	cacheKey, cacheable := c.cacheKey(auth.User.ID, providerName, path, rawQuery, body, stream)
+	cacheKey, cacheable := c.cacheKey(auth.User.ID, providerName, meta.PublicPath, rawQuery, body, stream)
 	if cacheable {
 		// 尝试从缓存获取响应
 		if cached, ok := c.getCachedResponse(cacheKey); ok {
@@ -1729,22 +1748,51 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 			return cached, respBody, nil
 		}
 	}
+	pickPath := gatewayReq.InternalPath
+	if gatewayReq.PublicPath != "" {
+		pickPath = gatewayReq.PublicPath
+	}
 	// 选择一个可用的AI账号
-	account, err := c.pickAccount(providerName, modelName, path)
+	account, err := c.pickAccount(providerName, modelName, pickPath)
 	if err != nil {
 		return nil, nil, err
 	}
 	// 请求完成后释放账号
 	defer c.releaseAccount(account.ID)
+	cred, err := c.accountCredentials(&account)
+	if err != nil {
+		return nil, nil, err
+	}
+	gatewayReq, err = providerImpl.NormalizeGateway(account, cred, gatewayReq)
+	if err != nil {
+		return nil, nil, err
+	}
+	modelName = strings.TrimSpace(gatewayReq.Model)
+	stream = gatewayReq.Stream
+	upstreamStream := gatewayReq.UpstreamStream
+	if gatewayReq.LocalBody != nil || gatewayReq.LocalStatus != 0 {
+		status := gatewayReq.LocalStatus
+		if status == 0 {
+			status = http.StatusOK
+		}
+		header := gatewayReq.LocalHeader
+		if header == nil {
+			header = http.Header{"Content-Type": []string{"application/json"}}
+		}
+		resp := &http.Response{
+			StatusCode: status,
+			Header:     cloneHeader(header),
+			Body:       io.NopCloser(bytes.NewReader(gatewayReq.LocalBody)),
+		}
+		if cacheable && status < 400 {
+			c.putCachedResponse(cacheKey, status, resp.Header, gatewayReq.LocalBody, 30*time.Second)
+		}
+		return resp, gatewayReq.LocalBody, nil
+	}
 	// 获取账号的访问令牌
 	token, err := c.accountToken(ctx, &account)
 	if err != nil {
 		c.recordError("proxy.token", "resolve upstream token failed", err.Error())
-		return nil, nil, err
-	}
-	// 获取Provider实现
-	providerImpl, err := c.providers.Get(account.Provider)
-	if err != nil {
 		return nil, nil, err
 	}
 	// 仅在模型已知会收费时做余额预检，避免免费模型被错误拦截
@@ -1752,9 +1800,13 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 		return nil, nil, fmt.Errorf("insufficient balance")
 	}
 	// 构建上游URL
-	upstreamURL := providerImpl.BuildUpstreamURL(account, path, rawQuery)
+	upstreamMethod := gatewayReq.UpstreamMethod
+	if upstreamMethod == "" {
+		upstreamMethod = http.MethodPost
+	}
+	upstreamURL := providerImpl.BuildUpstreamURL(account, gatewayReq.InternalPath, gatewayReq.RawQuery)
 	// 创建上游请求
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, upstreamURL, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, upstreamMethod, upstreamURL, bytes.NewReader(gatewayReq.Body))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1771,8 +1823,15 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 		c.recordError("proxy.request", "upstream request failed", err.Error())
 		return nil, nil, err
 	}
-	// 处理流式响应
-	if stream || strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "event-stream") {
+	if adapter, ok := providerImpl.(provider.GatewayResponseAdapter); ok {
+		resp, err = adapter.AdaptGatewayStream(gatewayReq, resp)
+		if err != nil {
+			resp.Body.Close()
+			return nil, nil, err
+		}
+	}
+	actualStreamResponse := stream || (upstreamStream && gatewayReq.Stream) || strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "event-stream")
+	if actualStreamResponse {
 		if resp.StatusCode < 400 && modelName != "" {
 			// 使用usageTrackingReadCloser跟踪流式响应的使用量
 			resp.Body = &usageTrackingReadCloser{
@@ -1795,7 +1854,7 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 					}
 					// 记录使用量
 					if inTokens > 0 || outTokens > 0 || cacheCreateTokens > 0 || cacheReadTokens > 0 {
-						if err := c.recordUsage(auth, &account, modelName, path, inTokens, outTokens, cacheCreateTokens, cacheReadTokens); err != nil {
+						if err := c.recordUsage(auth, &account, modelName, gatewayReq.UsageEndpoint, inTokens, outTokens, cacheCreateTokens, cacheReadTokens); err != nil {
 							c.recordError("usage.record", "record stream usage failed", err.Error())
 						}
 					}
@@ -1810,6 +1869,12 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 	if err != nil {
 		return nil, nil, err
 	}
+	if adapter, ok := providerImpl.(provider.GatewayResponseAdapter); ok {
+		resp, respBody, err = adapter.AdaptGatewayResponse(gatewayReq, resp, respBody)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
 	resp.Body = io.NopCloser(bytes.NewReader(respBody))
 	// 缓存成功响应
 	if cacheable && resp.StatusCode < 400 {
@@ -1819,7 +1884,7 @@ func (c *Core) Proxy(ctx context.Context, auth *ProxyAuth, path, rawQuery string
 	if resp.StatusCode < 400 && modelName != "" {
 		inTokens, outTokens := providerImpl.ParseUsage(respBody)
 		cacheCreateTokens, cacheReadTokens := c.parseCacheUsage(providerImpl, respBody)
-		if err := c.recordUsage(auth, &account, modelName, path, inTokens, outTokens, cacheCreateTokens, cacheReadTokens); err != nil {
+		if err := c.recordUsage(auth, &account, modelName, gatewayReq.UsageEndpoint, inTokens, outTokens, cacheCreateTokens, cacheReadTokens); err != nil {
 			c.recordError("usage.record", "record usage failed", err.Error())
 		}
 	}
@@ -2809,7 +2874,7 @@ func (c *Core) recordError(scope, message, detail string) {
 func normalizeProvider(name string) string {
 	name = strings.ToLower(strings.TrimSpace(name))
 	switch name {
-	case "openai", "claude", "gemini", "antigravity":
+	case "openai", "claude", "gemini":
 		return name
 	default:
 		return name
@@ -2882,68 +2947,6 @@ func redactCredentialsForView(account *model.Account, cred *AccountCredentials) 
 		data["redirect_uri"] = cred.RedirectURI
 	}
 	return data
-}
-
-// detectRoute 检测路由并提取模型信息
-// 根据请求路径和请求体判断Provider和模型
-func detectRoute(path string, body []byte) (modelName string, stream bool, providerName string, err error) {
-	switch {
-	// OpenAI兼容接口
-	case strings.HasPrefix(path, "/v1/chat/completions"), strings.HasPrefix(path, "/v1/responses"), strings.HasPrefix(path, "/v1/embeddings"):
-		providerName = "openai"
-		var payload struct {
-			Model  string `json:"model"`
-			Stream bool   `json:"stream"`
-		}
-		if unmarshalErr := json.Unmarshal(body, &payload); unmarshalErr == nil {
-			modelName = payload.Model
-			stream = payload.Stream
-		}
-		return
-	// Claude兼容接口
-	case path == "/v1/messages" || path == "/v1/messages/count_tokens":
-		providerName = "claude"
-		var payload struct {
-			Model  string `json:"model"`
-			Stream bool   `json:"stream"`
-		}
-		if unmarshalErr := json.Unmarshal(body, &payload); unmarshalErr == nil {
-			modelName = payload.Model
-			stream = payload.Stream
-		}
-		return
-	// Gemini兼容接口
-	case strings.HasPrefix(path, "/v1beta/models/"), strings.HasPrefix(path, "/v1/models/"):
-		providerName = "gemini"
-		modelName = parseGeminiModelFromPath(path)
-		stream = strings.Contains(path, ":streamGenerateContent")
-		return
-	// Antigravity接口
-	case strings.HasPrefix(path, "/v1internal:"):
-		providerName = "antigravity"
-		var payload struct {
-			Model string `json:"model"`
-		}
-		if unmarshalErr := json.Unmarshal(body, &payload); unmarshalErr == nil {
-			modelName = payload.Model
-		}
-		stream = strings.Contains(path, ":stream")
-		return
-	default:
-		err = fmt.Errorf("unsupported gateway path %s", path)
-		return
-	}
-}
-
-// parseGeminiModelFromPath 从路径解析Gemini模型名
-func parseGeminiModelFromPath(path string) string {
-	parts := strings.Split(path, "/")
-	for i := range parts {
-		if parts[i] == "models" && i+1 < len(parts) {
-			return strings.Split(parts[i+1], ":")[0]
-		}
-	}
-	return ""
 }
 
 // defaultString 返回默认值如果为空
@@ -3063,7 +3066,7 @@ func cloneBody(body []byte) []byte {
 //
 // 返回：缓存键和是否可缓存
 func (c *Core) cacheKey(userID uint64, providerName, path, rawQuery string, body []byte, stream bool) (string, bool) {
-	if stream || providerName == "antigravity" {
+	if stream {
 		return "", false
 	}
 	raw := fmt.Sprintf("%d|%s|%s?%s|", userID, providerName, path, rawQuery)
