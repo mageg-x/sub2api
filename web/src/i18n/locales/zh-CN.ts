@@ -378,7 +378,7 @@ export default {
   },
   accessGuide: {
     accessGuide: '接入指南',
-    guideIntro: '管理员先接入上游 OpenAI、Claude、Gemini、Antigravity 账户并配置价格；用户再创建自己的 API Key，通过平台代理接口发起调用。',
+    guideIntro: '平台对外统一提供 OpenAI 兼容接口，同时保留 Claude / Gemini 原生入口；用户创建自己的 API Key 后即可按客户端协议直接调用。',
     accessInfo: '接入信息',
     userId: '用户 ID',
     proxyBaseUrl: '代理 Base URL',
@@ -391,6 +391,9 @@ export default {
     suggestion2: '调用成功后到「我的用量」查看 token 消耗和扣费',
     suggestion3: '余额不足时先到「充值」页发起 gopay 订单，回调后自动入账',
     dedicatedCompatEndpoint: '专用兼容入口',
+    endpointHint1: 'OpenAI / Codex：使用 /v1/chat/completions、/v1/responses、/backend-api/codex/responses',
+    endpointHint2: 'Claude：使用 /v1/messages、/v1/messages/count_tokens、/v1/messages/batches',
+    endpointHint3: 'Gemini：使用 /v1beta/models/* 或 /v1/models/*',
     chatExampleMessage: '你好',
     responsesExampleInput: '写一个摘要'
   },

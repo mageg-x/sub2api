@@ -133,11 +133,21 @@ function copyText(value: string) {
 
 const providers = computed(() => [
   { name: "OpenAI", endpoint: "/v1/chat/completions / /v1/responses", icon: Bot, color: "linear-gradient(135deg, #10a37f, #1a7f64)" },
-  { name: "Claude", endpoint: "/v1/messages / /v1/messages/count_tokens", icon: Sparkles, color: "linear-gradient(135deg, #d97706, #b45309)" },
+  { name: "Claude", endpoint: "/v1/messages / /v1/messages/count_tokens / /v1/messages/batches", icon: Sparkles, color: "linear-gradient(135deg, #d97706, #b45309)" },
   { name: "Gemini", endpoint: "/v1beta/models/* / /v1/models/*", icon: Hexagon, color: "linear-gradient(135deg, #4285f4, #2563eb)" },
 ]);
 
-const endpoints = ["/v1/chat/completions", "/v1/responses", "/v1/embeddings", "/v1/messages", "/v1/messages/count_tokens", "/v1beta/models/*", "/v1/models/*"];
+const endpoints = [
+  "/v1/chat/completions",
+  "/v1/responses",
+  "/backend-api/codex/responses",
+  "/v1/embeddings",
+  "/v1/messages",
+  "/v1/messages/count_tokens",
+  "/v1/messages/batches",
+  "/v1beta/models/*",
+  "/v1/models/*",
+];
 
 const chatExample = computed(() => `curl ${baseURL}/v1/chat/completions \\
   -H "Authorization: Bearer YOUR_API_KEY" \\

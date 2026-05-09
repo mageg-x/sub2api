@@ -1285,15 +1285,18 @@ func geminiResponsesToChatCompletions(resp *openAIResponsesResponse, model strin
 	}
 	var contentText, reasoningText string
 	var toolCalls []openAIChatToolCall
+	// 遍历输出项，提取各类内容
 	for _, item := range resp.Output {
 		switch item.Type {
 		case "message":
+			// 消息类型：提取文本内容
 			for _, part := range item.Content {
 				if part.Type == "output_text" {
 					contentText += part.Text
 				}
 			}
 		case "function_call":
+			// 函数调用类型：转换为 Chat Completions 的工具调用格式
 			toolCalls = append(toolCalls, openAIChatToolCall{
 				ID:   item.CallID,
 				Type: "function",
@@ -1303,6 +1306,7 @@ func geminiResponsesToChatCompletions(resp *openAIResponsesResponse, model strin
 				},
 			})
 		case "reasoning":
+			// 推理类型：提取推理摘要文本
 			for _, summary := range item.Summary {
 				if summary.Type == "summary_text" {
 					reasoningText += summary.Text
@@ -1310,34 +1314,39 @@ func geminiResponsesToChatCompletions(resp *openAIResponsesResponse, model strin
 			}
 		}
 	}
+	// 构建助手消息
 	msg := openAIChatMessage{Role: "assistant"}
 	if contentText != "" {
 		raw, _ := json.Marshal(contentText)
 		msg.Content = raw
 	}
 	if reasoningText != "" {
-		msg.ReasoningContent = reasoningText
+		msg.ReasoningContent = reasoningText // 推理内容放在单独字段
 	}
 	if len(toolCalls) > 0 {
 		msg.ToolCalls = toolCalls
 	}
+	// 确定完成原因
 	finishReason := "stop"
 	if len(toolCalls) > 0 {
-		finishReason = "tool_calls"
+		finishReason = "tool_calls" // 有工具调用时标记为 tool_calls
 	}
 	if resp.Status == "incomplete" {
-		finishReason = "length"
+		finishReason = "length" // 不完整时标记为 length
 	}
 	out.Choices = []openAIChatChoice{{Index: 0, Message: msg, FinishReason: finishReason}}
+	// 转换用量信息
 	if resp.Usage != nil {
 		out.Usage = &openAIChatUsage{
 			PromptTokens:     resp.Usage.InputTokens,
 			CompletionTokens: resp.Usage.OutputTokens,
 			TotalTokens:      resp.Usage.TotalTokens,
 		}
+		// 如果有缓存 Token，添加输入 Token 详情
 		if resp.Usage.InputTokensDetails != nil && resp.Usage.InputTokensDetails.CachedTokens > 0 {
 			out.Usage.PromptTokensDetails = &openAIChatTokenDetail{CachedTokens: resp.Usage.InputTokensDetails.CachedTokens}
 		}
+		// 如果有推理 Token，添加输出 Token 详情
 		if resp.Usage.OutputTokenDetails != nil && resp.Usage.OutputTokenDetails.ReasoningTokens > 0 {
 			if out.Usage.CompletionTokenInfo == nil {
 				out.Usage.CompletionTokenInfo = &openAIChatTokenDetail{}
@@ -1348,27 +1357,33 @@ func geminiResponsesToChatCompletions(resp *openAIResponsesResponse, model strin
 	return out
 }
 
+// geminiResponsesStreamState Responses 流式适配器的状态
+// 跟踪流式响应的进度，包括响应 ID、序列号、输出索引和 Token 用量等
 type geminiResponsesStreamState struct {
-	ResponseID           string
-	Model                string
-	SequenceNumber       int
-	CreatedSent          bool
-	CompletedSent        bool
-	OutputIndex          int
-	CurrentMessageItemID string
-	CurrentReasonItemID  string
-	InputTokens          int
-	OutputTokens         int
-	CacheReadTokens      int
+	ResponseID           string // 响应 ID
+	Model                string // 模型名称
+	SequenceNumber       int    // 序列号，用于 SSE 事件的递增编号
+	CreatedSent          bool   // 是否已发送 response.created 事件
+	CompletedSent        bool   // 是否已发送 response.completed 事件
+	OutputIndex          int    // 当前输出项的索引
+	CurrentMessageItemID string // 当前消息输出项的 ID
+	CurrentReasonItemID  string // 当前推理输出项的 ID
+	InputTokens          int    // 输入 Token 数
+	OutputTokens         int    // 输出 Token 数
+	CacheReadTokens      int    // 缓存读取 Token 数
 }
 
+// newGeminiResponsesStreamAdapter 创建 Responses 流式适配器
+// 将 Gemini 的 SSE 流转换为 OpenAI Responses 的 SSE 流
 func newGeminiResponsesStreamAdapter(src io.ReadCloser) io.ReadCloser {
 	return newGeminiSSETransformReadCloser(src, func(data string, st any) ([]string, error) {
 		state := st.(*geminiResponsesStreamState)
+		// 解析 Gemini 响应块
 		gemResp, err := parseGeminiResponse([]byte(data))
 		if err != nil {
 			return nil, err
 		}
+		// 将 Gemini 响应转换为 Responses 流式事件
 		events := geminiResponseToResponsesEvents(gemResp, state)
 		out := make([]string, 0, len(events))
 		for _, evt := range events {
@@ -1376,25 +1391,30 @@ func newGeminiResponsesStreamAdapter(src io.ReadCloser) io.ReadCloser {
 			if err != nil {
 				return nil, err
 			}
+			// 格式化为 SSE 事件
 			out = append(out, fmt.Sprintf("event: %s\ndata: %s\n\n", evt.Type, payload))
 		}
 		return out, nil
 	}, &geminiResponsesStreamState{})
 }
 
+// geminiChatStreamState Chat Completions 流式适配器的状态
 type geminiChatStreamState struct {
-	ID                     string
-	Model                  string
-	Created                int64
-	SentRole               bool
-	SawToolCall            bool
-	Finalized              bool
-	NextToolCallIndex      int
-	OutputIndexToToolIndex map[int]int
-	IncludeUsage           bool
-	Usage                  *openAIChatUsage
+	ID                     string           // 响应 ID
+	Model                  string           // 模型名称
+	Created                int64            // 创建时间戳
+	SentRole               bool             // 是否已发送角色信息
+	SawToolCall            bool             // 是否看到了工具调用
+	Finalized              bool             // 是否已发送终止事件
+	NextToolCallIndex      int              // 下一个工具调用的索引
+	OutputIndexToToolIndex map[int]int      // 输出索引到工具索引的映射
+	IncludeUsage           bool             // 是否在流中包含用量信息
+	Usage                  *openAIChatUsage // 累计用量信息
 }
 
+// newGeminiChatStreamAdapter 创建 Chat Completions 流式适配器
+// 将 Gemini 的 SSE 流转换为 OpenAI Chat Completions 的 SSE 流
+// 内部先转换为 Responses 流式事件，再转换为 Chat Completions 流式块
 func newGeminiChatStreamAdapter(src io.ReadCloser, model string, includeUsage bool) io.ReadCloser {
 	respState := &geminiResponsesStreamState{}
 	chatState := &geminiChatStreamState{
@@ -1405,13 +1425,16 @@ func newGeminiChatStreamAdapter(src io.ReadCloser, model string, includeUsage bo
 		IncludeUsage:           includeUsage,
 	}
 	return newGeminiSSETransformReadCloser(src, func(data string, st any) ([]string, error) {
+		// 解析 Gemini 响应块
 		gemResp, err := parseGeminiResponse([]byte(data))
 		if err != nil {
 			return nil, err
 		}
+		// 第一步：转换为 Responses 流式事件
 		resEvents := geminiResponseToResponsesEvents(gemResp, respState)
 		var out []string
 		for _, evt := range resEvents {
+			// 第二步：将 Responses 事件转换为 Chat Completions 流式块
 			chunks := geminiResponsesEventToChatChunks(&evt, chatState)
 			for _, chunk := range chunks {
 				payload, err := json.Marshal(chunk)
@@ -1420,6 +1443,7 @@ func newGeminiChatStreamAdapter(src io.ReadCloser, model string, includeUsage bo
 				}
 				out = append(out, fmt.Sprintf("data: %s\n\n", payload))
 			}
+			// 终止事件后发送 [DONE]
 			if isGeminiTerminalResponsesEvent(evt.Type) {
 				out = append(out, "data: [DONE]\n\n")
 			}
@@ -1428,27 +1452,35 @@ func newGeminiChatStreamAdapter(src io.ReadCloser, model string, includeUsage bo
 	}, chatState)
 }
 
+// geminiSSETransformReadCloser SSE 流转换读取器
+// 从源 SSE 流中读取数据，通过转换函数处理后输出新的 SSE 流
 type geminiSSETransformReadCloser struct {
-	src       io.ReadCloser
-	scanner   *bufio.Scanner
-	transform func(string, any) ([]string, error)
-	state     any
-	pending   bytes.Buffer
-	doneEOF   bool
+	src       io.ReadCloser                       // 原始响应体
+	scanner   *bufio.Scanner                      // 行扫描器
+	transform func(string, any) ([]string, error) // 转换函数
+	state     any                                 // 状态对象
+	pending   bytes.Buffer                        // 待输出的缓冲区
+	doneEOF   bool                                // 是否已到达 EOF
 }
 
+// newGeminiSSETransformReadCloser 创建 SSE 流转换读取器
+// 参数：src - 原始响应体，transform - 数据转换函数，state - 状态对象
 func newGeminiSSETransformReadCloser(src io.ReadCloser, transform func(string, any) ([]string, error), state any) io.ReadCloser {
 	scanner := bufio.NewScanner(src)
-	scanner.Buffer(make([]byte, 0, 4096), 1024*1024)
+	scanner.Buffer(make([]byte, 0, 4096), 1024*1024) // 最大 1MB 行缓冲
 	return &geminiSSETransformReadCloser{src: src, scanner: scanner, transform: transform, state: state}
 }
 
+// Read 实现 io.Reader 接口
+// 从源 SSE 流中逐行读取 data: 行，通过转换函数处理后输出
 func (r *geminiSSETransformReadCloser) Read(p []byte) (int, error) {
+	// 当缓冲区为空时，继续从源读取并转换
 	for r.pending.Len() == 0 {
 		if !r.scanner.Scan() {
 			if err := r.scanner.Err(); err != nil {
 				return 0, err
 			}
+			// 源已结束，发送终止事件
 			if !r.doneEOF {
 				r.doneEOF = true
 				r.appendEOF()
@@ -1459,13 +1491,16 @@ func (r *geminiSSETransformReadCloser) Read(p []byte) (int, error) {
 			break
 		}
 		line := r.scanner.Text()
+		// 只处理 data: 开头的行
 		if !strings.HasPrefix(line, "data:") {
 			continue
 		}
 		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		// 跳过空数据和 [DONE] 标记
 		if data == "" || data == "[DONE]" {
 			continue
 		}
+		// 通过转换函数处理数据
 		events, err := r.transform(data, r.state)
 		if err != nil {
 			return 0, err
@@ -1477,9 +1512,12 @@ func (r *geminiSSETransformReadCloser) Read(p []byte) (int, error) {
 	return r.pending.Read(p)
 }
 
+// appendEOF 在流结束时发送终止事件
+// 根据状态类型分别处理 Responses 流和 Chat Completions 流
 func (r *geminiSSETransformReadCloser) appendEOF() {
 	switch state := r.state.(type) {
 	case *geminiResponsesStreamState:
+		// Responses 流：如果已创建但未完成，发送完成事件
 		if !state.CompletedSent && state.CreatedSent {
 			for _, evt := range geminiFinalizeResponsesEvents(state) {
 				payload, err := json.Marshal(evt)
@@ -1490,6 +1528,7 @@ func (r *geminiSSETransformReadCloser) appendEOF() {
 			}
 		}
 	case *geminiChatStreamState:
+		// Chat Completions 流：如果未终止，发送终止块和 [DONE]
 		if !state.Finalized {
 			for _, chunk := range geminiFinalizeChatChunks(state) {
 				payload, err := json.Marshal(chunk)
@@ -1503,16 +1542,25 @@ func (r *geminiSSETransformReadCloser) appendEOF() {
 	}
 }
 
+// Close 关闭读取器，释放底层资源
 func (r *geminiSSETransformReadCloser) Close() error { return r.src.Close() }
 
+// geminiResponseToResponsesEvents 将 Gemini 响应转换为 Responses 流式事件列表
+// 这是流式转换的核心函数，处理以下几种部件：
+// - 思维内容（Thought）→ reasoning 事件
+// - 函数调用（FunctionCall）→ function_call 事件
+// - 文本内容 → output_text 事件
+// - 图片内容 → output_text 事件（以 Markdown 图片格式）
 func geminiResponseToResponsesEvents(resp *GeminiResponse, state *geminiResponsesStreamState) []openAIResponsesStreamEvent {
 	var events []openAIResponsesStreamEvent
+	// 首次收到数据时发送 response.created 事件
 	if !state.CreatedSent {
 		state.CreatedSent = true
 		state.ResponseID = firstNonEmptyGemini(strings.TrimSpace(resp.ResponseID), "resp_gemini_stream")
 		state.Model = strings.TrimSpace(resp.ModelVersion)
 		events = append(events, geminiMakeResponsesCreatedEvent(state))
 	}
+	// 累计 Token 用量
 	if resp.UsageMetadata != nil {
 		state.CacheReadTokens = resp.UsageMetadata.CachedContentTokenCount
 		state.InputTokens = resp.UsageMetadata.PromptTokenCount - state.CacheReadTokens
@@ -1521,16 +1569,20 @@ func geminiResponseToResponsesEvents(resp *GeminiResponse, state *geminiResponse
 		}
 		state.OutputTokens = resp.UsageMetadata.CandidatesTokenCount + resp.UsageMetadata.ThoughtsTokenCount
 	}
+	// 如果没有候选结果，直接返回
 	if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
 		return events
 	}
 	candidate := resp.Candidates[0]
+	// 遍历候选结果的每个部件
 	for _, part := range candidate.Content.Parts {
 		switch {
 		case part.Thought:
+			// 思维内容：先关闭当前消息项（如果有），然后处理推理
 			if state.CurrentMessageItemID != "" {
 				events = append(events, geminiCloseMessageItem(state)...)
 			}
+			// 如果没有推理项，创建新的
 			if state.CurrentReasonItemID == "" {
 				state.CurrentReasonItemID = fmt.Sprintf("item_reasoning_%d", state.OutputIndex)
 				events = append(events, geminiMakeResponsesEvent(state, "response.output_item.added", &openAIResponsesStreamEvent{
@@ -1541,6 +1593,7 @@ func geminiResponseToResponsesEvents(resp *GeminiResponse, state *geminiResponse
 					},
 				}))
 			}
+			// 发送推理摘要文本增量
 			if part.Text != "" {
 				events = append(events, geminiMakeResponsesEvent(state, "response.reasoning_summary_text.delta", &openAIResponsesStreamEvent{
 					OutputIndex:  state.OutputIndex,
@@ -1550,14 +1603,17 @@ func geminiResponseToResponsesEvents(resp *GeminiResponse, state *geminiResponse
 				}))
 			}
 		case part.FunctionCall != nil:
+			// 函数调用：先关闭推理项和消息项（如果有）
 			if state.CurrentReasonItemID != "" {
 				events = append(events, geminiCloseReasoningItem(state)...)
 			}
 			if state.CurrentMessageItemID != "" {
 				events = append(events, geminiCloseMessageItem(state)...)
 			}
+			// 创建函数调用输出项
 			itemID := fmt.Sprintf("item_func_%d", state.OutputIndex)
 			callID := firstNonEmptyGemini(part.FunctionCall.ID, fmt.Sprintf("call_%d", state.OutputIndex))
+			// 添加函数调用项
 			events = append(events, geminiMakeResponsesEvent(state, "response.output_item.added", &openAIResponsesStreamEvent{
 				OutputIndex: state.OutputIndex,
 				Item: &openAIResponsesOutput{
@@ -1568,6 +1624,7 @@ func geminiResponseToResponsesEvents(resp *GeminiResponse, state *geminiResponse
 					Status: "in_progress",
 				},
 			}))
+			// 发送函数参数增量
 			if part.FunctionCall.Args != nil {
 				if b, err := json.Marshal(part.FunctionCall.Args); err == nil {
 					events = append(events, geminiMakeResponsesEvent(state, "response.function_call_arguments.delta", &openAIResponsesStreamEvent{
@@ -1579,12 +1636,14 @@ func geminiResponseToResponsesEvents(resp *GeminiResponse, state *geminiResponse
 					}))
 				}
 			}
+			// 函数参数完成
 			events = append(events, geminiMakeResponsesEvent(state, "response.function_call_arguments.done", &openAIResponsesStreamEvent{
 				OutputIndex: state.OutputIndex,
 				ItemID:      itemID,
 				CallID:      callID,
 				Name:        part.FunctionCall.Name,
 			}))
+			// 函数调用项完成
 			events = append(events, geminiMakeResponsesEvent(state, "response.output_item.done", &openAIResponsesStreamEvent{
 				OutputIndex: state.OutputIndex,
 				Item: &openAIResponsesOutput{
@@ -1595,16 +1654,20 @@ func geminiResponseToResponsesEvents(resp *GeminiResponse, state *geminiResponse
 			}))
 			state.OutputIndex++
 		default:
+			// 文本或图片内容
 			text := part.Text
+			// 图片内容转换为 Markdown 图片格式
 			if part.InlineData != nil && part.InlineData.Data != "" {
 				text = fmt.Sprintf("![image](data:%s;base64,%s)", part.InlineData.MimeType, part.InlineData.Data)
 			}
 			if text == "" {
 				continue
 			}
+			// 先关闭推理项（如果有）
 			if state.CurrentReasonItemID != "" {
 				events = append(events, geminiCloseReasoningItem(state)...)
 			}
+			// 如果没有消息项，创建新的
 			if state.CurrentMessageItemID == "" {
 				state.CurrentMessageItemID = fmt.Sprintf("item_message_%d", state.OutputIndex)
 				events = append(events, geminiMakeResponsesEvent(state, "response.output_item.added", &openAIResponsesStreamEvent{
@@ -1617,6 +1680,7 @@ func geminiResponseToResponsesEvents(resp *GeminiResponse, state *geminiResponse
 					},
 				}))
 			}
+			// 发送文本增量
 			events = append(events, geminiMakeResponsesEvent(state, "response.output_text.delta", &openAIResponsesStreamEvent{
 				OutputIndex: state.OutputIndex,
 				ItemID:      state.CurrentMessageItemID,
@@ -1624,7 +1688,9 @@ func geminiResponseToResponsesEvents(resp *GeminiResponse, state *geminiResponse
 			}))
 		}
 	}
+	// 处理完成原因
 	if candidate.FinishReason != "" {
+		// 如果有 grounding 文本（搜索结果），添加到消息中
 		if grounding := buildGeminiGroundingText(candidate.GroundingMetadata); grounding != "" {
 			if state.CurrentReasonItemID != "" {
 				events = append(events, geminiCloseReasoningItem(state)...)
@@ -1647,12 +1713,14 @@ func geminiResponseToResponsesEvents(resp *GeminiResponse, state *geminiResponse
 				Delta:       grounding,
 			}))
 		}
+		// 关闭所有未关闭的输出项
 		events = append(events, geminiCloseReasoningItem(state)...)
 		events = append(events, geminiCloseMessageItem(state)...)
+		// 确定最终状态
 		status := "completed"
 		var incomplete *openAIResponsesIncompleteDetail
 		if candidate.FinishReason == "MAX_TOKENS" {
-			status = "incomplete"
+			status = "incomplete" // 达到最大 Token 数
 			incomplete = &openAIResponsesIncompleteDetail{Reason: "max_output_tokens"}
 		}
 		events = append(events, geminiMakeResponsesCompletedEvent(state, status, incomplete))
@@ -1661,6 +1729,8 @@ func geminiResponseToResponsesEvents(resp *GeminiResponse, state *geminiResponse
 	return events
 }
 
+// geminiCloseReasoningItem 关闭当前推理输出项
+// 发送推理摘要完成事件和输出项完成事件，然后递增输出索引
 func geminiCloseReasoningItem(state *geminiResponsesStreamState) []openAIResponsesStreamEvent {
 	if state.CurrentReasonItemID == "" {
 		return nil
@@ -1686,6 +1756,8 @@ func geminiCloseReasoningItem(state *geminiResponsesStreamState) []openAIRespons
 	return events
 }
 
+// geminiCloseMessageItem 关闭当前消息输出项
+// 发送输出文本完成事件和输出项完成事件，然后递增输出索引
 func geminiCloseMessageItem(state *geminiResponsesStreamState) []openAIResponsesStreamEvent {
 	if state.CurrentMessageItemID == "" {
 		return nil
@@ -1710,6 +1782,7 @@ func geminiCloseMessageItem(state *geminiResponsesStreamState) []openAIResponses
 	return events
 }
 
+// geminiMakeResponsesCreatedEvent 创建 response.created 事件
 func geminiMakeResponsesCreatedEvent(state *geminiResponsesStreamState) openAIResponsesStreamEvent {
 	seq := state.SequenceNumber
 	state.SequenceNumber++
@@ -1726,9 +1799,12 @@ func geminiMakeResponsesCreatedEvent(state *geminiResponsesStreamState) openAIRe
 	}
 }
 
+// geminiMakeResponsesCompletedEvent 创建 response.completed/incomplete/failed 事件
+// 包含最终的 Token 用量和不完整详情
 func geminiMakeResponsesCompletedEvent(state *geminiResponsesStreamState, status string, incomplete *openAIResponsesIncompleteDetail) openAIResponsesStreamEvent {
 	seq := state.SequenceNumber
 	state.SequenceNumber++
+	// 构建用量信息
 	usage := &openAIResponsesUsage{
 		InputTokens:  state.InputTokens,
 		OutputTokens: state.OutputTokens,
@@ -1752,6 +1828,8 @@ func geminiMakeResponsesCompletedEvent(state *geminiResponsesStreamState, status
 	}
 }
 
+// geminiMakeResponsesEvent 创建通用 Responses 流式事件
+// 自动分配递增的序列号
 func geminiMakeResponsesEvent(state *geminiResponsesStreamState, eventType string, template *openAIResponsesStreamEvent) openAIResponsesStreamEvent {
 	seq := state.SequenceNumber
 	state.SequenceNumber++
@@ -1761,6 +1839,8 @@ func geminiMakeResponsesEvent(state *geminiResponsesStreamState, eventType strin
 	return evt
 }
 
+// geminiFinalizeResponsesEvents 生成 Responses 流的终止事件
+// 如果流已创建但未完成，关闭所有未关闭的输出项并发送完成事件
 func geminiFinalizeResponsesEvents(state *geminiResponsesStreamState) []openAIResponsesStreamEvent {
 	if state.CompletedSent || !state.CreatedSent {
 		return nil
@@ -1773,9 +1853,18 @@ func geminiFinalizeResponsesEvents(state *geminiResponsesStreamState) []openAIRe
 	return events
 }
 
+// geminiResponsesEventToChatChunks 将 Responses 流式事件转换为 Chat Completions 流式块
+// 处理以下事件类型：
+// - response.created → 发送角色信息
+// - response.output_text.delta → 发送文本增量
+// - response.output_item.added (function_call) → 发送工具调用开始
+// - response.function_call_arguments.delta → 发送工具参数增量
+// - response.reasoning_summary_text.delta → 发送推理内容增量
+// - response.completed/incomplete/failed → 发送终止块
 func geminiResponsesEventToChatChunks(evt *openAIResponsesStreamEvent, state *geminiChatStreamState) []openAIChatCompletionsChunk {
 	switch evt.Type {
 	case "response.created":
+		// 提取响应 ID 和模型名称
 		if evt.Response != nil {
 			if evt.Response.ID != "" {
 				state.ID = evt.Response.ID
@@ -1784,6 +1873,7 @@ func geminiResponsesEventToChatChunks(evt *openAIResponsesStreamEvent, state *ge
 				state.Model = evt.Response.Model
 			}
 		}
+		// 首次创建时发送角色信息
 		if state.SentRole {
 			return nil
 		}
@@ -1791,12 +1881,14 @@ func geminiResponsesEventToChatChunks(evt *openAIResponsesStreamEvent, state *ge
 		role := "assistant"
 		return []openAIChatCompletionsChunk{geminiMakeChatDeltaChunk(state, openAIChatDelta{Role: role})}
 	case "response.output_text.delta":
+		// 文本增量
 		if evt.Delta == "" {
 			return nil
 		}
 		content := evt.Delta
 		return []openAIChatCompletionsChunk{geminiMakeChatDeltaChunk(state, openAIChatDelta{Content: &content})}
 	case "response.output_item.added":
+		// 函数调用项添加：只处理 function_call 类型
 		if evt.Item == nil || evt.Item.Type != "function_call" {
 			return nil
 		}
@@ -1815,6 +1907,7 @@ func geminiResponsesEventToChatChunks(evt *openAIResponsesStreamEvent, state *ge
 			}},
 		})}
 	case "response.function_call_arguments.delta":
+		// 函数参数增量
 		if evt.Delta == "" {
 			return nil
 		}
@@ -1831,6 +1924,7 @@ func geminiResponsesEventToChatChunks(evt *openAIResponsesStreamEvent, state *ge
 			}},
 		})}
 	case "response.reasoning_summary_text.delta":
+		// 推理内容增量
 		if evt.Delta == "" {
 			return nil
 		}
@@ -1841,9 +1935,11 @@ func geminiResponsesEventToChatChunks(evt *openAIResponsesStreamEvent, state *ge
 	case "response.incomplete":
 		fallthrough
 	case "response.failed":
+		// 终止事件：发送完成块
 		state.Finalized = true
 		finishReason := "stop"
 		if evt.Response != nil {
+			// 提取用量信息
 			if evt.Response.Usage != nil {
 				u := evt.Response.Usage
 				state.Usage = &openAIChatUsage{
@@ -1860,6 +1956,7 @@ func geminiResponsesEventToChatChunks(evt *openAIResponsesStreamEvent, state *ge
 					}
 				}
 			}
+			// 确定完成原因
 			if evt.Response.Status == "incomplete" {
 				finishReason = "length"
 			} else if state.SawToolCall {
@@ -1867,6 +1964,7 @@ func geminiResponsesEventToChatChunks(evt *openAIResponsesStreamEvent, state *ge
 			}
 		}
 		chunks := []openAIChatCompletionsChunk{geminiMakeChatFinishChunk(state, finishReason)}
+		// 如果请求包含用量信息，追加一个单独的用量块
 		if state.IncludeUsage && state.Usage != nil {
 			chunks = append(chunks, openAIChatCompletionsChunk{
 				ID:      state.ID,
@@ -1883,6 +1981,7 @@ func geminiResponsesEventToChatChunks(evt *openAIResponsesStreamEvent, state *ge
 	}
 }
 
+// geminiMakeChatDeltaChunk 创建 Chat Completions 增量块
 func geminiMakeChatDeltaChunk(state *geminiChatStreamState, delta openAIChatDelta) openAIChatCompletionsChunk {
 	return openAIChatCompletionsChunk{
 		ID:      state.ID,
@@ -1893,6 +1992,8 @@ func geminiMakeChatDeltaChunk(state *geminiChatStreamState, delta openAIChatDelt
 	}
 }
 
+// geminiMakeChatFinishChunk 创建 Chat Completions 终止块
+// 包含空内容和完成原因
 func geminiMakeChatFinishChunk(state *geminiChatStreamState, finishReason string) openAIChatCompletionsChunk {
 	empty := ""
 	return openAIChatCompletionsChunk{
@@ -1904,6 +2005,8 @@ func geminiMakeChatFinishChunk(state *geminiChatStreamState, finishReason string
 	}
 }
 
+// geminiFinalizeChatChunks 生成 Chat Completions 流的终止块
+// 如果流未终止，发送完成块和用量信息
 func geminiFinalizeChatChunks(state *geminiChatStreamState) []openAIChatCompletionsChunk {
 	if state.Finalized {
 		return nil
@@ -1927,32 +2030,37 @@ func geminiFinalizeChatChunks(state *geminiChatStreamState) []openAIChatCompleti
 	return chunks
 }
 
+// isGeminiTerminalResponsesEvent 判断是否为终止类型的 Responses 事件
 func isGeminiTerminalResponsesEvent(eventType string) bool {
 	return eventType == "response.completed" || eventType == "response.incomplete" || eventType == "response.failed"
 }
 
+// buildGeminiGroundingText 构建 grounding 文本（搜索结果引用）
+// 包含搜索查询和引用来源链接
 func buildGeminiGroundingText(grounding *GeminiGroundingMetadata) string {
 	if grounding == nil {
 		return ""
 	}
 	var b strings.Builder
+	// 添加搜索查询
 	if len(grounding.WebSearchQueries) > 0 {
 		b.WriteString("\n\n---\nWeb search queries: ")
 		b.WriteString(strings.Join(grounding.WebSearchQueries, ", "))
 	}
 	if len(grounding.GroundingChunks) > 0 {
 		var links []string
+		// 构建引用来源链接列表
 		for i, chunk := range grounding.GroundingChunks {
 			if chunk.Web == nil {
 				continue
 			}
 			title := strings.TrimSpace(chunk.Web.Title)
 			if title == "" {
-				title = "Source"
+				title = "Source" // 默认标题
 			}
 			uri := strings.TrimSpace(chunk.Web.URI)
 			if uri == "" {
-				uri = "#"
+				uri = "#" // 默认链接
 			}
 			links = append(links, fmt.Sprintf("[%d] [%s](%s)", i+1, title, uri))
 		}
@@ -1964,6 +2072,7 @@ func buildGeminiGroundingText(grounding *GeminiGroundingMetadata) string {
 	return b.String()
 }
 
+// firstGeminiGroundingQuery 获取第一个搜索查询
 func firstGeminiGroundingQuery(grounding *GeminiGroundingMetadata) string {
 	if grounding == nil || len(grounding.WebSearchQueries) == 0 {
 		return ""
@@ -1971,6 +2080,7 @@ func firstGeminiGroundingQuery(grounding *GeminiGroundingMetadata) string {
 	return strings.TrimSpace(grounding.WebSearchQueries[0])
 }
 
+// geminiTerminalResponseEventType 根据状态返回对应的终止事件类型
 func geminiTerminalResponseEventType(status string) string {
 	switch status {
 	case "incomplete":
@@ -1982,6 +2092,7 @@ func geminiTerminalResponseEventType(status string) string {
 	}
 }
 
+// ImageOutputTokens 获取图片输出的 Token 数
 func (m *GeminiUsageMetadata) ImageOutputTokens() int {
 	for _, d := range m.CandidatesTokensDetails {
 		if d.Modality == "IMAGE" {
@@ -1991,6 +2102,7 @@ func (m *GeminiUsageMetadata) ImageOutputTokens() int {
 	return 0
 }
 
+// defaultGeminiSafetySettings 返回默认安全设置（全部关闭限制）
 func defaultGeminiSafetySettings() []GeminiSafetySetting {
 	return []GeminiSafetySetting{
 		{Category: "HARM_CATEGORY_HARASSMENT", Threshold: "OFF"},
@@ -2001,6 +2113,7 @@ func defaultGeminiSafetySettings() []GeminiSafetySetting {
 	}
 }
 
+// cloneGeminiHeader 深拷贝 HTTP 头
 func cloneGeminiHeader(src http.Header) http.Header {
 	if src == nil {
 		return make(http.Header)
@@ -2014,6 +2127,7 @@ func cloneGeminiHeader(src http.Header) http.Header {
 	return dst
 }
 
+// firstNonEmptyGemini 返回第一个非空字符串
 func firstNonEmptyGemini(values ...string) string {
 	for _, value := range values {
 		if strings.TrimSpace(value) != "" {
@@ -2023,6 +2137,8 @@ func firstNonEmptyGemini(values ...string) string {
 	return ""
 }
 
+// geminiParseArguments 解析函数参数字符串
+// 空字符串返回空对象，有效 JSON 直接解析，无效 JSON 包装为 {"value": raw}
 func geminiParseArguments(raw string) any {
 	if strings.TrimSpace(raw) == "" {
 		return map[string]any{}
@@ -2034,6 +2150,8 @@ func geminiParseArguments(raw string) any {
 	return map[string]any{"value": raw}
 }
 
+// geminiDataURIToInlineData 将 Data URI（data:mime;base64,xxx）转换为 Gemini 的内联数据
+// 格式：data:<mediaType>;base64,<data>
 func geminiDataURIToInlineData(dataURI string) *GeminiInlineData {
 	if !strings.HasPrefix(dataURI, "data:") {
 		return nil
@@ -2049,12 +2167,16 @@ func geminiDataURIToInlineData(dataURI string) *GeminiInlineData {
 		return nil
 	}
 	data := strings.TrimPrefix(rest, "base64,")
+	// 验证 base64 数据有效性
 	if _, err := base64.StdEncoding.DecodeString(data); err != nil {
 		return nil
 	}
 	return &GeminiInlineData{MimeType: mediaType, Data: data}
 }
 
+// geminiParseAssistantContent 解析助手消息内容
+// 支持纯字符串和内容数组格式
+// 内容数组中的 thinking/reasoning 类型用 <thinking> 标签包裹
 func geminiParseAssistantContent(raw json.RawMessage) (string, error) {
 	if len(raw) == 0 {
 		return "", nil
@@ -2073,6 +2195,7 @@ func geminiParseAssistantContent(raw json.RawMessage) (string, error) {
 		text, _ := p["text"].(string)
 		switch typ {
 		case "thinking", "reasoning":
+			// 思维/推理内容用 <thinking> 标签包裹
 			if text != "" {
 				b.WriteString("<thinking>")
 				b.WriteString(text)
@@ -2085,6 +2208,8 @@ func geminiParseAssistantContent(raw json.RawMessage) (string, error) {
 	return b.String(), nil
 }
 
+// geminiParseChatContent 解析 Chat 消息内容
+// 支持纯字符串和内容数组格式，提取所有文本内容
 func geminiParseChatContent(raw json.RawMessage) (string, error) {
 	if len(raw) == 0 {
 		return "", nil
@@ -2106,14 +2231,18 @@ func geminiParseChatContent(raw json.RawMessage) (string, error) {
 	return strings.Join(texts, ""), nil
 }
 
+// geminiMarshalChatInputContent 将 Chat 消息内容转换为 Responses 输入格式
+// 纯字符串保持不变，内容数组中的 text→input_text, image_url→input_image
 func geminiMarshalChatInputContent(raw json.RawMessage) (json.RawMessage, error) {
 	if len(raw) == 0 {
-		return json.Marshal("")
+		return json.Marshal("") // 空内容返回空字符串
 	}
+	// 尝试解析为纯字符串，直接透传
 	var s string
 	if err := json.Unmarshal(raw, &s); err == nil {
 		return json.Marshal(s)
 	}
+	// 解析为内容数组，逐项转换类型
 	var parts []openAIChatContentPart
 	if err := json.Unmarshal(raw, &parts); err != nil {
 		return nil, err
@@ -2122,10 +2251,12 @@ func geminiMarshalChatInputContent(raw json.RawMessage) (json.RawMessage, error)
 	for _, part := range parts {
 		switch part.Type {
 		case "text":
+			// 文本类型：text → input_text
 			if part.Text != "" {
 				out = append(out, openAIResponsesContentPart{Type: "input_text", Text: part.Text})
 			}
 		case "image_url":
+			// 图片类型：image_url → input_image
 			if part.ImageURL != nil && part.ImageURL.URL != "" {
 				out = append(out, openAIResponsesContentPart{Type: "input_image", ImageURL: part.ImageURL.URL})
 			}
@@ -2134,8 +2265,11 @@ func geminiMarshalChatInputContent(raw json.RawMessage) (json.RawMessage, error)
 	return json.Marshal(out)
 }
 
+// geminiConvertChatToolsToResponses 将 Chat Completions 的工具列表转换为 Responses 格式
+// 兼容新版 tools（含 type 字段）和旧版 functions（直接函数定义）
 func geminiConvertChatToolsToResponses(tools []openAIChatTool, functions []openAIChatFunction) []openAIResponsesTool {
 	var out []openAIResponsesTool
+	// 处理新版 tools 格式，只提取 function 类型的工具
 	for _, t := range tools {
 		if t.Type == "function" && t.Function != nil {
 			out = append(out, openAIResponsesTool{
@@ -2146,6 +2280,7 @@ func geminiConvertChatToolsToResponses(tools []openAIChatTool, functions []openA
 			})
 		}
 	}
+	// 处理旧版 functions 格式，直接转换
 	for _, f := range functions {
 		out = append(out, openAIResponsesTool{
 			Type:        "function",
@@ -2157,11 +2292,17 @@ func geminiConvertChatToolsToResponses(tools []openAIChatTool, functions []openA
 	return out
 }
 
+// geminiConvertChatFunctionCallToToolChoice 将旧版 function_call 转换为 tool_choice 格式
+// 支持两种输入格式：
+// - 字符串（"auto"/"none"/"required"）→ 直接透传
+// - 对象 {"name":"xxx"} → 转换为 {"type":"function","name":"xxx"}
 func geminiConvertChatFunctionCallToToolChoice(raw json.RawMessage) (json.RawMessage, error) {
+	// 尝试解析为字符串
 	var s string
 	if err := json.Unmarshal(raw, &s); err == nil {
 		return json.Marshal(s)
 	}
+	// 解析为对象，提取函数名并转换为标准格式
 	var obj struct {
 		Name string `json:"name"`
 	}
@@ -2171,11 +2312,17 @@ func geminiConvertChatFunctionCallToToolChoice(raw json.RawMessage) (json.RawMes
 	return json.Marshal(map[string]any{"type": "function", "name": obj.Name})
 }
 
+// CleanJSONSchema 清理 JSON Schema，使其兼容 Gemini API
+// 处理步骤：
+// 1. 提取并内联 $defs/definitions 定义
+// 2. 递归清理 Schema 结构（合并 allOf、处理 anyOf/oneOf、清理不允许的字段等）
 func CleanJSONSchema(schema map[string]any) map[string]any {
 	if schema == nil {
 		return nil
 	}
+	// 第一步：提取定义并内联 $ref 引用
 	flattenRefs(schema, extractDefs(schema))
+	// 第二步：递归清理 Schema
 	cleaned := cleanJSONSchemaRecursive(schema)
 	result, ok := cleaned.(map[string]any)
 	if !ok {
@@ -2184,42 +2331,55 @@ func CleanJSONSchema(schema map[string]any) map[string]any {
 	return result
 }
 
+// extractDefs 提取并移除 Schema 中的 $defs 和 definitions 定义
+// Gemini 不支持 $ref 引用，需要将定义提取出来后内联到引用处
 func extractDefs(schema map[string]any) map[string]any {
 	defs := make(map[string]any)
+	// 提取 JSON Schema 的 $defs（新版）
 	if d, ok := schema["$defs"].(map[string]any); ok {
 		for k, v := range d {
 			defs[k] = v
 		}
-		delete(schema, "$defs")
+		delete(schema, "$defs") // 移除，Gemini 不支持
 	}
+	// 提取 JSON Schema 的 definitions（旧版）
 	if d, ok := schema["definitions"].(map[string]any); ok {
 		for k, v := range d {
 			defs[k] = v
 		}
-		delete(schema, "definitions")
+		delete(schema, "definitions") // 移除，Gemini 不支持
 	}
 	return defs
 }
 
+// flattenRefs 递归内联 $ref 引用
+// 将 {"$ref": "#/$defs/MyDef"} 替换为 MyDef 的实际定义内容
+// 处理顺序：先处理当前节点的 $ref，再递归处理子节点
 func flattenRefs(schema map[string]any, defs map[string]any) {
 	if len(defs) == 0 {
-		return
+		return // 没有定义，无需内联
 	}
+	// 如果当前节点有 $ref，替换为实际定义
 	if ref, ok := schema["$ref"].(string); ok {
 		delete(schema, "$ref")
+		// 从引用路径中提取定义名称（如 "#/$defs/MyDef" → "MyDef"）
 		parts := strings.Split(ref, "/")
 		refName := parts[len(parts)-1]
+		// 查找定义并内联
 		if defSchema, exists := defs[refName]; exists {
 			if defMap, ok := defSchema.(map[string]any); ok {
+				// 将定义中的字段复制到当前节点（不覆盖已有字段）
 				for k, v := range defMap {
 					if _, has := schema[k]; !has {
 						schema[k] = deepCopy(v)
 					}
 				}
+				// 内联后可能还有新的 $ref，递归处理
 				flattenRefs(schema, defs)
 			}
 		}
 	}
+	// 递归处理所有子节点
 	for _, v := range schema {
 		if subMap, ok := v.(map[string]any); ok {
 			flattenRefs(subMap, defs)
@@ -2233,6 +2393,8 @@ func flattenRefs(schema map[string]any, defs map[string]any) {
 	}
 }
 
+// deepCopy 深拷贝一个值
+// 支持 map[string]any、[]any 和基本类型的深拷贝
 func deepCopy(src any) any {
 	if src == nil {
 		return nil
@@ -2241,41 +2403,54 @@ func deepCopy(src any) any {
 	case map[string]any:
 		dst := make(map[string]any, len(v))
 		for k, val := range v {
-			dst[k] = deepCopy(val)
+			dst[k] = deepCopy(val) // 递归拷贝每个值
 		}
 		return dst
 	case []any:
 		dst := make([]any, len(v))
 		for i, val := range v {
-			dst[i] = deepCopy(val)
+			dst[i] = deepCopy(val) // 递归拷贝每个元素
 		}
 		return dst
 	default:
-		return src
+		return src // 基本类型直接返回
 	}
 }
 
+// cleanJSONSchemaRecursive 递归清理 JSON Schema，使其兼容 Gemini API
+// 主要处理：
+// 1. 合并 allOf 结构
+// 2. 递归清理 properties 和 items
+// 3. 从 anyOf/oneOf 中选择最佳分支并合并
+// 4. 清理不允许的字段，迁移约束到 description
+// 5. 处理 nullable 类型、enum 值等
 func cleanJSONSchemaRecursive(value any) any {
 	schemaMap, ok := value.(map[string]any)
 	if !ok {
-		return value
+		return value // 非 map 类型直接返回
 	}
+	// 合并 allOf 结构（Gemini 不支持 allOf）
 	mergeAllOf(schemaMap)
+	// 递归清理 properties 中的每个属性
 	if props, ok := schemaMap["properties"].(map[string]any); ok {
 		for _, v := range props {
 			cleanJSONSchemaRecursive(v)
 		}
 	} else if items, ok := schemaMap["items"]; ok {
+		// 处理数组类型的 items
 		if itemsArr, ok := items.([]any); ok {
+			// items 是数组（联合类型），选择最佳 Schema
 			best := extractBestSchemaFromUnion(itemsArr)
 			if best == nil {
-				best = map[string]any{"type": "string"}
+				best = map[string]any{"type": "string"} // 默认字符串类型
 			}
 			schemaMap["items"] = cleanJSONSchemaRecursive(best)
 		} else {
+			// items 是单个对象，递归清理
 			cleanJSONSchemaRecursive(items)
 		}
 	} else {
+		// 其他情况：递归清理所有 map 和 array 子节点
 		for _, v := range schemaMap {
 			if _, isMap := v.(map[string]any); isMap {
 				cleanJSONSchemaRecursive(v)
@@ -2287,8 +2462,10 @@ func cleanJSONSchemaRecursive(value any) any {
 		}
 	}
 
+	// 处理 anyOf/oneOf 联合类型：选择最佳分支并合并到当前 Schema
 	var unionArray []any
 	typeStr, _ := schemaMap["type"].(string)
+	// 只在类型为空或 object 时处理联合类型
 	if typeStr == "" || typeStr == "object" {
 		if anyOf, ok := schemaMap["anyOf"].([]any); ok {
 			unionArray = anyOf
@@ -2297,10 +2474,12 @@ func cleanJSONSchemaRecursive(value any) any {
 		}
 	}
 	if len(unionArray) > 0 {
+		// 从联合类型中选择最佳分支（优先选择有 properties 的 object 类型）
 		if bestBranch := extractBestSchemaFromUnion(unionArray); bestBranch != nil {
 			if bestMap, ok := bestBranch.(map[string]any); ok {
 				for k, v := range bestMap {
 					if k == "properties" {
+						// 合并属性到当前 Schema
 						targetProps, _ := schemaMap["properties"].(map[string]any)
 						if targetProps == nil {
 							targetProps = make(map[string]any)
@@ -2309,14 +2488,16 @@ func cleanJSONSchemaRecursive(value any) any {
 						if sourceProps, ok := v.(map[string]any); ok {
 							for pk, pv := range sourceProps {
 								if _, exists := targetProps[pk]; !exists {
-									targetProps[pk] = deepCopy(pv)
+									targetProps[pk] = deepCopy(pv) // 不覆盖已有属性
 								}
 							}
 						}
 					} else if k == "required" {
+						// 合并必填字段到当前 Schema
 						targetReq, _ := schemaMap["required"].([]any)
 						if sourceReq, ok := v.([]any); ok {
 							for _, rv := range sourceReq {
+								// 去重：检查是否已存在
 								exists := false
 								for _, tr := range targetReq {
 									if tr == rv {
@@ -2331,6 +2512,7 @@ func cleanJSONSchemaRecursive(value any) any {
 							schemaMap["required"] = targetReq
 						}
 					} else if _, exists := schemaMap[k]; !exists {
+						// 其他字段直接复制（不覆盖已有字段）
 						schemaMap[k] = deepCopy(v)
 					}
 				}
@@ -2338,6 +2520,7 @@ func cleanJSONSchemaRecursive(value any) any {
 		}
 	}
 
+	// 判断当前节点是否像一个 JSON Schema（而非普通对象）
 	looksLikeSchema := hasKey(schemaMap, "type") ||
 		hasKey(schemaMap, "properties") ||
 		hasKey(schemaMap, "items") ||
@@ -2347,7 +2530,9 @@ func cleanJSONSchemaRecursive(value any) any {
 		hasKey(schemaMap, "allOf")
 
 	if looksLikeSchema {
+		// 将不支持的约束条件迁移到 description 中
 		migrateConstraints(schemaMap)
+		// 只保留 Gemini 允许的字段，删除其余字段
 		allowedFields := map[string]bool{
 			"type":        true,
 			"description": true,
@@ -2359,10 +2544,12 @@ func cleanJSONSchemaRecursive(value any) any {
 		}
 		for k := range schemaMap {
 			if !allowedFields[k] {
-				delete(schemaMap, k)
+				delete(schemaMap, k) // 删除不支持的字段
 			}
 		}
 
+		// 如果是 object 类型但没有 properties，添加一个默认属性
+		// Gemini 要求 object 类型必须有 properties
 		if t, _ := schemaMap["type"].(string); t == "object" {
 			hasProps := false
 			if props, ok := schemaMap["properties"].(map[string]any); ok && len(props) > 0 {
@@ -2379,58 +2566,65 @@ func cleanJSONSchemaRecursive(value any) any {
 			}
 		}
 
+		// 清理 required 列表：移除不存在的属性名
 		if props, ok := schemaMap["properties"].(map[string]any); ok {
 			if req, ok := schemaMap["required"].([]any); ok {
 				var validReq []any
 				for _, r := range req {
 					if rStr, ok := r.(string); ok {
 						if _, exists := props[rStr]; exists {
-							validReq = append(validReq, r)
+							validReq = append(validReq, r) // 只保留存在的属性
 						}
 					}
 				}
 				if len(validReq) > 0 {
 					schemaMap["required"] = validReq
 				} else {
-					delete(schemaMap, "required")
+					delete(schemaMap, "required") // 无有效必填字段则删除
 				}
 			}
 		}
 
+		// 处理 nullable 类型和 type 字段的规范化
 		isNullable := false
 		if typeVal, exists := schemaMap["type"]; exists {
 			var selectedType string
 			switch v := typeVal.(type) {
 			case string:
+				// type 为字符串：直接使用
 				lower := strings.ToLower(v)
 				if lower == "null" {
 					isNullable = true
-					selectedType = "string"
+					selectedType = "string" // null 类型回退为 string
 				} else {
 					selectedType = lower
 				}
 			case []any:
+				// type 为数组（如 ["string", "null"]）：选择第一个非 null 类型
 				for _, t := range v {
 					if ts, ok := t.(string); ok {
 						lower := strings.ToLower(ts)
 						if lower == "null" {
-							isNullable = true
+							isNullable = true // 标记为可空
 						} else if selectedType == "" {
-							selectedType = lower
+							selectedType = lower // 选择第一个非 null 类型
 						}
 					}
 				}
 				if selectedType == "" {
-					selectedType = "string"
+					selectedType = "string" // 全部为 null 时回退为 string
 				}
 			}
 			schemaMap["type"] = selectedType
 		} else if hasKey(schemaMap, "properties") {
+			// 有 properties 但没有 type，默认为 object
 			schemaMap["type"] = "object"
 		} else {
+			// 既没有 type 也没有 properties，默认为 object
 			schemaMap["type"] = "object"
 		}
 
+		// 如果是可空类型，在 description 中标注
 		if isNullable {
 			desc, _ := schemaMap["description"].(string)
 			if !strings.Contains(desc, "nullable") {
@@ -2442,31 +2636,36 @@ func cleanJSONSchemaRecursive(value any) any {
 			}
 		}
 
+		// 处理 enum 值：Gemini 只支持字符串类型的 enum
 		if enumVals, ok := schemaMap["enum"].([]any); ok {
 			hasNonString := false
 			for i, val := range enumVals {
 				if _, isStr := val.(string); !isStr {
 					hasNonString = true
 					if val == nil {
-						enumVals[i] = "null"
+						enumVals[i] = "null" // null 转为字符串 "null"
 					} else {
-						enumVals[i] = fmt.Sprintf("%v", val)
+						enumVals[i] = fmt.Sprintf("%v", val) // 其他类型转为字符串
 					}
 				}
 			}
 			if hasNonString {
-				schemaMap["type"] = "string"
+				schemaMap["type"] = "string" // 有非字符串值时强制 type 为 string
 			}
 		}
 	}
 	return schemaMap
 }
 
+// hasKey 检查 map 中是否存在指定键
 func hasKey(m map[string]any, k string) bool {
 	_, ok := m[k]
 	return ok
 }
 
+// migrateConstraints 将 Gemini 不支持的约束条件迁移到 description 中
+// Gemini 不支持 minLength、maxLength、pattern、minimum、maximum 等约束
+// 将这些约束以文本形式附加到 description 中，以便模型理解
 func migrateConstraints(m map[string]any) {
 	constraints := []struct {
 		key   string
@@ -2486,11 +2685,13 @@ func migrateConstraints(m map[string]any) {
 		{"format", "format"},
 	}
 	var hints []string
+	// 遍历所有约束，收集存在的约束值
 	for _, c := range constraints {
 		if val, ok := m[c.key]; ok && val != nil {
 			hints = append(hints, fmt.Sprintf("%s: %v", c.label, val))
 		}
 	}
+	// 将约束信息附加到 description 中
 	if len(hints) > 0 {
 		suffix := fmt.Sprintf(" [Constraint: %s]", strings.Join(hints, ", "))
 		desc, _ := m["description"].(string)
@@ -2500,22 +2701,27 @@ func migrateConstraints(m map[string]any) {
 	}
 }
 
+// mergeAllOf 合并 allOf 结构到当前 Schema
+// Gemini 不支持 allOf，需要将所有子 Schema 的 properties、required 和其他字段合并
 func mergeAllOf(m map[string]any) {
 	allOf, ok := m["allOf"].([]any)
 	if !ok {
-		return
+		return // 没有 allOf，无需处理
 	}
-	delete(m, "allOf")
+	delete(m, "allOf") // 移除 allOf 字段
 	mergedProps := make(map[string]any)
 	mergedReq := make(map[string]bool)
 	otherFields := make(map[string]any)
+	// 遍历 allOf 中的每个子 Schema，合并内容
 	for _, sub := range allOf {
 		if subMap, ok := sub.(map[string]any); ok {
+			// 合并 properties
 			if props, ok := subMap["properties"].(map[string]any); ok {
 				for k, v := range props {
 					mergedProps[k] = v
 				}
 			}
+			// 合并 required（用 map 去重）
 			if reqs, ok := subMap["required"].([]any); ok {
 				for _, r := range reqs {
 					if s, ok := r.(string); ok {
@@ -2523,6 +2729,7 @@ func mergeAllOf(m map[string]any) {
 					}
 				}
 			}
+			// 合并其他字段（不覆盖已有字段）
 			for k, v := range subMap {
 				if k != "properties" && k != "required" && k != "allOf" {
 					if _, exists := otherFields[k]; !exists {
@@ -2532,11 +2739,13 @@ func mergeAllOf(m map[string]any) {
 			}
 		}
 	}
+	// 将合并的其他字段写入当前 Schema
 	for k, v := range otherFields {
 		if _, exists := m[k]; !exists {
 			m[k] = v
 		}
 	}
+	// 将合并的 properties 写入当前 Schema
 	if len(mergedProps) > 0 {
 		existProps, _ := m["properties"].(map[string]any)
 		if existProps == nil {
@@ -2545,26 +2754,30 @@ func mergeAllOf(m map[string]any) {
 		}
 		for k, v := range mergedProps {
 			if _, exists := existProps[k]; !exists {
-				existProps[k] = v
+				existProps[k] = v // 不覆盖已有属性
 			}
 		}
 	}
+	// 将合并的 required 写入当前 Schema
 	if len(mergedReq) > 0 {
 		existReq, _ := m["required"].([]any)
 		var validReqs []any
+		// 保留已有的 required 项
 		for _, r := range existReq {
 			if s, ok := r.(string); ok {
 				validReqs = append(validReqs, s)
-				delete(mergedReq, s)
+				delete(mergedReq, s) // 去重
 			}
 		}
 		for r := range mergedReq {
-			validReqs = append(validReqs, r)
+			validReqs = append(validReqs, r) // 添加新的 required 项
 		}
 		m["required"] = validReqs
 	}
 }
 
+// extractBestSchemaFromUnion 从联合类型（anyOf/oneOf）中选择最佳 Schema
+// 评分规则：有 properties/object > 有 items/array > 有非 null type > 其他
 func extractBestSchemaFromUnion(unionArray []any) any {
 	var bestOption any
 	bestScore := -1
@@ -2578,6 +2791,12 @@ func extractBestSchemaFromUnion(unionArray []any) any {
 	return bestOption
 }
 
+// scoreSchemaOption 为 Schema 选项评分
+// 评分规则：
+// - 有 properties 或 type=object：3 分（最优先，因为包含结构化信息）
+// - 有 items 或 type=array：2 分（次优先，数组类型有结构）
+// - 有非 null 的 type：1 分（基本类型）
+// - 其他：0 分（null 或无类型信息）
 func scoreSchemaOption(val any) int {
 	m, ok := val.(map[string]any)
 	if !ok {
@@ -2585,17 +2804,19 @@ func scoreSchemaOption(val any) int {
 	}
 	typeStr, _ := m["type"].(string)
 	if hasKey(m, "properties") || typeStr == "object" {
-		return 3
+		return 3 // 对象类型最优先
 	}
 	if hasKey(m, "items") || typeStr == "array" {
-		return 2
+		return 2 // 数组类型次优先
 	}
 	if typeStr != "" && typeStr != "null" {
-		return 1
+		return 1 // 基本类型
 	}
-	return 0
+	return 0 // null 或无类型
 }
 
+// DeepCleanUndefined 深度清理 JSON 中的 [undefined] 占位符
+// 递归遍历 map 和 array，删除值为 "[undefined]" 的键
 func DeepCleanUndefined(value any) {
 	if value == nil {
 		return
@@ -2604,14 +2825,14 @@ func DeepCleanUndefined(value any) {
 	case map[string]any:
 		for k, val := range v {
 			if s, ok := val.(string); ok && s == "[undefined]" {
-				delete(v, k)
+				delete(v, k) // 删除 undefined 占位符
 				continue
 			}
-			DeepCleanUndefined(val)
+			DeepCleanUndefined(val) // 递归清理子节点
 		}
 	case []any:
 		for _, val := range v {
-			DeepCleanUndefined(val)
+			DeepCleanUndefined(val) // 递归清理数组元素
 		}
 	}
 }

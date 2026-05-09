@@ -27,40 +27,36 @@ type HTTP struct {
 	web  fs.FS
 }
 
+// maxProxyBodyBytes 代理请求体最大字节数（8MB）
 const maxProxyBodyBytes = 8 << 20
 
-// New 创建HTTP处理器
-// 参数：
-//   - cfg: 应用配置
-//   - core: 核心服务
-//
-// 返回：HTTP处理器
+// New 创建 HTTP 处理器
 func New(cfg config.Config, core *service.Core) *HTTP {
 	dist, _ := webdist.Dist()
 	return &HTTP{cfg: cfg, core: core, web: dist}
 }
 
-// Routes 注册所有HTTP路由
-// 返回：配置好的HTTP多路复用器
+// Routes 注册所有 HTTP 路由
+// 包含静态资源、认证、管理后台、用户、支付、AI 代理等路由
 func (h *HTTP) Routes() http.Handler {
 	mux := http.NewServeMux()
-	// 静态资源路由
+	// ---- 静态资源路由 ----
 	mux.HandleFunc("GET /", h.home)
 	mux.HandleFunc("GET /login", h.home)
 	mux.HandleFunc("GET /admin/", h.home)
 	mux.HandleFunc("GET /user/", h.home)
 	mux.HandleFunc("GET /favicon.ico", h.webAsset)
 	mux.HandleFunc("GET /assets/", h.webAsset)
-	// 健康检查
+	// ---- 健康检查 ----
 	mux.HandleFunc("GET /healthz", h.healthz)
-	// 认证相关
+	// ---- 认证相关 ----
 	mux.HandleFunc("POST /api/auth/register", h.register)
 	mux.HandleFunc("POST /api/auth/register-admin", h.registerAdmin)
 	mux.HandleFunc("POST /api/auth/login", h.login)
 	mux.HandleFunc("POST /api/auth/refresh", h.refreshToken)
 	mux.HandleFunc("POST /api/auth/logout", h.logout)
 	mux.HandleFunc("GET /api/auth/me", h.me)
-	// 管理后台
+	// ---- 管理后台 ----
 	mux.HandleFunc("GET /api/admin/dashboard", h.adminDashboard)
 	mux.HandleFunc("GET /api/admin/users", h.adminUsers)
 	mux.HandleFunc("PATCH /api/admin/users/", h.adminUpdateUser)
@@ -94,7 +90,7 @@ func (h *HTTP) Routes() http.Handler {
 	mux.HandleFunc("GET /api/admin/stats", h.adminStats)
 	mux.HandleFunc("GET /api/admin/payment-orders", h.adminPaymentOrders)
 	mux.HandleFunc("POST /api/admin/payment-orders/refund", h.adminRefundPayment)
-	// 用户相关
+	// ---- 用户相关 ----
 	mux.HandleFunc("GET /api/user/profile", h.userProfile)
 	mux.HandleFunc("PUT /api/user/profile", h.userUpdateProfile)
 	mux.HandleFunc("POST /api/user/change-password", h.userChangePassword)
@@ -106,33 +102,39 @@ func (h *HTTP) Routes() http.Handler {
 	mux.HandleFunc("GET /api/usage", h.userUsage)
 	mux.HandleFunc("GET /api/payment/orders/my", h.userPaymentOrders)
 	mux.HandleFunc("GET /api/payment/orders/", h.userPaymentOrderByID)
-	// 支付相关
+	// ---- 支付相关 ----
 	mux.HandleFunc("POST /api/payments/orders", h.createPaymentOrder)
 	mux.HandleFunc("POST /api/payments/notify/", h.paymentNotify)
-	// AI代理
+	// ---- AI 代理路由 ----
+	// OpenAI 兼容接口
 	mux.HandleFunc("GET /v1/models", h.proxy)
 	mux.HandleFunc("POST /v1/chat/completions", h.proxy)
 	mux.HandleFunc("POST /v1/responses", h.proxy)
 	mux.HandleFunc("POST /v1/responses/", h.proxy)
+	// Responses API（无 /v1 前缀）
 	mux.HandleFunc("POST /responses", h.proxy)
 	mux.HandleFunc("POST /responses/", h.proxy)
 	mux.HandleFunc("POST /backend-api/codex/responses", h.proxy)
 	mux.HandleFunc("POST /backend-api/codex/responses/", h.proxy)
+	// 嵌入和图像接口
 	mux.HandleFunc("POST /v1/embeddings", h.proxy)
 	mux.HandleFunc("POST /v1/images/generations", h.proxy)
 	mux.HandleFunc("POST /v1/images/edits", h.proxy)
 	mux.HandleFunc("POST /images/generations", h.proxy)
 	mux.HandleFunc("POST /images/edits", h.proxy)
+	// Anthropic Claude 兼容接口
 	mux.HandleFunc("POST /v1/messages", h.proxy)
 	mux.HandleFunc("POST /v1/messages/count_tokens", h.proxy)
 	mux.HandleFunc("POST /v1/messages/batches", h.proxy)
 	mux.HandleFunc("POST /v1/messages/batches/", h.proxy)
+	// Google Gemini 兼容接口
 	mux.HandleFunc("GET /v1beta/models", h.proxy)
 	mux.HandleFunc("GET /v1beta/models/", h.proxy)
 	mux.HandleFunc("POST /v1beta/models/", h.proxy)
 	return withCORS(mux)
 }
 
+// adminProviderCapabilities 获取所有 Provider 的能力信息
 func (h *HTTP) adminProviderCapabilities(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdmin(w, r) {
 		return
@@ -180,6 +182,7 @@ func (h *HTTP) register(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, item)
 }
 
+// registerAdmin 管理员注册
 func (h *HTTP) registerAdmin(w http.ResponseWriter, r *http.Request) {
 	var req service.RegisterInput
 	if err := decodeJSON(r, &req); err != nil {
@@ -342,6 +345,7 @@ func (h *HTTP) adminCreateAccount(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, item)
 }
 
+// adminDeleteAccount 管理后台删除 AI 账号
 func (h *HTTP) adminDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdmin(w, r) {
 		return
@@ -358,8 +362,8 @@ func (h *HTTP) adminDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+// adminUpdateAccount 管理后台更新 AI 账号
 func (h *HTTP) adminUpdateAccount(w http.ResponseWriter, r *http.Request) {
-	// 检查管理员权限
 	if !h.requireAdmin(w, r) {
 		return
 	}
@@ -461,8 +465,8 @@ func (h *HTTP) adminOAuthExchange(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, item)
 }
 
-// adminOAuthCreateAccount 管理后台通过OAuth创建账号
-// 使用OAuth授权创建AI账号
+// adminOAuthCreateAccount 管理后台通过 OAuth 创建账号
+// 使用 OAuth 授权信息直接创建 AI 账号
 func (h *HTTP) adminOAuthCreateAccount(w http.ResponseWriter, r *http.Request) {
 	// 检查管理员权限
 	if !h.requireAdmin(w, r) {
@@ -470,13 +474,13 @@ func (h *HTTP) adminOAuthCreateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	// 解析请求
 	var req struct {
-		Provider         string                     `json:"provider"`
-		Name             string                     `json:"name"`
-		ModelScope       []string                   `json:"model_scope"`
-		BaseURL          string                     `json:"base_url"`
-		Priority         int                        `json:"priority"`
-		ConcurrencyLimit int                        `json:"concurrency_limit"`
-		Credentials      service.AccountCredentials `json:"credentials"`
+		Provider         string                     `json:"provider"`          // Provider 标识
+		Name             string                     `json:"name"`              // 账号名称
+		ModelScope       []string                   `json:"model_scope"`       // 可用模型范围
+		BaseURL          string                     `json:"base_url"`          // 自定义基础 URL
+		Priority         int                        `json:"priority"`          // 优先级
+		ConcurrencyLimit int                        `json:"concurrency_limit"` // 并发限制
+		Credentials      service.AccountCredentials `json:"credentials"`       // OAuth 凭证
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -559,6 +563,7 @@ func (h *HTTP) userModelCatalog(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, items)
 }
 
+// userProviders 获取支持的 Provider 列表
 func (h *HTTP) userProviders(w http.ResponseWriter, r *http.Request) {
 	user, ok := h.requireUser(w, r)
 	if !ok {
@@ -700,8 +705,8 @@ func (h *HTTP) adminRefundPayment(w http.ResponseWriter, r *http.Request) {
 	}
 	// 解析请求
 	var req struct {
-		OutTradeNo string `json:"out_trade_no"`
-		Amount     int64  `json:"amount"`
+		OutTradeNo string `json:"out_trade_no"` // 商户订单号
+		Amount     int64  `json:"amount"`       // 退款金额
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -781,7 +786,7 @@ func (h *HTTP) userRedeemCoupon(w http.ResponseWriter, r *http.Request) {
 	}
 	// 解析请求
 	var req struct {
-		Code string `json:"code"`
+		Code string `json:"code"` // 优惠券兑换码
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -837,9 +842,9 @@ func (h *HTTP) userCreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 	// 解析请求
 	var req struct {
-		Provider    string `json:"provider"`
-		Name        string `json:"name"`
-		ExpiresAtMS int64  `json:"expires_at_ms"`
+		Provider    string `json:"provider"`      // Provider 标识
+		Name        string `json:"name"`          // 密钥名称
+		ExpiresAtMS int64  `json:"expires_at_ms"` // 过期时间
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -967,8 +972,8 @@ func (h *HTTP) paymentNotify(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.WriteString(w, "success")
 }
 
-// proxy AI请求代理
-// 核心代理逻辑：将用户请求转发到上游AI服务
+// proxy AI 请求代理
+// 核心代理逻辑：验证 API Key → 读取请求体 → 调用 Core.Proxy 转发 → 回写响应（支持流式）
 func (h *HTTP) proxy(w http.ResponseWriter, r *http.Request) {
 	// 获取Authorization头
 	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
@@ -1013,12 +1018,12 @@ func (h *HTTP) proxy(w http.ResponseWriter, r *http.Request) {
 	}
 	// 返回状态码
 	w.WriteHeader(resp.StatusCode)
-	// 返回响应体
+	// 返回响应体（非流式直接写入）
 	if respBody != nil {
 		_, _ = w.Write(respBody)
 		return
 	}
-	// 流式响应
+	// 流式响应：逐块读取并刷新到客户端
 	flusher, canFlush := w.(http.Flusher)
 	buf := make([]byte, 4096)
 	for {
@@ -1151,7 +1156,7 @@ func (h *HTTP) serveWebApp(w http.ResponseWriter, _ *http.Request) bool {
 	return false
 }
 
-// clientIP 获取客户端IP地址
+// clientIP 获取客户端真实 IP 地址
 // 仅在请求来自可信内网/本机代理时信任 X-Forwarded-For
 func clientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -1171,6 +1176,8 @@ func clientIP(r *http.Request) string {
 	return r.RemoteAddr
 }
 
+// isTrustedProxyIP 判断 IP 是否为可信代理（本机/内网地址）
+// 仅对可信代理的 X-Forwarded-For 头采信
 func isTrustedProxyIP(raw string) bool {
 	ip := net.ParseIP(strings.TrimSpace(raw))
 	if ip == nil {
@@ -1216,6 +1223,7 @@ func detectDevice(ua string) string {
 	return "pc"
 }
 
+// userAnnouncements 获取已发布的公告列表
 func (h *HTTP) userAnnouncements(w http.ResponseWriter, r *http.Request) {
 	items, err := h.core.ListPublishedAnnouncements()
 	if err != nil {
@@ -1225,6 +1233,7 @@ func (h *HTTP) userAnnouncements(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, items)
 }
 
+// adminDeleteModelPrice 管理后台删除模型价格
 func (h *HTTP) adminDeleteModelPrice(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdmin(w, r) {
 		return
@@ -1241,6 +1250,7 @@ func (h *HTTP) adminDeleteModelPrice(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+// adminUpdateModelPrice 管理后台更新模型价格
 func (h *HTTP) adminUpdateModelPrice(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdmin(w, r) {
 		return
@@ -1262,6 +1272,7 @@ func (h *HTTP) adminUpdateModelPrice(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+// adminDeleteAnnouncement 管理后台删除公告
 func (h *HTTP) adminDeleteAnnouncement(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdmin(w, r) {
 		return
@@ -1278,6 +1289,7 @@ func (h *HTTP) adminDeleteAnnouncement(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+// adminUpdateAnnouncement 管理后台更新公告
 func (h *HTTP) adminUpdateAnnouncement(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdmin(w, r) {
 		return
@@ -1299,6 +1311,7 @@ func (h *HTTP) adminUpdateAnnouncement(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+// adminDeleteCoupon 管理后台删除优惠券
 func (h *HTTP) adminDeleteCoupon(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdmin(w, r) {
 		return
@@ -1315,6 +1328,7 @@ func (h *HTTP) adminDeleteCoupon(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+// adminUpdateCoupon 管理后台更新优惠券
 func (h *HTTP) adminUpdateCoupon(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdmin(w, r) {
 		return
@@ -1336,6 +1350,7 @@ func (h *HTTP) adminUpdateCoupon(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+// adminDeleteError 管理后台删除错误日志
 func (h *HTTP) adminDeleteError(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdmin(w, r) {
 		return

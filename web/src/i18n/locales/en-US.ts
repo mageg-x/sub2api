@@ -378,7 +378,7 @@ export default {
   },
   accessGuide: {
     accessGuide: 'Access Guide',
-    guideIntro: 'Administrators first connect upstream OpenAI, Claude, Gemini, Antigravity accounts and configure prices; users then create their own API Keys and make calls through the platform proxy.',
+    guideIntro: 'The platform exposes OpenAI-compatible endpoints by default while keeping Claude and Gemini native endpoints available. Users create their own API Keys and call the proxy using the client protocol they need.',
     accessInfo: 'Access Info',
     userId: 'User ID',
     proxyBaseUrl: 'Proxy Base URL',
@@ -391,6 +391,9 @@ export default {
     suggestion2: 'After successful calls, check token consumption and billing in "My Usage"',
     suggestion3: 'When balance is low, create a gopay order on the "Top Up" page, balance will be credited after callback',
     dedicatedCompatEndpoint: 'Dedicated Compat Endpoint',
+    endpointHint1: 'OpenAI / Codex: use /v1/chat/completions, /v1/responses, /backend-api/codex/responses',
+    endpointHint2: 'Claude: use /v1/messages, /v1/messages/count_tokens, /v1/messages/batches',
+    endpointHint3: 'Gemini: use /v1beta/models/* or /v1/models/*',
     chatExampleMessage: 'Hello',
     responsesExampleInput: 'Write a summary'
   },
